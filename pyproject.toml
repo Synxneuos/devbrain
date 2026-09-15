@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jev-brain"
+version = "1.0.0"
+description = "Don't think. Route. Sub-millisecond decision firewall for agents and LLMs."
+readme = "README.md"
+authors = [
+  { name = "Synxneuos" },
+  { name = "Claude Opus 5" }
+]
+license = { text = "MIT" }
+keywords = ["ai", "router", "agent-warden", "decision-daemon", "jev-brain", "fast-classifier"]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/Synxneuos/devbrain"
+Documentation = "https://github.com/Synxneuos/devbrain#readme"
+Repository = "https://github.com/Synxneuos/devbrain.git"

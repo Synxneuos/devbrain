@@ -1,0 +1,15 @@
+Anthropic releases Claude 3.8 with autonomous agent verification benchmark
+Major zero-day vulnerability CVE-2026-4401 disclosed in OpenSSL
+Deep dive into the Linux kernel eBPF subsystem architecture and performance
+Hot take: 90% of AI startups will be dead by December lol
+DeepSeek publishes technical report on multi-head latent attention mechanism
+Buy my course on how to make $10k/month using AI automation prompts!!
+Tutorial: Building a distributed message queue from scratch in Rust
+You won't believe what this tech CEO said on Twitter this morning
+OpenAI announces frontier alignment research results and red teaming data
+Comprehensive guide: Scaling PostgreSQL to 100k queries per second
+Is AGI here already? Thread exploring 5 crazy theories (1/24)
+Meta opens source code for 400B parameter vision language model
+Analysis of cache invalidation bugs in large-scale microservices
+Drama alert: Two crypto founders fighting on Twitter Spaces
+Research paper: Mitigating hallucinations in tool-augmented LLM reasoning

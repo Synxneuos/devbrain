@@ -1,0 +1,303 @@
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JevBrain, PRESETS } from './core/router.js';
+import { AgentWarden } from './core/warden.js';
+import { MultiModelRouter } from './core/multi-model.js';
+import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
+import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// Global server analytics
+const stats = {
+  totalProcessed: 0,
+  autoActCount: 0,
+  reviewCount: 0,
+  totalLatencyMs: 0,
+  estimatedCostSavedUsd: 0.00
+};
+
+const defaultBrain = new JevBrain();
+const defaultWarden = new AgentWarden();
+const multiModelRouter = new MultiModelRouter();
+const openRouterClient = new OpenRouterClient();
+
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.html': return 'text/html; charset=utf-8';
+    case '.css': return 'text/css; charset=utf-8';
+    case '.js': return 'application/javascript; charset=utf-8';
+    case '.json': return 'application/json; charset=utf-8';
+    case '.svg': return 'image/svg+xml';
+    case '.png': return 'image/png';
+    default: return 'text/plain';
+  }
+}
+
+function parseJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 2 * 1024 * 1024) { // 2MB limit
+        reject(new Error('Payload too large'));
+      }
+    });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+export function startServer(port = 3333) {
+  const server = http.createServer(async (req, res) => {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const url = new URL(req.url, `http://${req.headers.host}`);
+
+    // API Routes
+    if (url.pathname === '/api/presets' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ presets: PRESETS }));
+      return;
+    }
+
+    if (url.pathname === '/api/stats' && req.method === 'GET') {
+      const avgLatency = stats.totalProcessed > 0 
+        ? Math.round((stats.totalLatencyMs / stats.totalProcessed) * 100) / 100 
+        : 0;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ...stats,
+        avgLatencyMs: avgLatency,
+        autoRatePct: stats.totalProcessed > 0 
+          ? Math.round((stats.autoActCount / stats.totalProcessed) * 100) 
+          : 0
+      }));
+      return;
+    }
+
+    if (url.pathname === '/api/route' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const brain = new JevBrain({
+          threshold: body.threshold ?? 0.8,
+          preset: body.preset || null
+        });
+
+        const result = await brain.route(body.text, body.labels);
+
+        // Update stats
+        stats.totalProcessed++;
+        stats.totalLatencyMs += result.latencyMs;
+        if (result.action === 'AUTO_ACT') {
+          stats.autoActCount++;
+          // Saved ~0.001 USD per skipped LLM call
+          stats.estimatedCostSavedUsd += 0.0012;
+        } else {
+          stats.reviewCount++;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/batch' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const brain = new JevBrain({
+          threshold: body.threshold ?? 0.8,
+          preset: body.preset || null
+        });
+
+        const items = Array.isArray(body.items) ? body.items : (body.text || '').split('\n');
+        const results = await brain.batchRoute(items, body.labels);
+
+        for (const r of results) {
+          stats.totalProcessed++;
+          stats.totalLatencyMs += r.latencyMs;
+          if (r.action === 'AUTO_ACT') {
+            stats.autoActCount++;
+            stats.estimatedCostSavedUsd += 0.0012;
+          } else {
+            stats.reviewCount++;
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          count: results.length,
+          results
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/warden' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const result = defaultWarden.evaluate({
+          tool: body.tool || 'bash',
+          command: body.command || '',
+          filepath: body.filepath || '',
+          args: body.args || {}
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/market-info' && req.method === 'GET') {
+      try {
+        const marketData = await fetchLiveMarketData();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          marketData,
+          models: OPENROUTER_MODELS
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/chat' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const prompt = body.prompt || '';
+        const model = body.model || 'auto';
+        const tokensHeld = parseFloat(body.tokensHeld) || 500000;
+        const walletAddress = body.walletAddress || '';
+
+        // Live Market Cap & Dynamic Tier evaluation
+        const marketData = await fetchLiveMarketData();
+        const userTier = calculateDynamicTier(tokensHeld, marketData);
+
+        // Execute via internal OpenRouter
+        const result = await openRouterClient.executeChat(prompt, userTier, model);
+
+        // Update statistics
+        stats.totalProcessed++;
+        stats.totalLatencyMs += result.latencyMs;
+        stats.estimatedCostSavedUsd += result.dollarsSaved;
+        if (result.tier === 'basic' || result.tier === 'pro') {
+          stats.autoActCount++;
+        } else {
+          stats.reviewCount++;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ...result,
+          walletAddress,
+          userTier,
+          totalSavedUsd: Math.round(stats.estimatedCostSavedUsd * 1000) / 1000
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/wallet-verify' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const address = body.address || '';
+        const tokensHeld = parseFloat(body.tokensHeld) || 500000;
+
+        const marketData = await fetchLiveMarketData();
+        const userTier = calculateDynamicTier(tokensHeld, marketData);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          address,
+          unlocked: userTier.tierId > 0,
+          tokensHeld,
+          userTier,
+          marketData,
+          message: userTier.tierId > 0 
+            ? `Token holding verified! Assigned to [${userTier.tierName}]` 
+            : 'Holding required to access.'
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // Static Files
+    let filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
+    
+    // Prevent directory traversal
+    if (!filePath.startsWith(PUBLIC_DIR)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          // Serve index.html for SPA fallback
+          fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err2, fallbackData) => {
+            if (err2) {
+              res.writeHead(404);
+              res.end('Not Found');
+            } else {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(fallbackData);
+            }
+          });
+        } else {
+          res.writeHead(500);
+          res.end('Internal Server Error');
+        }
+      } else {
+        res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+        res.end(data);
+      }
+    });
+  });
+
+  server.listen(port, () => {
+    console.log(`\n⚡ Jev Brain Web Daemon running at: http://localhost:${port}`);
+    console.log(`“Don't think. Route.” (Decision threshold: 0.8)\n`);
+  });
+
+  return server;
+}

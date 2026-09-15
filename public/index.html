@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jev Brain</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="claude-layout">
+    <!-- Left Sidebar -->
+    <aside class="claude-sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand-row">
+          <div class="brand-logo">
+            <span class="asterisk">✻</span>
+            <span class="brand-text">Jev Brain</span>
+          </div>
+          <button class="icon-btn" id="collapse-sidebar-btn" title="Collapse sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+        </div>
+
+        <button class="new-chat-pill" id="new-chat-btn">
+          <span class="plus">+</span> New
+        </button>
+
+        <nav class="sidebar-nav">
+          <a href="#" class="nav-link" id="nav-projects">
+            <span class="nav-icon">📁</span>
+            <span>Projects</span>
+            <span class="nav-extra">+</span>
+          </a>
+          <a href="#" class="nav-link" id="nav-artifacts">
+            <span class="nav-icon">🗂</span>
+            <span>Artifacts</span>
+          </a>
+          <a href="#" class="nav-link" id="nav-code">
+            <span class="nav-icon">&lt;/&gt;</span>
+            <span>Agent Warden</span>
+            <span class="pill-upgrade">Active</span>
+          </a>
+          <a href="#" class="nav-link" id="nav-customize">
+            <span class="nav-icon">⚙</span>
+            <span>Model Router</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-middle">
+        <div class="chats-header">
+          <div class="chats-title-row">
+            <span>Chats and tasks</span>
+            <div class="chats-actions">
+              <span class="mini-icon">↗</span>
+              <span class="mini-icon">⇅</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chats-list" id="chats-list">
+          <div class="chat-thread-item active" id="current-thread">
+            <span class="thread-dot">○</span>
+            <span class="thread-title" id="thread-title-label">Your first chat with Jev Brain</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="user-profile-bar" id="profile-bar">
+          <div class="user-avatar" id="user-avatar-badge">S</div>
+          <div class="user-info">
+            <div class="user-name" id="user-name-display">Synxneuos</div>
+            <div class="user-status" id="wallet-status-sub">Web3 Verified</div>
+          </div>
+          <div class="user-actions">
+            <button class="icon-mini" title="Download logs">📥</button>
+            <button class="icon-mini" title="Search">🔍</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="claude-main">
+      <!-- Top Bar -->
+      <header class="claude-topbar">
+        <div class="topbar-left">
+          <div class="chat-dropdown">
+            <span id="topbar-title">Your first chat with Jev Brain</span>
+            <span class="chevron">⌄</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="plan-pill" id="mc-pill" title="Live DexScreener Market Cap">
+            <span>MC: <b id="mc-display">$100.0K</b></span>
+          </div>
+          <div class="plan-pill" id="tier-pill" title="Dynamic Token Holding Tier">
+            <span>Tier: <b id="tier-display">Whale (Unlocked)</b></span>
+            <span class="close-x" id="disconnect-btn" title="Disconnect">&times;</span>
+          </div>
+          <button class="share-btn" id="share-btn">Share</button>
+        </div>
+      </header>
+
+      <!-- Center Chat Area -->
+      <div class="claude-center" id="claude-center">
+        <!-- Hero Welcome Screen (Matches exact Claude screenshot) -->
+        <div class="claude-hero" id="claude-hero">
+          <h1 class="hero-heading">Welcome! I’m Jev Brain.</h1>
+          <p class="hero-paragraph">
+            Bring me anything—a tough routing problem, a raw message stream, an agent tool call, or a complex prompt. We’ll figure it out together.
+          </p>
+          <p class="hero-question">Where do you want to start?</p>
+
+          <div class="hero-starburst">
+            <span class="starburst-glyph">✻</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Messages Stream -->
+        <div class="messages-stream" id="messages-stream"></div>
+      </div>
+
+      <!-- Bottom Floating Input Area (Matches exact Claude screenshot) -->
+      <div class="claude-bottom-bar">
+        <!-- Announcement Pill -->
+        <div class="info-pill" id="info-pill">
+          <div class="pill-text">
+            <span class="info-icon">⚡</span>
+            <span>95.2% Token Reduction Engine &bull; <span id="total-saved-pill">Saved $0.0000 in unrouted LLM costs</span></span>
+          </div>
+          <button class="pill-close" onclick="document.getElementById('info-pill').style.display='none'">&times;</button>
+        </div>
+
+        <!-- Token Gate Locked Overlay (Appears only if wallet not holding token) -->
+        <div class="wallet-gate-overlay" id="wallet-gate-overlay" style="display:none;">
+          <div class="gate-dialog">
+            <div class="gate-starburst">✻</div>
+            <h3>Web3 Wallet Access Required</h3>
+            <p>Jev Brain requires holding the project token in your connected wallet to access the AI agent.</p>
+            <div class="gate-btn-row">
+              <button class="btn-claude-dark" id="connect-wallet-btn">Connect Wallet</button>
+              <button class="btn-claude-ghost" id="quick-verify-btn">⚡ Verify Token Holding</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Claude Style Input Container -->
+        <div class="input-card">
+          <button class="attach-btn" title="Add files or presets" id="attach-btn">+</button>
+          <textarea 
+            id="prompt-input" 
+            rows="1" 
+            placeholder="Tell Jev Brain what you’re working on" 
+            autofocus></textarea>
+
+          <div class="input-controls">
+            <button class="control-btn" title="Voice dictation">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+              </svg>
+            </button>
+
+            <button class="control-btn" title="Audio">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 10v4"></path><path d="M6 7v10"></path><path d="M10 4v16"></path><path d="M14 7v10"></path><path d="M18 10v4"></path><path d="M22 12v0"></path>
+              </svg>
+            </button>
+
+            <!-- OpenRouter 500+ Model Selector Dropdown -->
+            <div class="model-picker-dropdown">
+              <select id="model-select">
+                <option value="auto" selected>Jev Router &bull; Auto (OpenRouter)</option>
+                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Frontier)</option>
+                <option value="openai/gpt-4o">OpenAI GPT-4o (Frontier)</option>
+                <option value="openai/o1-preview">OpenAI o1 Preview (Reasoning)</option>
+                <option value="deepseek/deepseek-chat">DeepSeek V3 (Coding)</option>
+                <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B (Pro)</option>
+                <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku (Fast)</option>
+                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B (Free)</option>
+                <option value="google/gemini-flash-1.5">Gemini 1.5 Flash (Free)</option>
+              </select>
+            </div>
+
+            <button class="send-circle-btn" id="send-btn" title="Send">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="claude-footer-disclaimer">
+          Jev Brain routes queries automatically. Token holding verified via Web3 wallet.
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

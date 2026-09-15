@@ -1,0 +1,31 @@
+{
+  "name": "jev-brain",
+  "version": "1.0.0",
+  "description": "Don't think. Route. Ultra-fast local decision firewall (<20ms) for agents, streams, and LLMs.",
+  "main": "src/index.js",
+  "bin": {
+    "brain": "./bin/brain.js",
+    "jev-brain": "./bin/brain.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node bin/brain.js serve",
+    "dev": "node bin/brain.js serve --port 3333",
+    "test": "node test/router.test.js",
+    "classify": "node bin/brain.js classify",
+    "warden": "node bin/brain.js warden",
+    "reseed": "node scripts/reseed-commits.js"
+  },
+  "keywords": [
+    "ai",
+    "router",
+    "classifier",
+    "decision-engine",
+    "agent-warden",
+    "fast-routing",
+    "llm-firewall",
+    "jev-brain"
+  ],
+  "author": "codexbt",
+  "license": "MIT"
+}
