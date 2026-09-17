@@ -56,9 +56,9 @@ async function verifyTokenHolding(address) {
       walletGateOverlay.style.display = 'none';
 
       const short = address.slice(0, 6) + '...' + address.slice(-4);
-      if (tierDisplay) tierDisplay.textContent = `${data.userTier?.tierName || 'Whale'} (Unlocked)`;
+      if (tierDisplay) tierDisplay.textContent = `${data.userTier?.tierName || 'Dynasty Magnate'} (Unlocked)`;
       userNameDisplay.textContent = short;
-      walletStatusSub.textContent = `${data.userTier?.tierName || 'Whale'} Holder`;
+      walletStatusSub.textContent = `${data.userTier?.tierName || 'Dynasty Magnate'} Holder`;
       userAvatarBadge.textContent = address.slice(2, 3).toUpperCase();
       promptInput.focus();
     }
