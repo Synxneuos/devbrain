@@ -88,7 +88,8 @@ export const HOLDING_TIERS = [
     tierId: 5,
     name: 'Dynasty Magnate',
     tierName: 'Dynasty Magnate',
-    minBagUsd: 500,
+    baseUsd: 100,
+    baseTokens: 1_000_000,
     weight: 5.0,
     cutPct: 25,
     unlockedCategory: 'frontier',
@@ -100,7 +101,8 @@ export const HOLDING_TIERS = [
     tierId: 4,
     name: 'Syndicate Director',
     tierName: 'Syndicate Director',
-    minBagUsd: 150,
+    baseUsd: 30,
+    baseTokens: 300_000,
     weight: 3.0,
     cutPct: 20,
     unlockedCategory: 'pro-plus',
@@ -112,7 +114,8 @@ export const HOLDING_TIERS = [
     tierId: 3,
     name: 'Principal Partner',
     tierName: 'Principal Partner',
-    minBagUsd: 50,
+    baseUsd: 10,
+    baseTokens: 100_000,
     weight: 2.0,
     cutPct: 20,
     unlockedCategory: 'pro',
@@ -124,7 +127,8 @@ export const HOLDING_TIERS = [
     tierId: 2,
     name: 'Charter Associate',
     tierName: 'Charter Associate',
-    minBagUsd: 10,
+    baseUsd: 2.5,
+    baseTokens: 25_000,
     weight: 1.0,
     cutPct: 25,
     unlockedCategory: 'associate',
@@ -136,7 +140,8 @@ export const HOLDING_TIERS = [
     tierId: 1,
     name: 'Reserve Initiate',
     tierName: 'Reserve Initiate',
-    minBagUsd: 0,
+    baseUsd: 0.1,
+    baseTokens: 1_000,
     weight: 0.1,
     cutPct: 10,
     unlockedCategory: 'initiate',
@@ -147,24 +152,30 @@ export const HOLDING_TIERS = [
 
 /**
  * Calculate dynamic tier based on Live Market Cap & User Holding
- * Adopted directly from chat 3a34a66c-26f8-4ddd-92e4-de2cf26a5e29:
  * 
- * Logic:
- * When Market Cap is 100k -> Price is low -> User needs more tokens for a $500 bag.
- * When Market Cap is 5M -> Price is high -> User needs fewer tokens for a $500 bag.
- * Therefore, Tier is determined strictly by the **Dollar Value of the User's Bag ($)**!
+ * CORE ECONOMIC ENGINE:
+ * 1. Low MC ($100K):
+ *    - Token price is cheap ($0.0001). Users hold MORE tokens (1M for Whale).
+ *    - Trust is early/moderate, so required dollar investment is lower ($100).
  * 
- * Tiers:
- * 1. Dynasty Magnate: >= $500 (5.0x / 25% Cut) -> Frontier AI
- * 2. Syndicate Director: >= $150 (3.0x / 20% Cut) -> Pro Plus AI
- * 3. Principal Partner: >= $50 (2.0x / 20% Cut) -> Pro AI
- * 4. Charter Associate: >= $10 (1.0x / 25% Cut) -> Standard AI
- * 5. Reserve Initiate: < $10 (0.1x / 10% Cut) -> Entry AI
+ * 2. High MC ($1M, $10M, $100M):
+ *    - Token price is high ($0.001 - $0.10). Users hold FEWER tokens (100k -> 31k).
+ *    - Trust is high/institutional, so investors put in LARGER dollar amounts ($316 -> $1,000 -> $3,162).
+ * 
+ * Formula:
+ * - Trust Factor = sqrt(MC / 100,000)
+ * - Required Bag ($) = baseUsd * Trust Factor
+ * - Required Tokens = Required Bag ($) / Token Price = baseTokens / Trust Factor
+ * 
+ * Dual Qualification: A user qualifies if their Bag Value ($) >= Required Bag OR their Tokens Held >= Required Tokens!
  */
 export function calculateDynamicTier(tokenHoldingAmount, marketData) {
-  const priceUsd = marketData.priceUsd || 0.0001;
-  const bagUsdValue = tokenHoldingAmount * priceUsd;
   const mc = marketData.marketCap || 100000;
+  const priceUsd = marketData.priceUsd || (mc / 1_000_000_000);
+  const bagUsdValue = tokenHoldingAmount * priceUsd;
+  
+  // Trust Multiplier scales sub-linearly with Market Cap (baseline 100k MC = 1.0x)
+  const trustFactor = Math.max(1.0, Math.sqrt(mc / 100000));
 
   if (tokenHoldingAmount <= 0) {
     return {
@@ -178,27 +189,39 @@ export function calculateDynamicTier(tokenHoldingAmount, marketData) {
       bagUsdValue: 0,
       marketCap: mc,
       tokensHeld: 0,
+      priceUsd,
+      trustFactor: Math.round(trustFactor * 100) / 100,
       allowedModels: []
     };
   }
 
-  let selectedTier;
-  if (bagUsdValue >= 500) {
-    selectedTier = HOLDING_TIERS[0];
-  } else if (bagUsdValue >= 150) {
-    selectedTier = HOLDING_TIERS[1];
-  } else if (bagUsdValue >= 50) {
-    selectedTier = HOLDING_TIERS[2];
-  } else if (bagUsdValue >= 10) {
-    selectedTier = HOLDING_TIERS[3];
-  } else {
-    selectedTier = HOLDING_TIERS[4];
+  // Compute live thresholds for all tiers under current Market Cap
+  const dynamicTiers = HOLDING_TIERS.map(t => {
+    const requiredUsd = Math.round(t.baseUsd * trustFactor * 100) / 100;
+    const requiredTokens = Math.max(1, Math.round(requiredUsd / priceUsd));
+    return {
+      ...t,
+      requiredUsd,
+      requiredTokens
+    };
+  });
+
+  // Pick highest qualifying tier: either dollar value matches OR token quantity matches
+  let selectedTier = dynamicTiers[dynamicTiers.length - 1]; // Default to Reserve Initiate
+  for (const t of dynamicTiers) {
+    if (bagUsdValue >= t.requiredUsd || tokenHoldingAmount >= t.requiredTokens) {
+      selectedTier = t;
+      break;
+    }
   }
 
   return {
     ...selectedTier,
     bagUsdValue: Math.round(bagUsdValue * 100) / 100,
     marketCap: mc,
-    tokensHeld: tokenHoldingAmount
+    priceUsd,
+    trustFactor: Math.round(trustFactor * 100) / 100,
+    tokensHeld: tokenHoldingAmount,
+    dynamicTiers
   };
 }

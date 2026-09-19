@@ -8,6 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Rainbow Wallet Web3 Integration -->
+  <script src="https://unpkg.com/rainbow@1.0.0/dist/rainbow.min.js"></script>
 </head>
 <body>
   <div class="claude-layout">
@@ -143,13 +146,41 @@
         <!-- Token Gate Locked Overlay (Appears only if wallet not holding token) -->
         <div class="wallet-gate-overlay" id="wallet-gate-overlay" style="display:none;">
           <div class="gate-dialog">
-            <div class="gate-starburst">✻</div>
-            <h3>Web3 Wallet Access Required</h3>
-            <p>Jev Brain requires holding the project token in your connected wallet to access the AI agent.</p>
-            <div class="gate-btn-row">
-              <button class="btn-claude-dark" id="connect-wallet-btn">Connect Wallet</button>
-              <button class="btn-claude-ghost" id="quick-verify-btn">⚡ Verify Token Holding</button>
+            <div class="gate-starburst">🔐</div>
+            <h3>Rainbow Wallet Access Required</h3>
+            <p>Jev Brain requires holding the project token in your Rainbow Wallet to access the AI agent.</p>
+            
+            <div class="gate-steps">
+              <div class="gate-step">
+                <span class="step-number">1</span>
+                <span>Install Rainbow Wallet from <a href="https://rainbow.me" target="_blank">rainbow.me</a></span>
+              </div>
+              <div class="gate-step">
+                <span class="step-number">2</span>
+                <span>Create wallet and switch to <b id="chain-name">Ethereum</b> network</span>
+              </div>
+              <div class="gate-step">
+                <span class="step-number">3</span>
+                <span>Hold minimum <b>1M $JEV tokens</b> in your wallet</span>
+              </div>
+              <div class="gate-step">
+                <span class="step-number">4</span>
+                <span>Connect wallet below to verify & unlock access</span>
+              </div>
             </div>
+            
+            <div class="gate-btn-row">
+              <button class="btn-claude-dark" id="connect-wallet-btn">
+                🌈 Connect Rainbow Wallet
+              </button>
+              <button class="btn-claude-ghost" id="quick-verify-btn">
+                ⚡ Quick Verify
+              </button>
+            </div>
+            
+            <p class="gate-note">
+              💡 Supported: Rainbow Wallet • MetaMask • Any Web3 wallet
+            </p>
           </div>
         </div>
 
@@ -206,6 +237,32 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Dynamic Tier Inspection Modal -->
+  <div class="tier-modal-overlay" id="tier-modal-overlay" style="display:none;">
+    <div class="tier-modal-card">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--accent-terracotta);font-size:18px;">✻</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Dynamic Token Holding Tiers</h3>
+        </div>
+        <button class="tier-modal-close" id="tier-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">
+          Tiers adapt dynamically based on live Market Cap from DexScreener. Early/Low MC enables accessible dollar entry, while higher MC scales trust requirements and reduces required token counts.
+        </p>
+        <div class="tier-stats-bar">
+          <div><span>Live MC:</span> <strong id="modal-mc">$100.0K</strong></div>
+          <div><span>Token Price:</span> <strong id="modal-price">$0.000100</strong></div>
+          <div><span>Trust Scaling:</span> <strong id="modal-trust">1.0x</strong></div>
+        </div>
+        <div class="tier-table-wrapper" id="tier-table-container">
+          <!-- Dynamically populated rows -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/app.js"></script>

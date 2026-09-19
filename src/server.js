@@ -81,6 +81,28 @@ export function startServer(port = 3333) {
       return;
     }
 
+    if (url.pathname === '/api/models' && req.method === 'GET') {
+      // Proxy to OpenRouter to get all 500+ models
+      try {
+        const modelRes = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (modelRes.ok) {
+          const modelData = await modelRes.json();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ models: modelData.data || [] }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to fetch models' }));
+        }
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
+
     if (url.pathname === '/api/stats' && req.method === 'GET') {
       const avgLatency = stats.totalProcessed > 0 
         ? Math.round((stats.totalLatencyMs / stats.totalProcessed) * 100) / 100 
@@ -182,9 +204,12 @@ export function startServer(port = 3333) {
     if (url.pathname === '/api/market-info' && req.method === 'GET') {
       try {
         const marketData = await fetchLiveMarketData();
+        const demoTier = calculateDynamicTier(1000000, marketData);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           marketData,
+          dynamicTiers: demoTier.dynamicTiers,
+          trustFactor: demoTier.trustFactor,
           models: OPENROUTER_MODELS
         }));
       } catch (err) {
@@ -259,6 +284,8 @@ export function startServer(port = 3333) {
       }
       return;
     }
+
+
 
     // Static Files
     let filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
