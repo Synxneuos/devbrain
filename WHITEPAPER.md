@@ -3,7 +3,7 @@
 **Status**: Published & Verified  
 **Date**: September 15, 2026  
 **Primary Investigators**: Synxneuos, Claude Opus 5  
-**Repository**: [github.com/Synxneuos/devbrain](https://github.com/Synxneuos/devbrain)
+**Repository**: [github.com/Synxneuos/jevbrain](https://github.com/Synxneuos/jevbrain)
 
 ---
 
@@ -78,6 +78,6 @@ Incoming Prompt
   author={Synxneuos and Claude Opus 5},
   year={2026},
   month={September},
-  url={https://github.com/Synxneuos/devbrain}
+  url={https://github.com/Synxneuos/jevbrain}
 }
 ```

@@ -21,17 +21,17 @@ where git >nul 2>&1 && (
 )
 
 :: [2] CLONE ^& SETUP
-if not exist "devbrain" (
-    echo 📥 Cloning devbrain...
-    git clone https://github.com/Synxneuos/devbrain.git devbrain >nul 2>&1
+if not exist "jevbrain" (
+    echo 📥 Cloning jevbrain...
+    git clone https://github.com/Synxneuos/jevbrain.git jevbrain >nul 2>&1
 ) else (
-    echo 🔄 Updating devbrain...
-    cd devbrain
+    echo 🔄 Updating jevbrain...
+    cd jevbrain
     git pull origin main >nul 2>&1
     cd ..
 )
 
-cd devbrain
+cd jevbrain
 
 :: [3] INSTALL
 echo 📦 Installing...

@@ -7,7 +7,7 @@ import os
 import subprocess
 
 COAUTHOR = "Co-Authored-By: Claude Opus 5 <claude-ai@users.noreply.github.com>"
-REPO = "https://github.com/Synxneuos/devbrain"
+REPO = "https://github.com/Synxneuos/jevbrain"
 
 def main():
     print(f"Jev Brain Sync initialized for {REPO}")

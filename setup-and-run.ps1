@@ -2,8 +2,8 @@
 # This script clones, installs, and starts the project
 
 param(
-    [string]$RepoUrl = "https://github.com/Synxneuos/devbrain.git",
-    [string]$ProjectDir = "devbrain",
+    [string]$RepoUrl = "https://github.com/Synxneuos/jevbrain.git",
+    [string]$ProjectDir = "jevbrain",
     [int]$Port = 3333
 )
 

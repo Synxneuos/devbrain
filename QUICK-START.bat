@@ -30,7 +30,7 @@ git --version
 
 echo.
 echo 📥 Cloning repository...
-git clone https://github.com/Synxneuos/devbrain.git temp-brain
+git clone https://github.com/Synxneuos/jevbrain.git temp-brain
 
 if errorlevel 1 (
     echo ❌ Failed to clone repository

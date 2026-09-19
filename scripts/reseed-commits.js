@@ -18,7 +18,7 @@ const userName = getArg('--user-name', 'Synxneuos');
 const userEmail = getArg('--user-email', 'codexbt1@gmail.com');
 const claudeName = getArg('--claude-name', 'Claude Opus 5');
 const claudeEmail = getArg('--claude-email', 'claude-ai@users.noreply.github.com');
-const remoteUrl = getArg('--remote', 'https://github.com/Synxneuos/devbrain.git');
+const remoteUrl = getArg('--remote', 'https://github.com/Synxneuos/jevbrain.git');
 
 console.log('⚡ Jev Brain — Git History Reseeder (15 Sept 2026 – 19 Sept 2026)');
 console.log('================================================================');

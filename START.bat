@@ -31,14 +31,14 @@ git --version
 echo.
 
 :: Clone or update
-if exist "devbrain\.git" (
+if exist "jevbrain\.git" (
     echo 🔄 Updating existing repository...
-    cd devbrain
+    cd jevbrain
     git pull origin main
 ) else (
     echo 📥 Cloning repository...
-    git clone https://github.com/Synxneuos/devbrain.git devbrain
-    cd devbrain
+    git clone https://github.com/Synxneuos/jevbrain.git jevbrain
+    cd jevbrain
 )
 
 echo.

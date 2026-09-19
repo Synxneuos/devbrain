@@ -16,12 +16,12 @@ Just double-click `QUICK-START.bat` and everything will be done automatically!
 
 ### Option 3: Manual One-Liner (PowerShell)
 ```powershell
-git clone https://github.com/Synxneuos/devbrain.git && cd devbrain && npm install && node bin/brain.js serve
+git clone https://github.com/Synxneuos/jevbrain.git && cd jevbrain && npm install && node bin/brain.js serve
 ```
 
 ### Option 4: Manual One-Liner (CMD)
 ```cmd
-git clone https://github.com/Synxneuos/devbrain.git && cd devbrain && npm install && node bin/brain.js serve
+git clone https://github.com/Synxneuos/jevbrain.git && cd jevbrain && npm install && node bin/brain.js serve
 ```
 
 ---
@@ -131,8 +131,8 @@ The `.gitignore` file should already include `.env`, but always double-check.
 
 ## 📞 Support
 
-- GitHub: https://github.com/Synxneuos/devbrain
-- Issues: https://github.com/Synxneuos/devbrain/issues
+- GitHub: https://github.com/Synxneuos/jevbrain
+- Issues: https://github.com/Synxneuos/jevbrain/issues
 
 ---
 

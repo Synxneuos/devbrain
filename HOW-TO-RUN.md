@@ -28,7 +28,7 @@ You can open this URL in your browser right now!
 
 ### **Option 1: For Fresh Download (New Folder)**
 ```bash
-git clone https://github.com/Synxneuos/devbrain.git && cd devbrain && npm install && node bin/brain.js serve
+git clone https://github.com/Synxneuos/jevbrain.git && cd jevbrain && npm install && node bin/brain.js serve
 ```
 
 ### **Option 2: For Current Project (You're Already Here!)**
@@ -61,7 +61,7 @@ Just double-click: **`QUICK-START.bat`**
 
 ## 🔧 **PROJECT INFORMATION**
 
-- **Repository:** https://github.com/Synxneuos/devbrain
+- **Repository:** https://github.com/Synxneuos/jevbrain
 - **Default Port:** 3333
 - **Tech Stack:** Node.js (ESM)
 - **No External Dependencies:** Uses only built-in Node.js modules
@@ -184,7 +184,7 @@ magical-hubble/
 npm start
 
 # Or download fresh anywhere:
-git clone https://github.com/Synxneuos/devbrain.git && cd devbrain && npm install && npm start
+git clone https://github.com/Synxneuos/jevbrain.git && cd jevbrain && npm install && npm start
 ```
 
 ---

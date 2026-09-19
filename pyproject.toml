@@ -15,6 +15,6 @@ keywords = ["ai", "router", "agent-warden", "decision-daemon", "jev-brain", "fas
 requires-python = ">=3.9"
 
 [project.urls]
-Homepage = "https://github.com/Synxneuos/devbrain"
-Documentation = "https://github.com/Synxneuos/devbrain#readme"
-Repository = "https://github.com/Synxneuos/devbrain.git"
+Homepage = "https://github.com/Synxneuos/jevbrain"
+Documentation = "https://github.com/Synxneuos/jevbrain#readme"
+Repository = "https://github.com/Synxneuos/jevbrain.git"
