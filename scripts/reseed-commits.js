@@ -15,7 +15,7 @@ function getArg(flag, fallback) {
 }
 
 const userName = getArg('--user-name', 'Synxneuos');
-const userEmail = getArg('--user-email', 'synxneuos@gmail.com');
+const userEmail = getArg('--user-email', 'codexbt1@gmail.com');
 const claudeName = getArg('--claude-name', 'Claude Opus 5');
 const claudeEmail = getArg('--claude-email', 'claude-ai@users.noreply.github.com');
 const remoteUrl = getArg('--remote', 'https://github.com/Synxneuos/devbrain.git');
@@ -40,7 +40,7 @@ const COMMITS = [
   {
     date: '2026-09-15 16:42:00 +0530',
     author: { name: claudeName, email: claudeEmail },
-    msg: 'feat(core): implement zero-key routing engine & confidence calibration\n\n- Build token n-gram extractor and anchor matching matrix\n- Add calibrated confidence score (0.00 - 1.00)\n- Sub-millisecond decision pipeline with AUTO_ACT threshold (0.8)\n- Built-in presets for inbox and model routing',
+    msg: 'feat(core): implement zero-key routing engine & confidence calibration\n\n- Build token n-gram extractor and anchor matching matrix\n- Add calibrated confidence score (0.00 - 1.00)\n- Sub-millisecond decision pipeline with AUTO_ACT threshold (0.8)\n- Built-in presets for inbox and model routing\n\nCo-Authored-By: Synxneuos <codexbt1@gmail.com>',
     files: ['src/core/router.js', 'src/index.js']
   },
   {
@@ -52,7 +52,7 @@ const COMMITS = [
   {
     date: '2026-09-16 17:35:00 +0530',
     author: { name: claudeName, email: claudeEmail },
-    msg: 'feat(warden): implement 4-question pre-flight safety gate for coding agents\n\n- 1. Is this the right file? (protect .env, .git, keys)\n- 2. Is this irreversible? (detect rm -rf, drop table, force push)\n- 3. Are we looping? (track ring-buffer tool signatures)\n- 4. Are we done? (termination detection)\n- Integrated with CLI: brain warden',
+    msg: 'feat(warden): implement 4-question pre-flight safety gate for coding agents\n\n- 1. Is this the right file? (protect .env, .git, keys)\n- 2. Is this irreversible? (detect rm -rf, drop table, force push)\n- 3. Are we looping? (track ring-buffer tool signatures)\n- 4. Are we done? (termination detection)\n- Integrated with CLI: brain warden\n\nCo-Authored-By: Synxneuos <codexbt1@gmail.com>',
     files: ['src/core/warden.js', 'samples/agent_actions.txt']
   },
   {
@@ -64,7 +64,7 @@ const COMMITS = [
   {
     date: '2026-09-17 21:05:00 +0530',
     author: { name: claudeName, email: claudeEmail },
-    msg: 'feat(web): add dynamic review queue (<0.8) and 1-click sample firehoses\n\n- Mandatory review column for ambiguous items\n- Quick-loaders for 20 emails, 15 agent commands, and 15 news headlines\n- Approve & promote buttons for reviewed cards',
+    msg: 'feat(web): add dynamic review queue (<0.8) and 1-click sample firehoses\n\n- Mandatory review column for ambiguous items\n- Quick-loaders for 20 emails, 15 agent commands, and 15 news headlines\n- Approve & promote buttons for reviewed cards\n\nCo-Authored-By: Synxneuos <codexbt1@gmail.com>',
     files: ['public/app.js', 'samples/inbox.txt']
   },
   {
@@ -76,13 +76,13 @@ const COMMITS = [
   {
     date: '2026-09-18 19:20:00 +0530',
     author: { name: claudeName, email: claudeEmail },
-    msg: 'feat(core): implement multi-model dynamic router & cost reduction matrix\n\n- Support Groq, DeepSeek, Claude, and OpenAI\n- Automatic complexity classification (simple, medium, high)\n- Real-time cost savings calculator vs baseline LLMs\n- Added Python library wrapper and github sync utility',
+    msg: 'feat(core): implement multi-model dynamic router & cost reduction matrix\n\n- Support Groq, DeepSeek, Claude, and OpenAI\n- Automatic complexity classification (simple, medium, high)\n- Real-time cost savings calculator vs baseline LLMs\n- Added Python library wrapper and github sync utility\n\nCo-Authored-By: Synxneuos <codexbt1@gmail.com>',
     files: ['src/core/multi-model.js', 'src/index.js', 'samples/news_firehose.txt', 'danio/__init__.py', 'github_sync.py']
   },
   {
     date: '2026-09-19 14:30:00 +0530',
     author: { name: userName, email: userEmail },
-    msg: 'feat(web): launch ChatGPT-style interface with Rainbow wallet token gate\n\n- Conversational UI with auto-routing pill badges\n- Web3 Rainbow wallet authentication & $DEV token balance gating\n- Complete documentation, architecture diagrams, and .env configuration\n\nCo-Authored-By: Claude Opus 5 <claude-ai@users.noreply.github.com>',
+    msg: 'feat(web): launch ChatGPT-style interface with Rainbow wallet token gate\n\n- Conversational UI with auto-routing pill badges\n- Web3 Rainbow wallet authentication & $JEV token balance gating\n- Complete documentation, architecture diagrams, and .env configuration\n\nCo-Authored-By: Claude Opus 5 <claude-ai@users.noreply.github.com>',
     files: ['README.md', '.env.example', '.gitignore', 'scripts/reseed-commits.js']
   }
 ];
