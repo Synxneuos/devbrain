@@ -1,0 +1,8 @@
+pyproject.toml
+danio/
+github_sync.py
+test/
+scratch/
+.venv/
+__pycache__/
+*.py[cod]

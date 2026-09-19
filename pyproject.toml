@@ -8,8 +8,7 @@ version = "1.0.0"
 description = "Don't think. Route. Sub-millisecond decision firewall for agents and LLMs."
 readme = "README.md"
 authors = [
-  { name = "Synxneuos" },
-  { name = "Claude Opus 5" }
+  { name = "Synxneuos" }
 ]
 license = { text = "MIT" }
 keywords = ["ai", "router", "agent-warden", "decision-daemon", "jev-brain", "fast-classifier"]
