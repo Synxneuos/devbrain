@@ -160,10 +160,10 @@ async function handleWarden() {
 }
 
 async function handleServe() {
-  let port = 3333;
+  let port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3333;
   const portIdx = args.indexOf('--port');
   if (portIdx !== -1 && args[portIdx + 1]) {
-    port = parseInt(args[portIdx + 1], 10) || 3333;
+    port = parseInt(args[portIdx + 1], 10) || port;
   }
   startServer(port);
 }
