@@ -910,3 +910,85 @@ body {
 .tier-row-active {
   background: rgba(201, 100, 66, 0.08);
 }
+
+/* Project Create Box & Cards */
+.project-create-box input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.project-item-card {
+  padding: 10px 12px;
+  background: var(--bg-pill);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.project-item-card:hover {
+  background: var(--bg-sidebar-hover);
+}
+
+.project-item-card.active {
+  border-color: var(--accent-terracotta);
+  background: rgba(201, 100, 66, 0.05);
+}
+
+/* Artifacts List */
+.artifact-list-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.artifact-list-item:hover {
+  background: var(--bg-sidebar-hover);
+}
+
+.artifact-list-item.active {
+  background: var(--bg-card);
+  border-color: var(--border-card);
+  font-weight: 600;
+}
+
+/* Warden Presets */
+.warden-preset-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.warden-preset-btn:hover {
+  border-color: var(--accent-terracotta);
+  color: var(--accent-terracotta);
+}
+
+/* Model Router Grid */
+.router-model-card {
+  padding: 8px 10px;
+  background: var(--bg-pill);
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.router-model-card:hover {
+  border-color: var(--accent-dark);
+  background: var(--bg-card);
+}

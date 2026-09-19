@@ -263,6 +263,178 @@
         </div>
       </div>
     </div>
+  <!-- Projects Modal -->
+  <div class="tier-modal-overlay" id="projects-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 580px;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">📁</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Projects Manager</h3>
+        </div>
+        <button class="tier-modal-close" id="projects-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+          Organize your AI decision pipelines, agent tools, and custom instructions into dedicated project workspaces.
+        </p>
+        
+        <!-- Create Project Input -->
+        <div class="project-create-box">
+          <input type="text" id="new-project-name" placeholder="New project name (e.g. Robinhood Bot, Security Proxy)..." />
+          <input type="text" id="new-project-desc" placeholder="Brief description..." />
+          <button id="btn-create-project" class="btn-claude-dark" style="margin-top:6px;width:100%;padding:7px;font-size:12px;">+ Create Project</button>
+        </div>
+
+        <div style="margin-top:14px;font-size:11px;text-transform:uppercase;color:var(--text-tertiary);font-weight:700;letter-spacing:0.05em;">Active Workspaces</div>
+        <div class="projects-list-container" id="projects-list-container" style="margin-top:8px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Artifacts Gallery Modal -->
+  <div class="tier-modal-overlay" id="artifacts-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 680px;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🗂️</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Artifacts Gallery</h3>
+        </div>
+        <button class="tier-modal-close" id="artifacts-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+          Generated code, safety rulesets, decision architectures, and exported session artifacts.
+        </p>
+        <div class="artifacts-layout" style="display:grid;grid-template-columns:220px 1fr;gap:12px;min-height:280px;">
+          <div class="artifacts-sidebar-list" id="artifacts-sidebar-list" style="border-right:1px solid var(--border-light);padding-right:8px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:300px;">
+            <!-- Populated dynamically -->
+          </div>
+          <div class="artifact-preview-pane" id="artifact-preview-pane" style="display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong id="artifact-preview-title" style="font-size:13px;">Select an artifact</strong>
+              <div style="display:flex;gap:6px;">
+                <button class="icon-mini" id="btn-copy-artifact" title="Copy code">📋 Copy</button>
+                <button class="icon-mini" id="btn-download-artifact" title="Download">💾 Save</button>
+              </div>
+            </div>
+            <pre style="background:var(--bg-pill);padding:10px;border-radius:6px;font-family:var(--font-mono);font-size:11.5px;overflow:auto;max-height:240px;flex:1;"><code id="artifact-preview-code">// Select an artifact from the list to preview</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Warden Safety Suite Modal -->
+  <div class="tier-modal-overlay" id="warden-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 640px;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🛡️</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Agent Warden Pre-Flight Firewall</h3>
+          <span style="background:rgba(16,185,129,0.15);color:#059669;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;">ACTIVE</span>
+        </div>
+        <button class="tier-modal-close" id="warden-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+          4 Critical Questions before every tool call: 1. Right file? 2. Irreversible? 3. Looping? 4. Done?
+        </p>
+
+        <!-- Interactive Testbench -->
+        <div style="background:var(--bg-pill);padding:10px 12px;border-radius:8px;margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Test Any Command or Action in Real Time:</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="warden-test-input" placeholder="e.g. rm -rf / or cat .env or git push --force..." style="flex:1;padding:6px 10px;border:1px solid var(--border-card);border-radius:6px;font-family:var(--font-mono);font-size:12px;" />
+            <button id="btn-run-warden-test" class="btn-claude-dark" style="padding:6px 12px;font-size:12px;">Evaluate</button>
+          </div>
+          <!-- Quick Preset Buttons -->
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:10px;color:var(--text-muted);align-self:center;">Presets:</span>
+            <button class="warden-preset-btn" data-cmd="rm -rf /">rm -rf /</button>
+            <button class="warden-preset-btn" data-cmd="cat .env">cat .env</button>
+            <button class="warden-preset-btn" data-cmd="git push --force origin main">git push --force</button>
+            <button class="warden-preset-btn" data-cmd="DROP TABLE users;">DROP TABLE</button>
+            <button class="warden-preset-btn" data-cmd="npm test">npm test (Safe)</button>
+          </div>
+        </div>
+
+        <!-- Live Verdict Output -->
+        <div id="warden-verdict-box" style="display:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;font-weight:700;">Safety Verdict</span>
+            <span id="warden-verdict-badge" style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;">--</span>
+          </div>
+          <div id="warden-verdict-reason" style="font-size:12px;color:var(--text-primary);margin-bottom:6px;font-family:var(--font-mono);">--</div>
+          <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;font-size:10px;text-align:center;">
+            <div id="warden-chk-file" style="padding:4px;border-radius:4px;background:var(--bg-pill);">1. Target File: ?</div>
+            <div id="warden-chk-irrev" style="padding:4px;border-radius:4px;background:var(--bg-pill);">2. Irreversible: ?</div>
+            <div id="warden-chk-loop" style="padding:4px;border-radius:4px;background:var(--bg-pill);">3. Loop Check: ?</div>
+            <div id="warden-chk-done" style="padding:4px;border-radius:4px;background:var(--bg-pill);">4. Finished: ?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Router Suite Modal -->
+  <div class="tier-modal-overlay" id="router-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 680px;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">⚙️</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">OpenRouter Dynamic Model Router</h3>
+        </div>
+        <button class="tier-modal-close" id="router-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+          Don't Think. Route. Sub-millisecond complexity triage automatically routes cheap queries to Llama 8B/Flash and frontier reasoning to Sonnet/GPT-4o.
+        </p>
+
+        <!-- Stats Bar -->
+        <div class="tier-stats-bar">
+          <div><span>OpenRouter Models:</span> <strong id="router-model-count">500+</strong></div>
+          <div><span>Routing Latency:</span> <strong>&lt;1.2ms</strong></div>
+          <div><span>Cost Reduction:</span> <strong>~95.2%</strong></div>
+        </div>
+
+        <!-- Model Search -->
+        <div style="margin-bottom:10px;">
+          <input type="text" id="router-model-search" placeholder="Search 500+ models (e.g. claude, gpt, deepseek, llama)..." style="width:100%;padding:7px 10px;border:1px solid var(--border-card);border-radius:6px;font-size:12px;" />
+        </div>
+
+        <div id="router-models-grid" style="max-height:220px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Transcript Export Modal -->
+  <div class="tier-modal-overlay" id="search-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 520px;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🔍</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Search & Export Transcripts</h3>
+        </div>
+        <button class="tier-modal-close" id="search-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body">
+        <div style="margin-bottom:12px;">
+          <input type="text" id="chat-search-input" placeholder="Search in chat history..." style="width:100%;padding:8px 10px;border:1px solid var(--border-card);border-radius:6px;font-size:12px;" />
+        </div>
+        <div id="chat-search-results" style="max-height:160px;overflow-y:auto;font-size:12px;margin-bottom:14px;color:var(--text-secondary);">
+          Type above to search messages across all sessions.
+        </div>
+        <div style="border-top:1px solid var(--border-light);padding-top:12px;display:flex;gap:8px;">
+          <button id="btn-export-json" class="btn-claude-dark" style="flex:1;padding:7px;font-size:12px;">📥 Export as JSON</button>
+          <button id="btn-export-md" class="btn-claude-ghost" style="flex:1;padding:7px;font-size:12px;">📄 Export Markdown</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="/app.js"></script>

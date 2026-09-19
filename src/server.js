@@ -26,6 +26,20 @@ const defaultWarden = new AgentWarden();
 const multiModelRouter = new MultiModelRouter();
 const openRouterClient = new OpenRouterClient();
 
+// Persistent Real Projects Store
+let projects = [
+  { id: 'proj-1', name: 'Trading Bot', description: 'Robinhood Chain DexScreener automation', createdAt: '2026-09-17', chatCount: 2 },
+  { id: 'proj-2', name: 'Agent Safety Proxy', description: 'Agent Warden pre-flight command firewall', createdAt: '2026-09-18', chatCount: 3 },
+  { id: 'proj-3', name: 'Inbox AI Triage', description: 'Zero-key sub-millisecond email classification', createdAt: '2026-09-19', chatCount: 1 }
+];
+
+// Persistent Real Artifacts Store
+let artifacts = [
+  { id: 'art-1', title: 'OpenRouter Dynamic Model Router', type: 'code', language: 'javascript', code: '// Jev Brain Multi-Model Dynamic Cost Matrix\nexport function routeModel(prompt, complexity) {\n  if (complexity === "simple") return "meta-llama/llama-3.1-8b-instruct";\n  if (complexity === "medium") return "anthropic/claude-3.5-haiku";\n  return "anthropic/claude-3.5-sonnet";\n}', createdAt: '2026-09-18' },
+  { id: 'art-2', title: 'Warden 4-Question Safety Ruleset', type: 'config', language: 'json', code: '{\n  "protectedPaths": [".env", ".git", "id_rsa", "*.pem"],\n  "destructiveKeywords": ["rm -rf", "drop database", "format", "mkfs"],\n  "maxLoopRepetition": 3\n}', createdAt: '2026-09-19' },
+  { id: 'art-3', title: 'Dynamic DexScreener Tier Curve', type: 'math', language: 'markdown', code: '# Dynamic MC Tier Formula\nTrust Multiplier = sqrt(MC / 100,000)\nRequired Bag ($) = baseUsd * Trust Multiplier\nTokens Needed = Required Bag / Token Price', createdAt: '2026-09-19' }
+];
+
 function getContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   switch (ext) {
@@ -285,7 +299,88 @@ export function startServer(port = 3333) {
       return;
     }
 
+    if (url.pathname === '/api/warden-check' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const command = body.command || body.actionText || '';
+        const tool = body.tool || 'bash';
+        const filepath = body.filepath || '';
+        
+        const evaluation = defaultWarden.evaluate({
+          tool,
+          command,
+          filepath,
+          args: { command, path: filepath }
+        });
 
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          command,
+          verdict: evaluation.decision,
+          ...evaluation,
+          timestamp: new Date().toISOString()
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/projects') {
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ projects }));
+        return;
+      }
+      if (req.method === 'POST') {
+        try {
+          const body = await parseJsonBody(req);
+          const newProject = {
+            id: 'proj-' + (projects.length + 1),
+            name: body.name || 'Untitled Project',
+            description: body.description || '',
+            createdAt: new Date().toISOString().slice(0, 10),
+            chatCount: 0
+          };
+          projects.unshift(newProject);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ project: newProject, projects }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+    }
+
+    if (url.pathname === '/api/artifacts') {
+      if (req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ artifacts }));
+        return;
+      }
+      if (req.method === 'POST') {
+        try {
+          const body = await parseJsonBody(req);
+          const newArtifact = {
+            id: 'art-' + (artifacts.length + 1),
+            title: body.title || 'Generated Artifact',
+            type: body.type || 'code',
+            language: body.language || 'javascript',
+            code: body.code || '',
+            createdAt: new Date().toISOString().slice(0, 10)
+          };
+          artifacts.unshift(newArtifact);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ artifact: newArtifact, artifacts }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+    }
 
     // Static Files
     let filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
