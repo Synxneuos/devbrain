@@ -856,6 +856,120 @@ function escapeHtml(str) {
 // ============================================
 // ATTACH EVENT LISTENERS
 // ============================================
+
+// ============================================
+// MOBILE RUNNER (ANDROID DEVICE GATEWAY)
+// ============================================
+let mobilePollInterval = null;
+
+async function openMobileModal() {
+  const modal = document.getElementById('mobile-modal');
+  if (modal) modal.style.display = 'flex';
+  await refreshMobileDevices();
+  await refreshMobileLogs();
+  if (!mobilePollInterval) {
+    mobilePollInterval = setInterval(refreshMobileLogs, 4000);
+  }
+}
+
+function closeMobileModal() {
+  const modal = document.getElementById('mobile-modal');
+  if (modal) modal.style.display = 'none';
+  if (mobilePollInterval) {
+    clearInterval(mobilePollInterval);
+    mobilePollInterval = null;
+  }
+}
+
+async function refreshMobileDevices() {
+  try {
+    const res = await fetch('/api/mobile/devices');
+    const data = await res.json();
+    const select = document.getElementById('mobile-device-select');
+    if (select && data.devices) {
+      select.innerHTML = '';
+      data.devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = `${d.name} • ${d.type === 'virtual' ? 'Virtual' : 'ADB'}`;
+        select.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load mobile devices:', e);
+  }
+}
+
+async function executeMobileAction(action) {
+  const select = document.getElementById('mobile-device-select');
+  const deviceId = select ? select.value : 'pixel-8-virtual';
+  
+  try {
+    const res = await fetch('/api/mobile/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId, ...action })
+    });
+    const result = await res.json();
+    await refreshMobileScreen();
+    await refreshMobileLogs();
+    return result;
+  } catch (e) {
+    console.error('Mobile action error:', e);
+  }
+}
+
+async function refreshMobileScreen() {
+  const select = document.getElementById('mobile-device-select');
+  const deviceId = select ? select.value : 'pixel-8-virtual';
+  try {
+    const res = await fetch(`/api/mobile/screen?deviceId=${deviceId}`);
+    const data = await res.json();
+    const titleEl = document.getElementById('phone-app-title');
+    const subEl = document.getElementById('phone-sub-state');
+    if (titleEl && data.foregroundPackage) {
+      titleEl.textContent = data.foregroundPackage.split('.').pop() || 'Android';
+    }
+    if (subEl && data.foregroundPackage) {
+      subEl.textContent = `Foreground: ${data.foregroundPackage}`;
+    }
+  } catch (e) {
+    console.error('Screen refresh error:', e);
+  }
+}
+
+async function refreshMobileLogs() {
+  try {
+    const res = await fetch('/api/mobile/logs');
+    const data = await res.json();
+    const container = document.getElementById('mobile-logs-container');
+    if (!container || !data.logs) return;
+
+    if (data.logs.length === 0) {
+      container.innerHTML = '<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or click actions above.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    data.logs.slice(0, 15).forEach(l => {
+      const card = document.createElement('div');
+      card.className = 'mobile-log-card';
+      const badgeColor = l.verdict === 'AUTO_ALLOW' ? '#10b981' : l.verdict === 'NEEDS_CONFIRM' ? '#f59e0b' : '#ef4444';
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;font-family:var(--font-mono);">${escapeHtml(l.action.toUpperCase())}</span>
+          <span style="font-size:10px;font-weight:600;color:${badgeColor};border:1px solid ${badgeColor};padding:1px 5px;border-radius:4px;">${l.verdict}</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--text-secondary);font-family:var(--font-mono);">${escapeHtml(l.output || l.reason || '')}</div>
+        <div style="font-size:9.5px;color:var(--text-muted);text-align:right;">${l.latencyMs}ms • ${new Date(l.timestamp).toLocaleTimeString()}</div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (e) {
+    console.error('Failed to refresh mobile logs:', e);
+  }
+}
+
 function bindEvents() {
   // Wallet
   elements.connectBtn?.addEventListener('click', connectRainbowWallet);
@@ -939,6 +1053,62 @@ function bindEvents() {
     }
   });
   elements.sendBtn?.addEventListener('click', handleSubmit);
+
+  // Mobile Runner Events
+  document.getElementById('nav-mobile')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openMobileModal();
+  });
+  document.getElementById('mobile-modal-close')?.addEventListener('click', closeMobileModal);
+  document.getElementById('btn-refresh-devices')?.addEventListener('click', refreshMobileDevices);
+
+  // Phone screen canvas click for direct tap
+  const phoneCanvas = document.getElementById('phone-screen-canvas');
+  phoneCanvas?.addEventListener('click', (e) => {
+    if (e.target.closest('.phone-nav-bar') || e.target.closest('.phone-icon-btn')) return;
+    const rect = phoneCanvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const scaledX = Math.round((clickX / rect.width) * 1080);
+    const scaledY = Math.round((clickY / rect.height) * 2400);
+
+    const ripple = document.getElementById('phone-tap-indicator');
+    if (ripple) {
+      ripple.style.left = clickX + 'px';
+      ripple.style.top = clickY + 'px';
+      ripple.style.display = 'block';
+      setTimeout(() => { ripple.style.display = 'none'; }, 400);
+    }
+
+    executeMobileAction({ type: 'tap', x: scaledX, y: scaledY });
+  });
+
+  document.querySelectorAll('.phone-icon-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.getAttribute('data-action');
+      const pkg = btn.getAttribute('data-pkg');
+      const x = btn.getAttribute('data-x');
+      const y = btn.getAttribute('data-y');
+      if (action === 'launch') {
+        executeMobileAction({ type: 'launch', package: pkg });
+      } else {
+        executeMobileAction({ type: 'tap', x: parseInt(x, 10), y: parseInt(y, 10) });
+      }
+    });
+  });
+
+  document.getElementById('btn-phone-back')?.addEventListener('click', () => executeMobileAction({ type: 'key', key: 'BACK' }));
+  document.getElementById('btn-phone-home')?.addEventListener('click', () => executeMobileAction({ type: 'key', key: 'HOME' }));
+  document.getElementById('btn-phone-recents')?.addEventListener('click', () => executeMobileAction({ type: 'key', key: 'APP_SWITCH' }));
+
+  document.getElementById('btn-mobile-open-chrome')?.addEventListener('click', () => executeMobileAction({ type: 'launch', package: 'com.android.chrome' }));
+  document.getElementById('btn-mobile-open-settings')?.addEventListener('click', () => executeMobileAction({ type: 'launch', package: 'com.android.settings' }));
+  document.getElementById('btn-mobile-type')?.addEventListener('click', () => executeMobileAction({ type: 'type', text: 'Jev Brain Autonomous Agent' }));
+  document.getElementById('btn-mobile-swipe-up')?.addEventListener('click', () => executeMobileAction({ type: 'swipe', x1: 540, y1: 1800, x2: 540, y2: 600, duration: 250 }));
+  document.getElementById('btn-mobile-inspect')?.addEventListener('click', refreshMobileScreen);
+
 }
 
 // ============================================

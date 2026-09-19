@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { JevBrain, PRESETS } from '../src/core/router.js';
 import { AgentWarden } from '../src/core/warden.js';
 import { startServer } from '../src/server.js';
+import { MobileRunner } from '../src/core/mobile.js';
 
 const args = process.argv.slice(2);
+
 const command = args[0] || 'help';
 
 // ANSI colors
@@ -168,17 +170,58 @@ async function handleServe() {
   startServer(port);
 }
 
+async function handleMobile() {
+  const sub = args[1] || 'devices';
+  const mobile = new MobileRunner();
+  banner();
+
+  if (sub === 'devices') {
+    const devices = await mobile.listDevices();
+    console.log(`${BOLD}Connected Android Devices & Gateways:${RESET}`);
+    devices.forEach((d, i) => {
+      console.log(`  [${i + 1}] ${GREEN}${BOLD}${d.name}${RESET} (ID: ${CYAN}${d.id}${RESET}) [${d.type}] Status: ${d.status}`);
+    });
+  } else if (sub === 'tap') {
+    const x = parseInt(args[2], 10) || 540;
+    const y = parseInt(args[3], 10) || 1200;
+    console.log(`${BOLD}Executing Mobile Tap:${RESET} (${x}, ${y})`);
+    const res = await mobile.executeAction('pixel-8-virtual', { type: 'tap', x, y });
+    const badge = res.verdict === 'AUTO_ALLOW' ? `${GREEN}✔ AUTO_ALLOW${RESET}` : `${RED}✖ ${res.verdict}${RESET}`;
+    console.log(`  Gate:   ${badge} (${res.latencyMs}ms)`);
+    console.log(`  Output: ${res.output}`);
+  } else if (sub === 'type') {
+    const text = args.slice(2).join(' ') || 'Hello from Jev Brain';
+    console.log(`${BOLD}Typing Input Stream:${RESET} "${text}"`);
+    const res = await mobile.executeAction('pixel-8-virtual', { type: 'type', text });
+    console.log(`  Gate:   ${GREEN}✔ ${res.verdict}${RESET} (${res.latencyMs}ms)`);
+    console.log(`  Output: ${res.output}`);
+  } else if (sub === 'inspect') {
+    const state = await mobile.getScreenState('pixel-8-virtual');
+    console.log(`${BOLD}Android Screen State Inspection:${RESET}`);
+    console.log(`  Foreground: ${CYAN}${state.foregroundPackage}${RESET}`);
+    console.log(`  Activity:   ${state.activity || 'N/A'}`);
+    console.log(`  Battery:    ${state.batteryPct || 90}%`);
+    console.log(`  UI Tree:    ${state.uiHierarchy ? state.uiHierarchy.length : 0} visible accessibility nodes`);
+  } else {
+    console.log(`${YELLOW}Unknown mobile subcommand:${RESET} ${sub}`);
+    console.log(`Usage: brain mobile [devices | tap <x> <y> | type "<text>" | inspect]`);
+  }
+}
+
 function showHelp() {
   banner();
   console.log(`${BOLD}Commands:${RESET}`);
   console.log(`  ${CYAN}brain classify <labels> [file]${RESET}    Batch route from stdin or file`);
   console.log(`  ${CYAN}brain route "<text>" [--preset]${RESET}    Single item instant routing decision`);
   console.log(`  ${CYAN}brain warden --tool <name> ...${RESET}     Coding agent 4-question safety gate`);
+  console.log(`  ${CYAN}brain mobile [subcommand]${RESET}          Android device gateway (devices, tap, type, inspect)`);
   console.log(`  ${CYAN}brain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
   console.log(`\n${BOLD}Examples:${RESET}`);
   console.log(`  brain classify urgent,later,ignore < inbox.txt`);
   console.log(`  brain route "Server disk full emergency!" --preset inbox`);
   console.log(`  brain warden --tool bash --command "rm -rf /"`);
+  console.log(`  brain mobile devices`);
+  console.log(`  brain mobile tap 540 1200`);
   console.log(`  brain serve --port 3333`);
 }
 
@@ -191,6 +234,9 @@ switch (command) {
     break;
   case 'warden':
     handleWarden();
+    break;
+  case 'mobile':
+    handleMobile();
     break;
   case 'serve':
     handleServe();

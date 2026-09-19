@@ -992,3 +992,161 @@ body {
   border-color: var(--accent-dark);
   background: var(--bg-card);
 }
+
+/* Jev Mobile Runner Styles */
+.mobile-phone-frame {
+  width: 260px;
+  height: 460px;
+  background: #0a0a08;
+  border: 8px solid #282724;
+  border-radius: 36px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-notch {
+  width: 100%;
+  height: 16px;
+  background: #0a0a08;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.phone-camera {
+  width: 7px;
+  height: 7px;
+  background: #1a1915;
+  border-radius: 50%;
+  border: 1px solid #333;
+}
+
+.phone-screen {
+  flex: 1;
+  background: #141310;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.phone-status-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 12px;
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.phone-content {
+  flex: 1;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.phone-app-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-terracotta);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.phone-card {
+  background: rgba(201, 100, 66, 0.08);
+  border: 1px solid rgba(201, 100, 66, 0.2);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+
+.phone-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.phone-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 10px 4px;
+  cursor: pointer;
+  font-size: 10.5px;
+  color: var(--text-primary);
+  transition: all 0.15s;
+}
+
+.phone-icon-btn:hover {
+  background: rgba(201, 100, 66, 0.12);
+  border-color: var(--accent-terracotta);
+}
+
+.phone-nav-bar {
+  height: 32px;
+  background: #0d0c0b;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.phone-nav-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.phone-nav-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tap-ripple {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(201, 100, 66, 0.4);
+  border: 2px solid var(--accent-terracotta);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: rippleFade 0.4s ease-out forwards;
+}
+
+@keyframes rippleFade {
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+.mobile-log-card {
+  padding: 6px 8px;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+

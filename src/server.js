@@ -7,6 +7,7 @@ import { AgentWarden } from './core/warden.js';
 import { MultiModelRouter } from './core/multi-model.js';
 import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
 import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
+import { MobileRunner } from './core/mobile.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,7 @@ const defaultBrain = new JevBrain();
 const defaultWarden = new AgentWarden();
 const multiModelRouter = new MultiModelRouter();
 const openRouterClient = new OpenRouterClient();
+const mobileRunner = new MobileRunner({ warden: defaultWarden });
 
 // Persistent Real Projects Store
 let projects = [
@@ -381,6 +383,52 @@ export async function handleRequest(req, res) {
         }
         return;
       }
+    }
+
+    if (url.pathname === '/api/mobile/devices' && req.method === 'GET') {
+      try {
+        const devices = await mobileRunner.listDevices();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ devices }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/mobile/screen' && req.method === 'GET') {
+      try {
+        const deviceId = url.searchParams.get('deviceId') || 'pixel-8-virtual';
+        const screen = await mobileRunner.getScreenState(deviceId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(screen));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/mobile/action' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const deviceId = body.deviceId || 'pixel-8-virtual';
+        const result = await mobileRunner.executeAction(deviceId, body);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/mobile/logs' && req.method === 'GET') {
+      const logs = mobileRunner.getLogs(50);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ logs }));
+      return;
     }
 
     // Static Files

@@ -53,6 +53,13 @@ Outputs **Green** (`AUTO_ALLOW`), **Yellow** (`NEEDS_CONFIRM`), or **Red** (`BLO
 ### 3. Jev Brain for X & News Firehose
 Personal attention firewall turning 100+ tweets/headlines into `signal`, `deep_dive`, and `noise`.
 
+### 4. Jev Mobile Runner (Autonomous Android Device Gateway)
+Operates connected Android devices natively via ADB / Mobilerun protocol with pre-flight Agent Warden safety checks.
+- **Interactive Web Mirror:** Real-time phone canvas with direct click-to-tap, drag-to-swipe, and Android navigation keys (`Back`, `Home`, `Recents`).
+- **CLI Execution Suite:** Execute gestures and UI inspection directly from terminal (`brain mobile devices`, `brain mobile tap 540 1200`, `brain mobile inspect`).
+- **Pre-Flight Safety Firewall:** Prevents destructive shell injections, unauthorized resets, or loop repetition on physical & virtual devices.
+- **Dual Mode:** Seamlessly bridges to real USB/WiFi ADB devices or spins up an interactive Virtual Android Device (`Pixel 8 Pro - Android 14`).
+
 ---
 
 ## 🚀 Quickstart

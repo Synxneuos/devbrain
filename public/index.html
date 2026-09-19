@@ -53,6 +53,11 @@
             <span class="nav-icon">⚙</span>
             <span>Model Router</span>
           </a>
+          <a href="#" class="nav-link" id="nav-mobile">
+            <span class="nav-icon">📱</span>
+            <span>Mobile Runner</span>
+            <span class="pill-upgrade" style="background:rgba(16,185,129,0.15);color:#10b981;border-color:rgba(16,185,129,0.3);">Live</span>
+          </a>
         </nav>
       </div>
 
@@ -432,6 +437,115 @@
         <div style="border-top:1px solid var(--border-light);padding-top:12px;display:flex;gap:8px;">
           <button id="btn-export-json" class="btn-claude-dark" style="flex:1;padding:7px;font-size:12px;">📥 Export as JSON</button>
           <button id="btn-export-md" class="btn-claude-ghost" style="flex:1;padding:7px;font-size:12px;">📄 Export Markdown</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jev Mobile Runner (Android Device Gateway) Modal -->
+  <div class="tier-modal-overlay" id="mobile-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 860px; max-height: 90vh;">
+      <div class="tier-modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;">📱</span>
+          <div>
+            <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);margin:0;">Jev Mobile Runner</h3>
+            <div style="font-size:11px;color:var(--text-secondary);">Autonomous Android Device Gateway • Mobilerun Protocol Bridge</div>
+          </div>
+        </div>
+        <button class="tier-modal-close" id="mobile-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body" style="display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start;">
+        <!-- Left: Interactive Android Device Screen Canvas -->
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div class="mobile-phone-frame">
+            <div class="phone-notch">
+              <span class="phone-camera"></span>
+            </div>
+            <div class="phone-screen" id="phone-screen-canvas">
+              <div class="phone-status-bar">
+                <span>09:41</span>
+                <span>📶 5G  🔋 88%</span>
+              </div>
+              <div class="phone-content" id="phone-content-area">
+                <div class="phone-app-header" id="phone-app-title">Jev Mobile Gateway</div>
+                <div class="phone-card">
+                  <div style="font-size:11px;font-weight:600;color:var(--accent-terracotta);">● AGENT EXECUTION READY</div>
+                  <div style="font-size:10px;margin-top:4px;color:var(--text-secondary);" id="phone-sub-state">Foreground: com.android.launcher3</div>
+                </div>
+                <div class="phone-grid">
+                  <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.settings">
+                    <span style="font-size:18px;">⚙️</span>
+                    <span>Settings</span>
+                  </div>
+                  <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.chrome">
+                    <span style="font-size:18px;">🌐</span>
+                    <span>Chrome</span>
+                  </div>
+                  <div class="phone-icon-btn" data-action="tap" data-x="300" data-y="1000">
+                    <span style="font-size:18px;">📁</span>
+                    <span>Files</span>
+                  </div>
+                  <div class="phone-icon-btn" data-action="tap" data-x="700" data-y="1000">
+                    <span style="font-size:18px;">💬</span>
+                    <span>Messages</span>
+                  </div>
+                </div>
+                <div id="phone-tap-indicator" style="display:none;" class="tap-ripple"></div>
+              </div>
+              <div class="phone-nav-bar">
+                <button class="phone-nav-btn" id="btn-phone-back" title="Back">◁</button>
+                <button class="phone-nav-btn" id="btn-phone-home" title="Home">○</button>
+                <button class="phone-nav-btn" id="btn-phone-recents" title="Recents">▢</button>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:8px;text-align:center;">
+            👆 Click anywhere on the screen to synthesize real ADB touch coordinates
+          </div>
+        </div>
+
+        <!-- Right: Device Controls & Real-Time Execution Logs -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Top Bar: Device Selector -->
+          <div style="display:flex;gap:8px;align-items:center;background:var(--bg-pill);padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);">
+            <div style="flex:1;">
+              <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Active Device</div>
+              <select id="mobile-device-select" style="background:transparent;border:none;font-weight:600;font-size:12px;color:var(--text-primary);cursor:pointer;width:100%;">
+                <option value="pixel-8-virtual">Pixel 8 Pro (Jev Virtual Device) • Android 14</option>
+              </select>
+            </div>
+            <button id="btn-refresh-devices" class="btn-claude-ghost" style="padding:4px 8px;font-size:11px;">🔄 Refresh</button>
+          </div>
+
+          <!-- Quick Action Bar -->
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Direct Agent Actions</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="warden-preset-btn" id="btn-mobile-open-chrome">🌐 Launch Chrome</button>
+              <button class="warden-preset-btn" id="btn-mobile-open-settings">⚙️ Settings</button>
+              <button class="warden-preset-btn" id="btn-mobile-type">⌨️ Type "Jev Brain"</button>
+              <button class="warden-preset-btn" id="btn-mobile-swipe-up">⬆ Swipe Up</button>
+              <button class="warden-preset-btn" id="btn-mobile-inspect">🔍 Inspect UI</button>
+            </div>
+          </div>
+
+          <!-- Real-Time Execution Logs -->
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Execution Stream & Warden Verdicts</span>
+              <span style="font-size:10px;color:#10b981;">● Live Protocol Active</span>
+            </div>
+            <div id="mobile-logs-container" style="max-height: 220px; overflow-y: auto; display:flex; flex-direction:column; gap:6px; background:var(--bg-card); border:1px solid var(--border-card); border-radius:8px; padding:8px;">
+              <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or click actions above.</div>
+            </div>
+          </div>
+
+          <!-- CLI Helper Snippet -->
+          <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border-card);border-radius:6px;padding:8px 10px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center;">
+            <span>CLI: <strong style="color:var(--accent-terracotta);">node bin/brain.js mobile tap 540 1200</strong></span>
+            <span style="color:#10b981;">✔ ADB Ready</span>
+          </div>
         </div>
       </div>
     </div>
