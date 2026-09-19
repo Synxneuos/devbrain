@@ -10,7 +10,7 @@ let userTier = null;
 let totalSavingsUsd = 0.00;
 let currentChatId = null;
 let allOpenRouterModels = [];
-let discoveredRainbowProvider = null;
+let discoveredProvider = null;
 
 // Persistent Chats & Projects
 const STORAGE_CHATS_KEY = 'jevbrain_chats_v2';
@@ -98,52 +98,158 @@ const elements = {
 };
 
 // ============================================
-// EIP-6963 RAINBOW WALLET DETECTION
+// METAMASK & WEB3 WALLET DETECTION (EIP-6963 & Injected)
 // ============================================
 window.addEventListener('eip6963:announceProvider', (event) => {
   const info = event.detail.info;
-  if (info && (info.rdns === 'me.rainbow' || info.name.toLowerCase().includes('rainbow'))) {
-    discoveredRainbowProvider = event.detail.provider;
-    console.log('🌈 Official Rainbow Wallet provider detected via EIP-6963:', info.name);
+  if (info) {
+    if (info.rdns === 'io.metamask' || info.name.toLowerCase().includes('metamask')) {
+      discoveredProvider = event.detail.provider;
+      console.log('🦊 Official MetaMask provider detected via EIP-6963:', info.name);
+    } else if (!discoveredProvider) {
+      discoveredProvider = event.detail.provider;
+      console.log('🌐 Web3 provider detected via EIP-6963:', info.name);
+    }
   }
 });
 
 // Trigger discovery event
 window.dispatchEvent(new Event('eip6963:requestProvider'));
 
-// ============================================
-// RAINBOW WALLET CONNECTION & GATING
-// ============================================
-function getRainbowProvider() {
-  if (discoveredRainbowProvider) return discoveredRainbowProvider;
-  if (typeof window.rainbow !== 'undefined') return window.rainbow;
-  if (typeof window.ethereum !== 'undefined' && window.ethereum.isRainbow) return window.ethereum;
-  if (typeof window.ethereum !== 'undefined') return window.ethereum;
+function getWeb3Provider() {
+  if (discoveredProvider) return discoveredProvider;
+  if (typeof window.ethereum !== 'undefined') {
+    if (Array.isArray(window.ethereum.providers)) {
+      const metaMask = window.ethereum.providers.find(p => p.isMetaMask);
+      if (metaMask) return metaMask;
+      return window.ethereum.providers[0];
+    }
+    return window.ethereum;
+  }
   return null;
 }
 
-async function connectRainbowWallet() {
-  const provider = getRainbowProvider();
+// Convert string to hex for personal_sign parameters
+function stringToHex(str) {
+  let hex = '0x';
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    const n = code.toString(16);
+    hex += (n.length < 2 ? '0' + n : n);
+  }
+  return hex;
+}
+
+// ============================================
+// METAMASK WALLET CONNECTION & SIGNATURE AUTHENTICATION
+// ============================================
+async function connectMetaMaskWallet() {
+  const provider = getWeb3Provider();
   if (!provider) {
-    // Direct user to official Rainbow download
-    const install = confirm('Rainbow Wallet is required to use Jev Brain.\n\nClick OK to open https://rainbow.me and install the extension.');
+    const install = confirm('MetaMask is required to authenticate with Jev Brain.\n\nClick OK to open https://metamask.io/download/ and install MetaMask.');
     if (install) {
-      window.open('https://rainbow.me', '_blank');
+      window.open('https://metamask.io/download/', '_blank');
     }
     return;
   }
 
+  const btn = elements.connectBtn;
+  const originalHtml = btn ? btn.innerHTML : '';
+
   try {
-    elements.connectBtn.textContent = 'Connecting...';
-    const accounts = await provider.request({ method: 'eth_requestAccounts' });
-    if (accounts && accounts[0]) {
-      await onWalletAuthenticated(accounts[0], 5000000);
+    if (btn) {
+      btn.innerHTML = '<span>🦊</span> <span>Requesting Accounts...</span>';
+      btn.disabled = true;
     }
+
+    // Step 1: Request accounts popup (eth_requestAccounts)
+    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+    if (!accounts || !accounts[0]) {
+      throw new Error('No Ethereum account selected in MetaMask.');
+    }
+    const account = accounts[0].toLowerCase();
+
+    if (btn) {
+      btn.innerHTML = '<span>🦊</span> <span>Sign Message in MetaMask...</span>';
+    }
+
+    // Step 2: Request challenge nonce from backend
+    const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(account)}`);
+    if (!nonceRes.ok) {
+      throw new Error('Failed to generate authentication challenge from server.');
+    }
+    const { nonce, message } = await nonceRes.json();
+
+    // Step 3: Prompt cryptographic personal_sign signature in MetaMask
+    let signature = null;
+    const msgHex = stringToHex(message);
+    try {
+      // Standard personal_sign: params [hexMessage, account]
+      signature = await provider.request({
+        method: 'personal_sign',
+        params: [msgHex, account]
+      });
+    } catch (hexErr) {
+      // Fallback for providers expecting plain text: params [message, account]
+      signature = await provider.request({
+        method: 'personal_sign',
+        params: [message, account]
+      });
+    }
+
+    if (!signature) {
+      throw new Error('Cryptographic signature was rejected or cancelled.');
+    }
+
+    if (btn) {
+      btn.innerHTML = '<span>⏳</span> <span>Verifying Signature...</span>';
+    }
+
+    // Step 4: Verify cryptographic signature on backend
+    const verifyRes = await fetch('/api/wallet/verify-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: account,
+        signature,
+        message,
+        tokensHeld: 5000000
+      })
+    });
+
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok || !verifyData.success) {
+      throw new Error(verifyData.error || 'Cryptographic signature verification failed.');
+    }
+
+    // Step 5: Unlock UI and update state
+    await onWalletAuthenticated(verifyData.address, verifyData.tokensHeld, verifyData.userTier);
+
   } catch (err) {
-    console.error('Rainbow connection error:', err);
-    alert('Rainbow Wallet error: ' + err.message);
+    console.error('MetaMask authentication error:', err);
+    if (err.code === 4001) {
+      alert('MetaMask request rejected by user.');
+    } else {
+      alert('MetaMask Error: ' + (err.message || err));
+    }
   } finally {
-    elements.connectBtn.textContent = '🌈 Connect Rainbow Wallet';
+    if (btn) {
+      btn.innerHTML = originalHtml || `
+        <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
+          <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Connect Wallet</span>
+      `;
+      btn.disabled = false;
+    }
   }
 }
 
@@ -152,64 +258,68 @@ async function quickVerifyDemo() {
   await onWalletAuthenticated('0x71C8364437a9C47f45826027E2F891f7d43B339F', 5000000);
 }
 
-async function onWalletAuthenticated(address, tokens = 5000000) {
+async function onWalletAuthenticated(address, tokens = 5000000, precalculatedTier = null) {
   try {
-    const res = await fetch('/api/wallet-verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, tokensHeld: tokens })
-    });
-
-    const data = await res.json();
-    if (data.unlocked) {
-      currentWallet = address;
-      isTokenHolder = true;
-      userTier = data.userTier;
-
-      // Unlock UI
-      elements.gateOverlay.style.display = 'none';
-      const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
-      
-      elements.name.textContent = 'Synxneuos';
-      elements.status.textContent = 'Web3 Verified';
-      elements.avatar.textContent = 'S';
-      if (elements.holder) {
-        elements.holder.textContent = 'Verified Holder';
-        elements.holder.style.color = '#10b981';
+    let tierData = precalculatedTier;
+    if (!tierData) {
+      const res = await fetch('/api/wallet-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, tokensHeld: tokens })
+      });
+      const data = await res.json();
+      if (!data.unlocked) {
+        isTokenHolder = false;
+        elements.gateOverlay.style.display = 'flex';
+        alert('Access Restricted: $JEV token holding required in your wallet.');
+        return;
       }
-      if (elements.tier) {
-        elements.tier.textContent = `${userTier.tierName || 'Dynasty Magnate'} (Unlocked)`;
-      }
-
-      // Topbar Rainbow Button update
-      const topbarBtn = document.getElementById('topbar-connect-wallet-btn');
-      const topbarText = document.getElementById('topbar-wallet-btn-text');
-      if (topbarBtn) topbarBtn.classList.add('connected');
-      if (topbarText) topbarText.textContent = shortAddr;
-
-      // Rainbow Modal update
-      const rBadge = document.getElementById('rainbow-modal-badge');
-      const rAddr = document.getElementById('rainbow-modal-address');
-      const rTier = document.getElementById('rainbow-modal-tier-text');
-      const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
-      const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
-      if (rBadge) {
-        rBadge.textContent = 'Verified Holder';
-        rBadge.style.background = 'rgba(16,185,129,0.15)';
-        rBadge.style.color = '#10b981';
-      }
-      if (rAddr) rAddr.textContent = address;
-      if (rTier) rTier.textContent = `Tier: ${userTier.tierName || 'Dynasty Magnate'} • Unlocked Full Access`;
-      if (rConnBtn) rConnBtn.style.display = 'none';
-      if (rDiscBtn) rDiscBtn.style.display = 'block';
-
-      localStorage.setItem(STORAGE_WALLET_KEY, address);
-      console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
-    } else {
-      isTokenHolder = false;
-      elements.gateOverlay.style.display = 'flex';
-      alert('Access Restricted: $JEV token holding required in your Rainbow Wallet.');
+      tierData = data.userTier;
     }
+
+    currentWallet = address;
+    isTokenHolder = true;
+    userTier = tierData;
+
+    // Unlock UI
+    elements.gateOverlay.style.display = 'none';
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+    
+    elements.name.textContent = 'Synxneuos';
+    elements.status.textContent = 'MetaMask Verified';
+    elements.avatar.textContent = '🦊';
+    if (elements.holder) {
+      elements.holder.textContent = 'Verified Holder';
+      elements.holder.style.color = '#10b981';
+    }
+    if (elements.tier) {
+      elements.tier.textContent = `${userTier.tierName || 'Dynasty Magnate'} (Unlocked)`;
+    }
+
+    // Topbar Connect Button update
+    const topbarBtn = document.getElementById('topbar-connect-wallet-btn');
+    const topbarText = document.getElementById('topbar-wallet-btn-text');
+    if (topbarBtn) topbarBtn.classList.add('connected');
+    if (topbarText) topbarText.textContent = shortAddr;
+
+    // Web3 Modal update
+    const rBadge = document.getElementById('rainbow-modal-badge');
+    const rAddr = document.getElementById('rainbow-modal-address');
+    const rTier = document.getElementById('rainbow-modal-tier-text');
+    const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
+    const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
+    if (rBadge) {
+      rBadge.textContent = 'Verified Holder';
+      rBadge.style.background = 'rgba(16,185,129,0.15)';
+      rBadge.style.color = '#10b981';
+    }
+    if (rAddr) rAddr.textContent = address;
+    if (rTier) rTier.textContent = `Tier: ${userTier.tierName || 'Dynasty Magnate'} • Unlocked Full Access`;
+    if (rConnBtn) rConnBtn.style.display = 'none';
+    if (rDiscBtn) rDiscBtn.style.display = 'block';
+
+    localStorage.setItem(STORAGE_WALLET_KEY, address);
+    console.log(`✓ MetaMask Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
   } catch (err) {
     console.error('Verification failure:', err);
   }
@@ -234,7 +344,7 @@ function disconnectWallet() {
   const topbarBtn = document.getElementById('topbar-connect-wallet-btn');
   const topbarText = document.getElementById('topbar-wallet-btn-text');
   if (topbarBtn) topbarBtn.classList.remove('connected');
-  if (topbarText) topbarText.textContent = 'Connect Rainbow';
+  if (topbarText) topbarText.textContent = 'Connect Wallet';
 
   const rBadge = document.getElementById('rainbow-modal-badge');
   const rAddr = document.getElementById('rainbow-modal-address');
@@ -1014,7 +1124,7 @@ async function refreshMobileLogs() {
 
 function bindEvents() {
   // Wallet
-  elements.connectBtn?.addEventListener('click', connectRainbowWallet);
+  elements.connectBtn?.addEventListener('click', connectMetaMaskWallet);
   elements.verifyBtn?.addEventListener('click', quickVerifyDemo);
   elements.disconnectBtn?.addEventListener('click', disconnectWallet);
 
@@ -1096,35 +1206,39 @@ function bindEvents() {
   });
   elements.sendBtn?.addEventListener('click', handleSubmit);
 
-  // Rainbow Modal & Topbar Events
-  const topbarRainbowBtn = document.getElementById('topbar-connect-wallet-btn');
-  const rainbowModal = document.getElementById('rainbow-modal');
-  const rainbowModalClose = document.getElementById('rainbow-modal-close');
-  const rainbowModalConn = document.getElementById('rainbow-modal-connect-btn');
-  const rainbowModalDemo = document.getElementById('rainbow-modal-demo-btn');
-  const rainbowModalDisc = document.getElementById('rainbow-modal-disconnect-btn');
+  // Web3 & MetaMask Modal & Topbar Events
+  const topbarWalletBtn = document.getElementById('topbar-connect-wallet-btn');
+  const walletModal = document.getElementById('rainbow-modal');
+  const walletModalClose = document.getElementById('rainbow-modal-close');
+  const walletModalConn = document.getElementById('rainbow-modal-connect-btn');
+  const walletModalDemo = document.getElementById('rainbow-modal-demo-btn');
+  const walletModalDisc = document.getElementById('rainbow-modal-disconnect-btn');
 
-  topbarRainbowBtn?.addEventListener('click', () => {
-    if (rainbowModal) rainbowModal.style.display = 'flex';
+  topbarWalletBtn?.addEventListener('click', () => {
+    if (!currentWallet) {
+      connectMetaMaskWallet();
+    } else {
+      if (walletModal) walletModal.style.display = 'flex';
+    }
   });
 
-  rainbowModalClose?.addEventListener('click', () => {
-    if (rainbowModal) rainbowModal.style.display = 'none';
+  walletModalClose?.addEventListener('click', () => {
+    if (walletModal) walletModal.style.display = 'none';
   });
 
-  rainbowModalConn?.addEventListener('click', async () => {
-    await connectRainbowWallet();
-    if (rainbowModal) rainbowModal.style.display = 'none';
+  walletModalConn?.addEventListener('click', async () => {
+    await connectMetaMaskWallet();
+    if (walletModal) walletModal.style.display = 'none';
   });
 
-  rainbowModalDemo?.addEventListener('click', async () => {
+  walletModalDemo?.addEventListener('click', async () => {
     await quickVerifyDemo();
-    if (rainbowModal) rainbowModal.style.display = 'none';
+    if (walletModal) walletModal.style.display = 'none';
   });
 
-  rainbowModalDisc?.addEventListener('click', () => {
+  walletModalDisc?.addEventListener('click', () => {
     disconnectWallet();
-    if (rainbowModal) rainbowModal.style.display = 'none';
+    if (walletModal) walletModal.style.display = 'none';
   });
 
 

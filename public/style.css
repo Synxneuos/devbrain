@@ -1189,4 +1189,46 @@ body {
   transform: scale(1.15);
 }
 
+/* MetaMask Topbar & Action Button Styling */
+.metamask-topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(226, 118, 27, 0.12);
+  border: 1px solid rgba(226, 118, 27, 0.4);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metamask-topbar-btn:hover {
+  background: rgba(226, 118, 27, 0.22);
+  border-color: #e2761b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(226, 118, 27, 0.25);
+}
+
+.metamask-topbar-btn.connected {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+.metamask-btn-style {
+  background: #e2761b !important;
+  color: #ffffff !important;
+  border: 1px solid #c56514 !important;
+  transition: all 0.2s ease;
+}
+
+.metamask-btn-style:hover {
+  background: #d46c17 !important;
+  box-shadow: 0 4px 14px rgba(226, 118, 27, 0.35);
+  transform: translateY(-1px);
+}
+
 

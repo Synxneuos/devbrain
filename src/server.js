@@ -8,10 +8,14 @@ import { MultiModelRouter } from './core/multi-model.js';
 import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
 import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
 import { MobileRunner } from './core/mobile.js';
+import { verifyMessage } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// Active signature authentication nonces
+const activeNonces = new Map();
 
 // Global server analytics
 const stats = {
@@ -280,15 +284,73 @@ export async function handleRequest(req, res) {
         const marketData = await fetchLiveMarketData();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-          provider: 'Rainbow Wallet (rainbow.me)',
-          supportedChains: ['Ethereum', 'Solana', 'Base', 'Arbitrum'],
+          provider: 'MetaMask & Web3 Wallets (metamask.io)',
+          supportedChains: ['Ethereum', 'Base', 'Arbitrum', 'Polygon'],
           requiredTokensBaseline: 1000000,
           marketCap: marketData.marketCap,
-          activeProtocol: 'EIP-6963 + window.rainbow'
+          activeProtocol: 'EIP-6963 + window.ethereum + personal_sign'
         }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/wallet/nonce' && req.method === 'GET') {
+      const address = (url.searchParams.get('address') || '').toLowerCase();
+      const nonce = Math.floor(100000 + Math.random() * 900000).toString();
+      const timestamp = new Date().toISOString();
+      const message = `Welcome to Jev Brain!\n\nClick to sign and authenticate your wallet.\nThis request will not trigger a blockchain transaction or cost any gas fees.\n\nWallet: ${address}\nNonce: ${nonce}\nTimestamp: ${timestamp}`;
+      activeNonces.set(address, { nonce, message, createdAt: Date.now() });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ nonce, message }));
+      return;
+    }
+
+    if (url.pathname === '/api/wallet/verify-signature' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const address = (body.address || '').toLowerCase();
+        const signature = body.signature || '';
+        const message = body.message || '';
+        const tokensHeld = parseFloat(body.tokensHeld) || 5000000;
+
+        // 1. Verify cryptographic signature with ethers
+        let verifiedAddress = '';
+        try {
+          verifiedAddress = verifyMessage(message, signature).toLowerCase();
+        } catch (sigErr) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid cryptographic signature: ' + sigErr.message }));
+          return;
+        }
+
+        if (verifiedAddress !== address) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Signature address mismatch' }));
+          return;
+        }
+
+        // 2. Fetch market data & calculate dynamic tier
+        const marketData = await fetchLiveMarketData();
+        const userTier = calculateDynamicTier(tokensHeld, marketData);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          verified: true,
+          address,
+          unlocked: userTier.tierId > 0,
+          tokensHeld,
+          userTier,
+          marketData,
+          walletProvider: 'MetaMask (Web3 Cryptographically Signed)',
+          message: `MetaMask signature verified! Assigned to [${userTier.tierName}]`
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
       }
       return;
     }
@@ -309,9 +371,9 @@ export async function handleRequest(req, res) {
           tokensHeld,
           userTier,
           marketData,
-          walletProvider: 'Rainbow Wallet (rainbow.me)',
+          walletProvider: 'MetaMask / Web3 Wallet',
           message: userTier.tierId > 0 
-            ? `Rainbow Wallet verified! Assigned to [${userTier.tierName}]` 
+            ? `Wallet verified! Assigned to [${userTier.tierName}]` 
             : 'Holding required to access.'
         }));
       } catch (err) {

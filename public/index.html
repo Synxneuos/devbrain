@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   
-  <!-- Rainbow Wallet Web3 Integration -->
-  <script src="https://unpkg.com/rainbow@1.0.0/dist/rainbow.min.js"></script>
+  <!-- Ethers.js for Web3 & MetaMask Cryptographic Verification -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 </head>
 <body>
   <div class="claude-layout">
@@ -114,9 +114,19 @@
             <span>Tier: <b id="tier-display">Dynasty Magnate (Unlocked)</b></span>
             <span class="close-x" id="disconnect-btn" title="Disconnect">&times;</span>
           </div>
-          <button class="rainbow-topbar-btn" id="topbar-connect-wallet-btn" title="Rainbow Wallet (rainbow.me)">
-            <span class="rainbow-icon-glow">🌈</span>
-            <span id="topbar-wallet-btn-text">Connect Rainbow</span>
+          <button class="rainbow-topbar-btn metamask-topbar-btn" id="topbar-connect-wallet-btn" title="MetaMask & Web3 Wallet">
+            <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none" style="vertical-align:middle;flex-shrink:0;">
+              <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="topbar-wallet-btn-text">Connect Wallet</span>
           </button>
           <button class="share-btn" id="share-btn">Share</button>
         </div>
@@ -155,40 +165,46 @@
         <!-- Token Gate Locked Overlay (Appears only if wallet not holding token) -->
         <div class="wallet-gate-overlay" id="wallet-gate-overlay" style="display:none;">
           <div class="gate-dialog">
-            <div class="gate-starburst">🔐</div>
-            <h3>Rainbow Wallet Access Required</h3>
-            <p>Jev Brain requires holding the project token in your Rainbow Wallet to access the AI agent.</p>
+            <div class="gate-starburst">
+              <svg width="40" height="40" viewBox="0 0 318.6 318.6" fill="none" style="margin-bottom:4px;">
+                <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h3 style="font-size:20px; font-weight:700; margin:0 0 6px 0; font-family:var(--font-serif);">Connect Your Wallet</h3>
+            <p style="font-size:13px; color:var(--text-secondary); margin:0 0 16px 0; line-height:1.5;">
+              Connect your MetaMask or Web3 wallet to verify token holding, securely sign in, and unlock Jev Brain AI features.
+            </p>
             
-            <div class="gate-steps">
-              <div class="gate-step">
-                <span class="step-number">1</span>
-                <span>Install Rainbow Wallet from <a href="https://rainbow.me" target="_blank">rainbow.me</a></span>
-              </div>
-              <div class="gate-step">
-                <span class="step-number">2</span>
-                <span>Create wallet and switch to <b id="chain-name">Ethereum</b> network</span>
-              </div>
-              <div class="gate-step">
-                <span class="step-number">3</span>
-                <span>Hold minimum <b>1M $JEV tokens</b> in your wallet</span>
-              </div>
-              <div class="gate-step">
-                <span class="step-number">4</span>
-                <span>Connect wallet below to verify & unlock access</span>
-              </div>
+            <div class="gate-btn-row" style="display:flex; gap:10px; justify-content:center; align-items:center;">
+              <button class="btn-claude-dark metamask-btn-style" id="connect-wallet-btn" style="display:flex; align-items:center; gap:8px; padding:10px 18px; font-size:13.5px; font-weight:600;">
+                <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
+                  <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Connect Wallet</span>
+              </button>
+              <button class="btn-claude-ghost" id="quick-verify-btn" style="padding:10px 16px; font-size:13px;">
+                ⚡ Quick Test Demo
+              </button>
             </div>
             
-            <div class="gate-btn-row">
-              <button class="btn-claude-dark" id="connect-wallet-btn">
-                🌈 Connect Rainbow Wallet
-              </button>
-              <button class="btn-claude-ghost" id="quick-verify-btn">
-                ⚡ Quick Verify
-              </button>
-            </div>
-            
-            <p class="gate-note">
-              💡 Supported: Rainbow Wallet • MetaMask • Any Web3 wallet
+            <p class="gate-note" style="margin-top:14px; font-size:11.5px; color:var(--text-muted);">
+              🦊 Supported: MetaMask • Web3 Injected • Rainbow • Coinbase Wallet
             </p>
           </div>
         </div>
@@ -553,19 +569,29 @@
         </div>
       </div>
     </div>
-  <!-- Dedicated Rainbow Wallet (rainbow.me) Modal -->
+  <!-- Dedicated Web3 & MetaMask Wallet Modal -->
   <div class="tier-modal-overlay" id="rainbow-modal" style="display:none;">
     <div class="tier-modal-card" style="max-width: 480px; text-align:center;">
       <div class="tier-modal-head" style="justify-content: space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:22px;">🌈</span>
-          <h3 style="font-size:16px;font-weight:700;margin:0;font-family:var(--font-serif);">Rainbow Wallet</h3>
+          <svg width="22" height="22" viewBox="0 0 318.6 318.6" fill="none">
+            <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3 style="font-size:16px;font-weight:700;margin:0;font-family:var(--font-serif);">Connect Your Wallet</h3>
         </div>
         <button class="tier-modal-close" id="rainbow-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body" style="padding-top: 10px;">
         <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
-          Official Web3 Wallet Integration (<a href="https://rainbow.me" target="_blank" style="color: var(--accent-terracotta); text-decoration: underline;">rainbow.me</a>). Connect your wallet to hold tokens, verify identity, and unlock frontier AI models.
+          Connect your MetaMask or Web3 wallet. You will receive a secure cryptographic signature request to verify token ownership and unlock Jev Brain.
         </p>
 
         <!-- Live Connection Status Box -->
@@ -581,10 +607,21 @@
         <!-- Action Buttons -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
           <button class="btn-claude-dark" id="rainbow-modal-connect-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
-            <span>🌈</span> <span>Connect with Rainbow Wallet</span>
+            <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
+              <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Connect with MetaMask</span>
           </button>
-          <a href="https://rainbow.me" target="_blank" class="btn-claude-ghost" style="padding: 9px; font-size: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>🌐</span> <span>Get Rainbow from rainbow.me</span> <span>↗</span>
+          <a href="https://metamask.io/download/" target="_blank" class="btn-claude-ghost" style="padding: 9px; font-size: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>🦊</span> <span>Install MetaMask from metamask.io</span> <span>↗</span>
           </a>
           <button class="btn-claude-ghost" id="rainbow-modal-demo-btn" style="padding: 8px; font-size: 11.5px; color: var(--text-secondary);">
             ⚡ Quick Test with Demo Holdings (Dynasty Magnate)

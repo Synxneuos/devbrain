@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node bin/brain.js serve",
     "dev": "node bin/brain.js serve --port 3333",
-    "test": "node test/router.test.js && node test/mobile.test.js",
+    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js",
     "classify": "node bin/brain.js classify",
     "warden": "node bin/brain.js warden",
     "reseed": "node scripts/reseed-commits.js"
@@ -27,5 +27,8 @@
     "jev-brain"
   ],
   "author": "codexbt",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^6.17.0"
+  }
 }
