@@ -105,11 +105,8 @@ Open **`http://localhost:3333`** to access the real-time Kanban decision matrix,
 
 ---
 
-## 👥 Contributors & Collaboration
+## 👥 Authors & Maintainers
 
-Developed collaboratively by **Synxneuos** and **Claude Opus 5** starting September 15, 2026:
-- **Synxneuos**: Architecture, specification, pipelines, and web matrix.
-- **Claude Opus 5**: Core sub-millisecond decision engine, confidence calibration matrix, and Agent Warden safety gates.
-- **Co-Author**: Claude Opus 5
+Maintained and developed by **Synxneuos** (<codexbt1@gmail.com>).
 
 License: MIT

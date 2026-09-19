@@ -2,7 +2,7 @@
 
 **Status**: Published & Verified  
 **Date**: September 15, 2026  
-**Primary Investigators**: Synxneuos, Claude Opus 5  
+**Primary Investigators**: Synxneuos  
 **Repository**: [github.com/Synxneuos/jevbrain](https://github.com/Synxneuos/jevbrain)
 
 ---
@@ -75,7 +75,7 @@ Incoming Prompt
 ```bibtex
 @article{jevbrain2026,
   title={Jev Brain: Sub-Millisecond Pre-Execution Routing Architecture},
-  author={Synxneuos and Claude Opus 5},
+  author={Synxneuos},
   year={2026},
   month={September},
   url={https://github.com/Synxneuos/jevbrain}

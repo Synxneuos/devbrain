@@ -5,7 +5,6 @@ Fast decision daemon & agent routing gateway.
 
 __version__ = "1.0.0"
 __author__ = "Synxneuos"
-__co_author__ = "Claude Opus 5"
 __license__ = "MIT"
 
 import time
