@@ -86,3 +86,33 @@ test('Wallet Auth: POST /api/wallet/verify-signature rejects invalid signature o
   assert.strictEqual(data.success, false);
   assert.ok(data.error.includes('mismatch'));
 });
+
+test('User Profile: POST /api/user/profile saves and GET retrieves onboarding details', async () => {
+  const wallet = Wallet.createRandom();
+  const address = wallet.address.toLowerCase();
+
+  // Save profile
+  const saveRes = await fetch(`${baseUrl}/api/user/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address,
+      name: 'Naquib Mirza',
+      email: 'naquib@example.com'
+    })
+  });
+  assert.strictEqual(saveRes.status, 200);
+  const saveData = await saveRes.json();
+  assert.strictEqual(saveData.success, true);
+  assert.strictEqual(saveData.profile.name, 'Naquib Mirza');
+  assert.strictEqual(saveData.profile.email, 'naquib@example.com');
+
+  // Retrieve profile
+  const getRes = await fetch(`${baseUrl}/api/user/profile?address=${address}`);
+  assert.strictEqual(getRes.status, 200);
+  const getData = await getRes.json();
+  assert.strictEqual(getData.success, true);
+  assert.strictEqual(getData.profile.name, 'Naquib Mirza');
+  assert.strictEqual(getData.profile.email, 'naquib@example.com');
+});
+

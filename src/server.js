@@ -17,6 +17,9 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 // Active signature authentication nonces
 const activeNonces = new Map();
 
+// Persistent User Profiles by Wallet Address
+const userProfiles = new Map();
+
 // Global server analytics
 const stats = {
   totalProcessed: 0,
@@ -348,6 +351,39 @@ export async function handleRequest(req, res) {
           walletProvider: 'MetaMask (Web3 Cryptographically Signed)',
           message: `MetaMask signature verified! Assigned to [${userTier.tierName}]`
         }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/user/profile' && req.method === 'GET') {
+      const address = (url.searchParams.get('address') || '').toLowerCase();
+      const profile = userProfiles.get(address) || null;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, profile }));
+      return;
+    }
+
+    if (url.pathname === '/api/user/profile' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const address = (body.address || '').toLowerCase();
+        const name = (body.name || '').trim();
+        const email = (body.email || '').trim();
+
+        if (!address || !name) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Address and name are required.' }));
+          return;
+        }
+
+        const profile = { address, name, email, updatedAt: Date.now() };
+        userProfiles.set(address, profile);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, profile }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));

@@ -82,10 +82,10 @@
 
       <div class="sidebar-bottom">
         <div class="user-profile-bar" id="profile-bar">
-          <div class="user-avatar" id="user-avatar-badge">S</div>
+          <div class="user-avatar" id="user-avatar-badge">?</div>
           <div class="user-info">
-            <div class="user-name" id="user-name-display">Synxneuos</div>
-            <div class="user-status" id="wallet-status-sub">Web3 Verified</div>
+            <div class="user-name" id="user-name-display">Not Connected</div>
+            <div class="user-status" id="wallet-status-sub">Access Restricted</div>
           </div>
           <div class="user-actions">
             <button class="icon-mini" title="Download logs">📥</button>
@@ -136,7 +136,7 @@
       <div class="claude-center" id="claude-center">
         <!-- Hero Welcome Screen (Matches exact Claude screenshot) -->
         <div class="claude-hero" id="claude-hero">
-          <h1 class="hero-heading">Welcome! I’m Jev Brain.</h1>
+          <h1 class="hero-heading" id="hero-heading">Welcome! I’m Jev Brain.</h1>
           <p class="hero-paragraph">
             Bring me anything—a tough routing problem, a raw message stream, an agent tool call, or a complex prompt. We’ll figure it out together.
           </p>
@@ -631,6 +631,49 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+  <!-- Claude AI Style User Onboarding Modal -->
+  <div class="tier-modal-overlay" id="onboarding-modal" style="display:none; z-index: 9999;">
+    <div class="tier-modal-card" style="max-width: 440px; padding: 32px 28px; text-align: left; background: var(--bg-main, #FAF9F5); border: 1px solid var(--border-card, #E5E5DF); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 26px; color: var(--accent-terracotta, #C96442);">✻</span>
+          <h2 style="font-family: var(--font-serif, serif); font-size: 22px; font-weight: 600; margin: 0; color: var(--text-primary);">Welcome to Jev Brain</h2>
+        </div>
+        <button class="tier-modal-close" id="onboarding-modal-close" style="font-size: 20px; line-height: 1; border: none; background: transparent; cursor: pointer; color: var(--text-secondary);">&times;</button>
+      </div>
+      
+      <p style="font-size: 13.5px; color: var(--text-secondary); margin: 0 0 20px 0; line-height: 1.5;">
+        Your wallet is authenticated. Please enter your name and email to set up your profile and enter the platform.
+      </p>
+
+      <form id="onboarding-form">
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Your Name</label>
+          <input type="text" id="onboarding-name-input" placeholder="e.g. Naquib Mirza" required 
+            style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Email Address</label>
+          <input type="email" id="onboarding-email-input" placeholder="name@example.com" required 
+            style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(0,0,0,0.03); border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; margin-bottom: 22px;">
+          <span style="font-size: 14px;">🦊</span>
+          <div style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono, monospace); word-break: break-all;">
+            <span style="color: var(--text-secondary); font-weight: 600;">Wallet:</span> <span id="onboarding-wallet-addr">0x...</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-claude-dark" id="onboarding-confirm-btn" 
+          style="width: 100%; padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--text-primary); color: #fff;">
+          <span>Confirm &amp; Enter Jev Brain</span>
+          <span>→</span>
+        </button>
+      </form>
     </div>
   </div>
 

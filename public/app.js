@@ -11,11 +11,13 @@ let totalSavingsUsd = 0.00;
 let currentChatId = null;
 let allOpenRouterModels = [];
 let discoveredProvider = null;
+let currentUserProfile = null;
 
 // Persistent Chats & Projects
 const STORAGE_CHATS_KEY = 'jevbrain_chats_v2';
 const STORAGE_ACTIVE_CHAT_KEY = 'jevbrain_active_chat_v2';
 const STORAGE_WALLET_KEY = 'jevbrain_wallet';
+const STORAGE_PROFILE_PREFIX = 'jevbrain_profile_';
 
 // ============================================
 // DOM SELECTORS
@@ -23,6 +25,7 @@ const STORAGE_WALLET_KEY = 'jevbrain_wallet';
 const elements = {
   center: document.getElementById('claude-center'),
   hero: document.getElementById('claude-hero'),
+  heroHeading: document.getElementById('hero-heading'),
   messages: document.getElementById('messages-stream'),
   input: document.getElementById('prompt-input'),
   sendBtn: document.getElementById('send-btn'),
@@ -41,8 +44,18 @@ const elements = {
   name: document.getElementById('user-name-display'),
   status: document.getElementById('wallet-status-sub'),
   holder: document.getElementById('holder-status-text'),
+  profileBar: document.getElementById('profile-bar'),
   chatsList: document.getElementById('chats-list'),
   topbarTitle: document.getElementById('topbar-title'),
+
+  // Onboarding Modal
+  onboardingModal: document.getElementById('onboarding-modal'),
+  onboardingClose: document.getElementById('onboarding-modal-close'),
+  onboardingForm: document.getElementById('onboarding-form'),
+  onboardingNameInput: document.getElementById('onboarding-name-input'),
+  onboardingEmailInput: document.getElementById('onboarding-email-input'),
+  onboardingWalletAddr: document.getElementById('onboarding-wallet-addr'),
+  onboardingConfirmBtn: document.getElementById('onboarding-confirm-btn'),
 
   // Modals
   tierModal: document.getElementById('tier-modal-overlay'),
@@ -253,6 +266,101 @@ async function connectMetaMaskWallet() {
   }
 }
 
+// ============================================
+// USER PROFILE & FIRST-TIME ONBOARDING
+// ============================================
+async function getUserProfile(address) {
+  if (!address) return null;
+  const key = STORAGE_PROFILE_PREFIX + address.toLowerCase();
+  const local = localStorage.getItem(key);
+  if (local) {
+    try {
+      return JSON.parse(local);
+    } catch (e) {}
+  }
+
+  // Fallback to server
+  try {
+    const res = await fetch(`/api/user/profile?address=${encodeURIComponent(address.toLowerCase())}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.profile) {
+        localStorage.setItem(key, JSON.stringify(data.profile));
+        return data.profile;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+async function saveUserProfile(address, name, email) {
+  const cleanName = (name || '').trim();
+  const cleanEmail = (email || '').trim();
+  const profile = {
+    address: address.toLowerCase(),
+    name: cleanName,
+    email: cleanEmail,
+    updatedAt: Date.now()
+  };
+
+  currentUserProfile = profile;
+  const key = STORAGE_PROFILE_PREFIX + address.toLowerCase();
+  localStorage.setItem(key, JSON.stringify(profile));
+
+  // Sync to backend
+  try {
+    await fetch('/api/user/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile)
+    });
+  } catch (e) {
+    console.error('Failed to sync profile to server:', e);
+  }
+
+  applyUserProfile(profile);
+}
+
+function applyUserProfile(profile) {
+  if (!profile) return;
+  const name = profile.name || 'User';
+  const initial = name.charAt(0).toUpperCase();
+
+  // Sidebar profile info
+  if (elements.name) elements.name.textContent = name;
+  if (elements.status) elements.status.textContent = 'MetaMask Verified';
+  if (elements.avatar) elements.avatar.textContent = initial;
+
+  // Main Page / Hero Welcome text
+  if (elements.heroHeading) {
+    elements.heroHeading.textContent = `Hey, welcome to Jev, ${name}!`;
+  }
+
+  // Re-render chat messages if chat is open to reflect user's name
+  if (currentChatId) {
+    loadChatMessages(currentChatId);
+  }
+}
+
+function promptOnboarding(address) {
+  if (!elements.onboardingModal) return;
+  elements.onboardingModal.style.display = 'flex';
+  if (elements.onboardingWalletAddr) {
+    elements.onboardingWalletAddr.textContent = address.slice(0, 6) + '...' + address.slice(-4);
+  }
+  if (currentUserProfile) {
+    if (elements.onboardingNameInput) elements.onboardingNameInput.value = currentUserProfile.name || '';
+    if (elements.onboardingEmailInput) elements.onboardingEmailInput.value = currentUserProfile.email || '';
+  } else {
+    if (elements.onboardingNameInput) elements.onboardingNameInput.value = '';
+    if (elements.onboardingEmailInput) elements.onboardingEmailInput.value = '';
+  }
+  setTimeout(() => {
+    elements.onboardingNameInput?.focus();
+  }, 100);
+}
+
 async function quickVerifyDemo() {
   // Demo verified wallet with Dynasty Magnate holdings
   await onWalletAuthenticated('0x71C8364437a9C47f45826027E2F891f7d43B339F', 5000000);
@@ -284,10 +392,21 @@ async function onWalletAuthenticated(address, tokens = 5000000, precalculatedTie
     // Unlock UI
     elements.gateOverlay.style.display = 'none';
     const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
-    
-    elements.name.textContent = 'Synxneuos';
-    elements.status.textContent = 'MetaMask Verified';
-    elements.avatar.textContent = '🦊';
+
+    // Check user profile: first-time onboarding vs returning user
+    const profile = await getUserProfile(address);
+    if (profile && profile.name) {
+      currentUserProfile = profile;
+      applyUserProfile(profile);
+      if (elements.onboardingModal) elements.onboardingModal.style.display = 'none';
+    } else {
+      // First time connect: open Claude AI style onboarding modal
+      elements.name.textContent = 'Setting up...';
+      elements.status.textContent = 'Profile Setup';
+      elements.avatar.textContent = '✻';
+      promptOnboarding(address);
+    }
+
     if (elements.holder) {
       elements.holder.textContent = 'Verified Holder';
       elements.holder.style.color = '#10b981';
@@ -329,8 +448,16 @@ function disconnectWallet() {
   currentWallet = null;
   isTokenHolder = false;
   userTier = null;
+  currentUserProfile = null;
   localStorage.removeItem(STORAGE_WALLET_KEY);
-  
+
+  if (elements.heroHeading) {
+    elements.heroHeading.textContent = 'Welcome! I’m Jev Brain.';
+  }
+  if (elements.onboardingModal) {
+    elements.onboardingModal.style.display = 'none';
+  }
+
   elements.gateOverlay.style.display = 'flex';
   elements.name.textContent = 'Not Connected';
   elements.status.textContent = 'Access Restricted';
@@ -566,7 +693,15 @@ async function handleSubmit() {
 function appendUserMessage(text, shouldSave = true) {
   const row = document.createElement('div');
   row.className = 'msg-row user';
-  row.innerHTML = `<div class="msg-bubble-user">${escapeHtml(text)}</div>`;
+  const userName = (currentUserProfile && currentUserProfile.name) ? currentUserProfile.name : 'You';
+  const userInitial = userName.charAt(0).toUpperCase();
+  row.innerHTML = `
+    <div class="msg-user-header">
+      <span class="msg-user-name">${escapeHtml(userName)}</span>
+      <span class="msg-user-avatar-mini">${escapeHtml(userInitial)}</span>
+    </div>
+    <div class="msg-bubble-user">${escapeHtml(text)}</div>
+  `;
   elements.messages.appendChild(row);
   if (shouldSave) saveMessageToCurrentChat('user', text);
 }
@@ -1239,6 +1374,35 @@ function bindEvents() {
   walletModalDisc?.addEventListener('click', () => {
     disconnectWallet();
     if (walletModal) walletModal.style.display = 'none';
+  });
+
+  // Onboarding Form & Profile Editing Events
+  elements.onboardingForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = elements.onboardingNameInput ? elements.onboardingNameInput.value.trim() : '';
+    const email = elements.onboardingEmailInput ? elements.onboardingEmailInput.value.trim() : '';
+    if (!name) {
+      alert('Please enter your name.');
+      return;
+    }
+    if (!email) {
+      alert('Please enter your email address.');
+      return;
+    }
+    if (currentWallet) {
+      await saveUserProfile(currentWallet, name, email);
+      if (elements.onboardingModal) elements.onboardingModal.style.display = 'none';
+    }
+  });
+
+  elements.onboardingClose?.addEventListener('click', () => {
+    if (elements.onboardingModal) elements.onboardingModal.style.display = 'none';
+  });
+
+  elements.profileBar?.addEventListener('click', () => {
+    if (currentWallet) {
+      promptOnboarding(currentWallet);
+    }
   });
 
 
