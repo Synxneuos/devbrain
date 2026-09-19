@@ -1150,3 +1150,43 @@ body {
   gap: 2px;
 }
 
+/* Rainbow Topbar Button */
+.rainbow-topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(201, 100, 66, 0.1);
+  border: 1px solid rgba(201, 100, 66, 0.35);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rainbow-topbar-btn:hover {
+  background: rgba(201, 100, 66, 0.2);
+  border-color: var(--accent-terracotta);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(201, 100, 66, 0.15);
+}
+
+.rainbow-topbar-btn.connected {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+.rainbow-icon-glow {
+  font-size: 14px;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.rainbow-topbar-btn:hover .rainbow-icon-glow {
+  transform: scale(1.15);
+}
+
+

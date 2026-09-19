@@ -275,7 +275,25 @@ export async function handleRequest(req, res) {
       return;
     }
 
-    if (url.pathname === '/api/wallet-verify' && req.method === 'POST') {
+    if (url.pathname === '/api/wallet/status' && req.method === 'GET') {
+      try {
+        const marketData = await fetchLiveMarketData();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          provider: 'Rainbow Wallet (rainbow.me)',
+          supportedChains: ['Ethereum', 'Solana', 'Base', 'Arbitrum'],
+          requiredTokensBaseline: 1000000,
+          marketCap: marketData.marketCap,
+          activeProtocol: 'EIP-6963 + window.rainbow'
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if ((url.pathname === '/api/wallet-verify' || url.pathname === '/api/wallet/rainbow-verify') && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
         const address = body.address || '';
@@ -291,8 +309,9 @@ export async function handleRequest(req, res) {
           tokensHeld,
           userTier,
           marketData,
+          walletProvider: 'Rainbow Wallet (rainbow.me)',
           message: userTier.tierId > 0 
-            ? `Token holding verified! Assigned to [${userTier.tierName}]` 
+            ? `Rainbow Wallet verified! Assigned to [${userTier.tierName}]` 
             : 'Holding required to access.'
         }));
       } catch (err) {

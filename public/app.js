@@ -181,8 +181,30 @@ async function onWalletAuthenticated(address, tokens = 5000000) {
         elements.tier.textContent = `${userTier.tierName || 'Dynasty Magnate'} (Unlocked)`;
       }
 
+      // Topbar Rainbow Button update
+      const topbarBtn = document.getElementById('topbar-connect-wallet-btn');
+      const topbarText = document.getElementById('topbar-wallet-btn-text');
+      if (topbarBtn) topbarBtn.classList.add('connected');
+      if (topbarText) topbarText.textContent = shortAddr;
+
+      // Rainbow Modal update
+      const rBadge = document.getElementById('rainbow-modal-badge');
+      const rAddr = document.getElementById('rainbow-modal-address');
+      const rTier = document.getElementById('rainbow-modal-tier-text');
+      const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
+      const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
+      if (rBadge) {
+        rBadge.textContent = 'Verified Holder';
+        rBadge.style.background = 'rgba(16,185,129,0.15)';
+        rBadge.style.color = '#10b981';
+      }
+      if (rAddr) rAddr.textContent = address;
+      if (rTier) rTier.textContent = `Tier: ${userTier.tierName || 'Dynasty Magnate'} • Unlocked Full Access`;
+      if (rConnBtn) rConnBtn.style.display = 'none';
+      if (rDiscBtn) rDiscBtn.style.display = 'block';
+
       localStorage.setItem(STORAGE_WALLET_KEY, address);
-      console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: $${userTier.bagUsdValue}`);
+      console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
     } else {
       isTokenHolder = false;
       elements.gateOverlay.style.display = 'flex';
@@ -208,6 +230,26 @@ function disconnectWallet() {
     elements.holder.textContent = 'Disconnected';
     elements.holder.style.color = '#dc2626';
   }
+
+  const topbarBtn = document.getElementById('topbar-connect-wallet-btn');
+  const topbarText = document.getElementById('topbar-wallet-btn-text');
+  if (topbarBtn) topbarBtn.classList.remove('connected');
+  if (topbarText) topbarText.textContent = 'Connect Rainbow';
+
+  const rBadge = document.getElementById('rainbow-modal-badge');
+  const rAddr = document.getElementById('rainbow-modal-address');
+  const rTier = document.getElementById('rainbow-modal-tier-text');
+  const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
+  const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
+  if (rBadge) {
+    rBadge.textContent = 'Disconnected';
+    rBadge.style.background = 'rgba(239,68,68,0.15)';
+    rBadge.style.color = '#ef4444';
+  }
+  if (rAddr) rAddr.textContent = 'No wallet connected';
+  if (rTier) rTier.textContent = 'Requires token holding to access frontier AI models';
+  if (rConnBtn) rConnBtn.style.display = 'flex';
+  if (rDiscBtn) rDiscBtn.style.display = 'none';
 }
 
 // ============================================
@@ -1053,6 +1095,38 @@ function bindEvents() {
     }
   });
   elements.sendBtn?.addEventListener('click', handleSubmit);
+
+  // Rainbow Modal & Topbar Events
+  const topbarRainbowBtn = document.getElementById('topbar-connect-wallet-btn');
+  const rainbowModal = document.getElementById('rainbow-modal');
+  const rainbowModalClose = document.getElementById('rainbow-modal-close');
+  const rainbowModalConn = document.getElementById('rainbow-modal-connect-btn');
+  const rainbowModalDemo = document.getElementById('rainbow-modal-demo-btn');
+  const rainbowModalDisc = document.getElementById('rainbow-modal-disconnect-btn');
+
+  topbarRainbowBtn?.addEventListener('click', () => {
+    if (rainbowModal) rainbowModal.style.display = 'flex';
+  });
+
+  rainbowModalClose?.addEventListener('click', () => {
+    if (rainbowModal) rainbowModal.style.display = 'none';
+  });
+
+  rainbowModalConn?.addEventListener('click', async () => {
+    await connectRainbowWallet();
+    if (rainbowModal) rainbowModal.style.display = 'none';
+  });
+
+  rainbowModalDemo?.addEventListener('click', async () => {
+    await quickVerifyDemo();
+    if (rainbowModal) rainbowModal.style.display = 'none';
+  });
+
+  rainbowModalDisc?.addEventListener('click', () => {
+    disconnectWallet();
+    if (rainbowModal) rainbowModal.style.display = 'none';
+  });
+
 
   // Mobile Runner Events
   document.getElementById('nav-mobile')?.addEventListener('click', (e) => {

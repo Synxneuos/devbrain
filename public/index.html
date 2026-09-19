@@ -114,6 +114,10 @@
             <span>Tier: <b id="tier-display">Dynasty Magnate (Unlocked)</b></span>
             <span class="close-x" id="disconnect-btn" title="Disconnect">&times;</span>
           </div>
+          <button class="rainbow-topbar-btn" id="topbar-connect-wallet-btn" title="Rainbow Wallet (rainbow.me)">
+            <span class="rainbow-icon-glow">🌈</span>
+            <span id="topbar-wallet-btn-text">Connect Rainbow</span>
+          </button>
           <button class="share-btn" id="share-btn">Share</button>
         </div>
       </header>
@@ -546,6 +550,48 @@
             <span>CLI: <strong style="color:var(--accent-terracotta);">node bin/brain.js mobile tap 540 1200</strong></span>
             <span style="color:#10b981;">✔ ADB Ready</span>
           </div>
+        </div>
+      </div>
+    </div>
+  <!-- Dedicated Rainbow Wallet (rainbow.me) Modal -->
+  <div class="tier-modal-overlay" id="rainbow-modal" style="display:none;">
+    <div class="tier-modal-card" style="max-width: 480px; text-align:center;">
+      <div class="tier-modal-head" style="justify-content: space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:22px;">🌈</span>
+          <h3 style="font-size:16px;font-weight:700;margin:0;font-family:var(--font-serif);">Rainbow Wallet</h3>
+        </div>
+        <button class="tier-modal-close" id="rainbow-modal-close">&times;</button>
+      </div>
+      <div class="tier-modal-body" style="padding-top: 10px;">
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+          Official Web3 Wallet Integration (<a href="https://rainbow.me" target="_blank" style="color: var(--accent-terracotta); text-decoration: underline;">rainbow.me</a>). Connect your wallet to hold tokens, verify identity, and unlock frontier AI models.
+        </p>
+
+        <!-- Live Connection Status Box -->
+        <div id="rainbow-modal-status-box" style="background: var(--bg-pill); border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-bottom: 16px; text-align: left;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Connection Status</span>
+            <span id="rainbow-modal-badge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(239,68,68,0.15); color: #ef4444;">Disconnected</span>
+          </div>
+          <div style="font-size: 13px; font-weight: 600; font-family: var(--font-mono); word-break: break-all;" id="rainbow-modal-address">No wallet connected</div>
+          <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px;" id="rainbow-modal-tier-text">Requires token holding to access frontier AI models</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn-claude-dark" id="rainbow-modal-connect-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <span>🌈</span> <span>Connect with Rainbow Wallet</span>
+          </button>
+          <a href="https://rainbow.me" target="_blank" class="btn-claude-ghost" style="padding: 9px; font-size: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>🌐</span> <span>Get Rainbow from rainbow.me</span> <span>↗</span>
+          </a>
+          <button class="btn-claude-ghost" id="rainbow-modal-demo-btn" style="padding: 8px; font-size: 11.5px; color: var(--text-secondary);">
+            ⚡ Quick Test with Demo Holdings (Dynasty Magnate)
+          </button>
+          <button class="btn-claude-ghost" id="rainbow-modal-disconnect-btn" style="padding: 8px; font-size: 12px; color: #ef4444; display: none;">
+            Disconnect Wallet
+          </button>
         </div>
       </div>
     </div>
