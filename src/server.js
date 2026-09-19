@@ -73,20 +73,21 @@ function parseJsonBody(req) {
   });
 }
 
-export function startServer(port = 3333) {
-  const server = http.createServer(async (req, res) => {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export async function handleRequest(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
-    const url = new URL(req.url, `http://${req.headers.host}`);
+  const host = req.headers.host || 'localhost';
+  const url = new URL(req.url, `http://${host}`);
+
 
     // API Routes
     if (url.pathname === '/api/presets' && req.method === 'GET') {
@@ -414,7 +415,10 @@ export function startServer(port = 3333) {
         res.end(data);
       }
     });
-  });
+}
+
+export function startServer(port = 3333) {
+  const server = http.createServer(handleRequest);
 
   server.listen(port, () => {
     console.log(`\n⚡ Jev Brain Web Daemon running at: http://localhost:${port}`);
@@ -423,3 +427,5 @@ export function startServer(port = 3333) {
 
   return server;
 }
+
+export default handleRequest;
