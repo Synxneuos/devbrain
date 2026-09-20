@@ -1,6 +1,10 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { AgentWarden } from './warden.js';
+
+const DEVICE_ID_REGEX = /^[a-zA-Z0-9._:-]+$/;
+const PACKAGE_REGEX = /^[a-zA-Z0-9._]+$/;
+const KEY_REGEX = /^[a-zA-Z0-9_]+$/;
 
 /**
  * Jev Mobile Runner (Android Device Automation & Observation Gateway)
@@ -52,7 +56,7 @@ export class MobileRunner {
 
     // 1. Try detecting real ADB devices
     try {
-      const adbOutput = execSync('adb devices -l', { timeout: 1500, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const adbOutput = execFileSync('adb', ['devices', '-l'], { timeout: 1500, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
       const lines = adbOutput.trim().split('\n').slice(1);
       
       for (const line of lines) {
@@ -77,9 +81,6 @@ export class MobileRunner {
       // ADB not installed or no physical devices; fallback cleanly to Virtual Device
     }
 
-    // 2. Always include high-performance Virtual Device for local/browser operation
-    devices.push(this.virtualDevice);
-
     return devices;
   }
 
@@ -88,6 +89,15 @@ export class MobileRunner {
    */
   async getScreenState(deviceId = 'pixel-8-virtual') {
     const start = performance.now();
+
+    if (!deviceId || typeof deviceId !== 'string' || !DEVICE_ID_REGEX.test(deviceId)) {
+      return {
+        deviceId,
+        error: 'Invalid deviceId format',
+        foregroundPackage: 'unknown'
+      };
+    }
+
     const isVirtual = deviceId === this.virtualDevice.id || deviceId.includes('virtual');
 
     if (isVirtual) {
@@ -112,11 +122,12 @@ export class MobileRunner {
 
     // Physical ADB device inspection
     try {
-      const dump = execSync(`adb -s ${deviceId} shell dumpsys window | grep -E "mCurrentFocus"`, { timeout: 2000, encoding: 'utf8' });
+      const dump = execFileSync('adb', ['-s', deviceId, 'shell', 'dumpsys', 'window'], { timeout: 2000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const focusLine = dump.split('\n').find(l => l.includes('mCurrentFocus')) || '';
       return {
         deviceId,
         timestamp: new Date().toISOString(),
-        foregroundPackage: dump.trim() || 'com.android.launcher3',
+        foregroundPackage: focusLine.trim() || 'com.android.launcher3',
         resolution: { width: 1080, height: 2400 },
         latencyMs: Math.round((performance.now() - start) * 100) / 100
       };
@@ -139,8 +150,6 @@ export class MobileRunner {
       'com.android.systemui.emergency',
       'recovery'
     ];
-
-    const commandStr = `${actionType} ${JSON.stringify(params)}`;
 
     // Destructive command pattern check
     if (params.package && dangerousPackages.some(pkg => params.package.includes(pkg))) {
@@ -181,6 +190,49 @@ export class MobileRunner {
   async executeAction(deviceId = 'pixel-8-virtual', action = {}) {
     const start = performance.now();
     const actionType = action.type || 'tap';
+
+    // 0. Strict input validation
+    if (!deviceId || typeof deviceId !== 'string' || !DEVICE_ID_REGEX.test(deviceId)) {
+      const blockedLog = this.logEvent({
+        deviceId: String(deviceId),
+        action: actionType,
+        params: action,
+        status: 'BLOCKED',
+        verdict: 'BLOCKED_RISKY',
+        color: 'RED',
+        reason: 'Invalid device identifier format',
+        latencyMs: Math.round((performance.now() - start) * 100) / 100
+      });
+      return { success: false, blocked: true, verdict: 'BLOCKED_RISKY', reason: 'Invalid device identifier format', log: blockedLog };
+    }
+
+    if (action.package && (typeof action.package !== 'string' || !PACKAGE_REGEX.test(action.package))) {
+      const blockedLog = this.logEvent({
+        deviceId,
+        action: actionType,
+        params: action,
+        status: 'BLOCKED',
+        verdict: 'BLOCKED_RISKY',
+        color: 'RED',
+        reason: 'Invalid package name format',
+        latencyMs: Math.round((performance.now() - start) * 100) / 100
+      });
+      return { success: false, blocked: true, verdict: 'BLOCKED_RISKY', reason: 'Invalid package name format', log: blockedLog };
+    }
+
+    if (action.key && (typeof action.key !== 'string' || !KEY_REGEX.test(action.key))) {
+      const blockedLog = this.logEvent({
+        deviceId,
+        action: actionType,
+        params: action,
+        status: 'BLOCKED',
+        verdict: 'BLOCKED_RISKY',
+        color: 'RED',
+        reason: 'Invalid key format',
+        latencyMs: Math.round((performance.now() - start) * 100) / 100
+      });
+      return { success: false, blocked: true, verdict: 'BLOCKED_RISKY', reason: 'Invalid key format', log: blockedLog };
+    }
 
     // 1. Run Pre-Flight Agent Warden Safety Check
     const safety = this.evaluateSafety(actionType, action);
@@ -229,31 +281,38 @@ export class MobileRunner {
       } else if (actionType === 'launch') {
         this.virtualDevice.foregroundApp = action.package || 'com.android.chrome';
         executionOutput = `Activity launched: ${this.virtualDevice.foregroundApp}`;
+      } else {
+        executionOutput = `Unknown action type: ${actionType}`;
       }
     } 
-    // 3. Execute on Real Physical ADB Device
+    // 3. Execute on Real Physical ADB Device (bypasses shell completely via execFileSync)
     else {
       try {
         if (actionType === 'tap') {
-          const x = parseInt(action.x, 10) || 540;
-          const y = parseInt(action.y, 10) || 1200;
-          execSync(`adb -s ${deviceId} shell input tap ${x} ${y}`, { timeout: 3000 });
+          const x = Math.max(0, parseInt(action.x, 10) || 540);
+          const y = Math.max(0, parseInt(action.y, 10) || 1200);
+          execFileSync('adb', ['-s', deviceId, 'shell', 'input', 'tap', String(x), String(y)], { timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
           executionOutput = `Real device tap at (${x}, ${y})`;
         } else if (actionType === 'swipe') {
-          const { x1 = 500, y1 = 1500, x2 = 500, y2 = 500, duration = 300 } = action;
-          execSync(`adb -s ${deviceId} shell input swipe ${x1} ${y1} ${x2} ${y2} ${duration}`, { timeout: 3000 });
+          const x1 = Math.max(0, parseInt(action.x1, 10) || 500);
+          const y1 = Math.max(0, parseInt(action.y1, 10) || 1500);
+          const x2 = Math.max(0, parseInt(action.x2, 10) || 500);
+          const y2 = Math.max(0, parseInt(action.y2, 10) || 500);
+          const duration = Math.max(50, parseInt(action.duration, 10) || 300);
+          execFileSync('adb', ['-s', deviceId, 'shell', 'input', 'swipe', String(x1), String(y1), String(x2), String(y2), String(duration)], { timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
           executionOutput = `Real device swipe executed`;
         } else if (actionType === 'type') {
-          const safeText = (action.text || '').replace(/"/g, '\\"');
-          execSync(`adb -s ${deviceId} shell input text "${safeText}"`, { timeout: 3000 });
+          const safeText = String(action.text || '');
+          execFileSync('adb', ['-s', deviceId, 'shell', 'input', 'text', safeText], { timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
           executionOutput = `Text injected on device`;
         } else if (actionType === 'key') {
           const key = (action.key || 'HOME').toUpperCase();
-          execSync(`adb -s ${deviceId} shell input keyevent KEYCODE_${key}`, { timeout: 3000 });
+          execFileSync('adb', ['-s', deviceId, 'shell', 'input', 'keyevent', `KEYCODE_${key}`], { timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
           executionOutput = `Keyevent sent: KEYCODE_${key}`;
         } else if (actionType === 'launch') {
-          execSync(`adb -s ${deviceId} shell monkey -p ${action.package} -c android.intent.category.LAUNCHER 1`, { timeout: 4000 });
-          executionOutput = `Launched: ${action.package}`;
+          const pkg = action.package || 'com.android.chrome';
+          execFileSync('adb', ['-s', deviceId, 'shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1'], { timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] });
+          executionOutput = `Launched: ${pkg}`;
         }
       } catch (err) {
         executionOutput = `ADB Execution error: ${err.message}`;

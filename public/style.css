@@ -54,6 +54,28 @@ body {
   flex-shrink: 0;
 }
 
+.claude-sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+}
+
+.sidebar-reopen-btn {
+  display: none;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border-radius: 7px;
+  width: 30px;
+  height: 28px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.sidebar-reopen-btn.visible { display: inline-flex; align-items: center; justify-content: center; }
+
 .sidebar-top {
   display: flex;
   flex-direction: column;
@@ -592,6 +614,22 @@ body {
   color: var(--text-primary);
 }
 
+.attachment-chip {
+  position: absolute;
+  left: 44px;
+  top: 10px;
+  max-width: 260px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--bg-sidebar-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .input-card textarea {
   width: 100%;
   padding-left: 32px;
@@ -637,6 +675,20 @@ body {
 .control-btn:hover {
   color: var(--text-primary);
 }
+
+.control-btn.recording { color: #dc2626; background: rgba(220, 38, 38, 0.1); }
+
+.model-inline-search {
+  width: 92px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: transparent;
+}
+.model-inline-search:focus { outline: none; border-color: var(--accent-terracotta); width: 130px; }
 
 .model-picker-dropdown select {
   background: transparent;
@@ -1030,6 +1082,23 @@ body {
   flex-direction: column;
 }
 
+.mobile-empty-state {
+  width: 260px;
+  min-height: 180px;
+  padding: 28px 22px;
+  border: 1px dashed var(--border-card);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-pill);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .phone-notch {
   width: 100%;
   height: 16px;
@@ -1254,4 +1323,18 @@ body {
   transform: translateY(-1px);
 }
 
-
+/* Official MetaMask extension icon. The previous hand-inlined path is too detailed
+   at button size and renders as a blurry polygon in some browsers. */
+svg[viewBox="0 0 318.6 318.6"] { display: none !important; }
+button:has(svg[viewBox="0 0 318.6 318.6"])::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-block;
+  background: center / contain no-repeat url("https://raw.githubusercontent.com/MetaMask/metamask-extension/main/app/images/icon-128.png");
+}
+.gate-dialog button:has(svg[viewBox="0 0 318.6 318.6"])::before { width: 18px; height: 18px; }
+.gate-starburst:has(svg[viewBox="0 0 318.6 318.6"])::before { width: 40px; height: 40px; display: block; content: ""; }
+.gate-starburst:has(svg[viewBox="0 0 318.6 318.6"])::before,
+.gate-dialog button:has(svg[viewBox="0 0 318.6 318.6"])::before { background-size: contain; }

@@ -13,8 +13,7 @@
     "dev": "node bin/brain.js serve --port 3333",
     "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js",
     "classify": "node bin/brain.js classify",
-    "warden": "node bin/brain.js warden",
-    "reseed": "node scripts/reseed-commits.js"
+    "warden": "node bin/brain.js warden"
   },
   "keywords": [
     "ai",

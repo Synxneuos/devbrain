@@ -1,10 +1,10 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { JevBrain, PRESETS } from './core/router.js';
 import { AgentWarden } from './core/warden.js';
-import { MultiModelRouter } from './core/multi-model.js';
 import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
 import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
 import { MobileRunner } from './core/mobile.js';
@@ -13,12 +13,42 @@ import { verifyMessage } from 'ethers';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const STATE_FILE = process.env.STATE_FILE || (
+  process.env.NODE_ENV === 'test'
+    ? path.join(DATA_DIR, 'jev-state.test.json')
+    : path.join(DATA_DIR, 'jev-state.json')
+);
 
-// Active signature authentication nonces
+// State persistence
+fs.mkdirSync(DATA_DIR, { recursive: true });
+function readState() {
+  try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; }
+}
+function writeState(state) {
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8'); } catch {}
+}
+const savedState = readState();
+
+// Active signature authentication nonces (5-minute TTL)
 const activeNonces = new Map();
+const NONCE_TTL_MS = 5 * 60 * 1000;
+
+// Authenticated Sessions Map: sessionToken -> { address, userTier, tokensHeld, createdAt }
+const authenticatedSessions = new Map();
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour session TTL
+
+function cleanupSessions() {
+  const now = Date.now();
+  for (const [token, session] of authenticatedSessions.entries()) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      authenticatedSessions.delete(token);
+    }
+  }
+}
 
 // Persistent User Profiles by Wallet Address
-const userProfiles = new Map();
+const userProfiles = new Map(Object.entries(savedState.profiles || {}));
 
 // Global server analytics
 const stats = {
@@ -31,23 +61,31 @@ const stats = {
 
 const defaultBrain = new JevBrain();
 const defaultWarden = new AgentWarden();
-const multiModelRouter = new MultiModelRouter();
 const openRouterClient = new OpenRouterClient();
 const mobileRunner = new MobileRunner({ warden: defaultWarden });
 
 // Persistent Real Projects Store
-let projects = [
+let projects = savedState.projects || [
   { id: 'proj-1', name: 'Trading Bot', description: 'Robinhood Chain DexScreener automation', createdAt: '2026-09-17', chatCount: 2 },
   { id: 'proj-2', name: 'Agent Safety Proxy', description: 'Agent Warden pre-flight command firewall', createdAt: '2026-09-18', chatCount: 3 },
   { id: 'proj-3', name: 'Inbox AI Triage', description: 'Zero-key sub-millisecond email classification', createdAt: '2026-09-19', chatCount: 1 }
 ];
 
 // Persistent Real Artifacts Store
-let artifacts = [
+let artifacts = savedState.artifacts || [
   { id: 'art-1', title: 'OpenRouter Dynamic Model Router', type: 'code', language: 'javascript', code: '// Jev Brain Multi-Model Dynamic Cost Matrix\nexport function routeModel(prompt, complexity) {\n  if (complexity === "simple") return "meta-llama/llama-3.1-8b-instruct";\n  if (complexity === "medium") return "anthropic/claude-3.5-haiku";\n  return "anthropic/claude-3.5-sonnet";\n}', createdAt: '2026-09-18' },
   { id: 'art-2', title: 'Warden 4-Question Safety Ruleset', type: 'config', language: 'json', code: '{\n  "protectedPaths": [".env", ".git", "id_rsa", "*.pem"],\n  "destructiveKeywords": ["rm -rf", "drop database", "format", "mkfs"],\n  "maxLoopRepetition": 3\n}', createdAt: '2026-09-19' },
   { id: 'art-3', title: 'Dynamic DexScreener Tier Curve', type: 'math', language: 'markdown', code: '# Dynamic MC Tier Formula\nTrust Multiplier = sqrt(MC / 100,000)\nRequired Bag ($) = baseUsd * Trust Multiplier\nTokens Needed = Required Bag / Token Price', createdAt: '2026-09-19' }
 ];
+
+function persistState() {
+  writeState({
+    profiles: Object.fromEntries(userProfiles.entries()),
+    projects,
+    artifacts
+  });
+}
+
 
 function getContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -86,7 +124,7 @@ export async function handleRequest(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Token');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -243,17 +281,35 @@ export async function handleRequest(req, res) {
       return;
     }
 
-    if (url.pathname === '/api/chat' && req.method === 'POST') {
+    if ((url.pathname === '/api/chat' || url.pathname === '/api/chat/stream') && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
         const prompt = body.prompt || '';
         const model = body.model || 'auto';
-        const tokensHeld = parseFloat(body.tokensHeld) || 500000;
-        const walletAddress = body.walletAddress || '';
 
-        // Live Market Cap & Dynamic Tier evaluation
-        const marketData = await fetchLiveMarketData();
-        const userTier = calculateDynamicTier(tokensHeld, marketData);
+        // Signature-bound cryptographic session validation
+        cleanupSessions();
+        const authHeader = req.headers['authorization'] || '';
+        const sessionToken = authHeader.startsWith('Bearer ')
+          ? authHeader.slice(7).trim()
+          : (req.headers['x-session-token'] || body.sessionToken || '');
+
+        if (!sessionToken || !authenticatedSessions.has(sessionToken)) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: Valid wallet signature session required. Please connect and sign in with your wallet.' }));
+          return;
+        }
+
+        const session = authenticatedSessions.get(sessionToken);
+        if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+          authenticatedSessions.delete(sessionToken);
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Session expired. Please reconnect and sign in with your wallet again.' }));
+          return;
+        }
+
+        const walletAddress = session.address;
+        const userTier = session.userTier;
 
         // Execute via internal OpenRouter
         const result = await openRouterClient.executeChat(prompt, userTier, model);
@@ -268,13 +324,26 @@ export async function handleRequest(req, res) {
           stats.reviewCount++;
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+        const payload = {
           ...result,
           walletAddress,
           userTier,
           totalSavedUsd: Math.round(stats.estimatedCostSavedUsd * 1000) / 1000
-        }));
+        };
+
+        if (url.pathname === '/api/chat/stream') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          });
+          res.write(`data: ${JSON.stringify({ token: result.response })}\n\n`);
+          res.write(`data: ${JSON.stringify({ done: true, ...payload })}\n\n`);
+          res.end();
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(payload));
+        }
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -302,6 +371,20 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/wallet/nonce' && req.method === 'GET') {
       const address = (url.searchParams.get('address') || '').toLowerCase();
+      if (!address) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Wallet address is required.' }));
+        return;
+      }
+
+      // Cleanup expired nonces
+      const now = Date.now();
+      for (const [key, entry] of activeNonces.entries()) {
+        if (now - entry.createdAt > NONCE_TTL_MS) {
+          activeNonces.delete(key);
+        }
+      }
+
       const nonce = Math.floor(100000 + Math.random() * 900000).toString();
       const timestamp = new Date().toISOString();
       const message = `Welcome to Jev Brain!\n\nClick to sign and authenticate your wallet.\nThis request will not trigger a blockchain transaction or cost any gas fees.\n\nWallet: ${address}\nNonce: ${nonce}\nTimestamp: ${timestamp}`;
@@ -319,6 +402,19 @@ export async function handleRequest(req, res) {
         const message = body.message || '';
         const tokensHeld = parseFloat(body.tokensHeld) || 5000000;
 
+        if (!address || !signature || !message) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Address, message and signature are required.' }));
+          return;
+        }
+
+        const challenge = activeNonces.get(address);
+        if (!challenge || challenge.message !== message || Date.now() - challenge.createdAt > NONCE_TTL_MS) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Authentication challenge is missing or expired.' }));
+          return;
+        }
+
         // 1. Verify cryptographic signature with ethers
         let verifiedAddress = '';
         try {
@@ -335,15 +431,28 @@ export async function handleRequest(req, res) {
           return;
         }
 
+        activeNonces.delete(address);
+
         // 2. Fetch market data & calculate dynamic tier
         const marketData = await fetchLiveMarketData();
         const userTier = calculateDynamicTier(tokensHeld, marketData);
+
+        // 3. Issue cryptographic signature-bound session token
+        cleanupSessions();
+        const sessionToken = crypto.randomBytes(32).toString('hex');
+        authenticatedSessions.set(sessionToken, {
+          address: verifiedAddress,
+          userTier,
+          tokensHeld,
+          createdAt: Date.now()
+        });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
           verified: true,
-          address,
+          sessionToken,
+          address: verifiedAddress,
           unlocked: userTier.tierId > 0,
           tokensHeld,
           userTier,
@@ -381,40 +490,13 @@ export async function handleRequest(req, res) {
 
         const profile = { address, name, email, updatedAt: Date.now() };
         userProfiles.set(address, profile);
+        persistState();
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, profile }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
-      }
-      return;
-    }
-
-    if ((url.pathname === '/api/wallet-verify' || url.pathname === '/api/wallet/rainbow-verify') && req.method === 'POST') {
-      try {
-        const body = await parseJsonBody(req);
-        const address = body.address || '';
-        const tokensHeld = parseFloat(body.tokensHeld) || 500000;
-
-        const marketData = await fetchLiveMarketData();
-        const userTier = calculateDynamicTier(tokensHeld, marketData);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          address,
-          unlocked: userTier.tierId > 0,
-          tokensHeld,
-          userTier,
-          marketData,
-          walletProvider: 'MetaMask / Web3 Wallet',
-          message: userTier.tierId > 0 
-            ? `Wallet verified! Assigned to [${userTier.tierName}]` 
-            : 'Holding required to access.'
-        }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
       }
       return;
     }
@@ -437,7 +519,14 @@ export async function handleRequest(req, res) {
         res.end(JSON.stringify({
           command,
           verdict: evaluation.decision,
+          decision: evaluation.decision,
           ...evaluation,
+          checks: {
+            fileCheck: evaluation.questions?.is_right_file || { ok: true },
+            irrevCheck: evaluation.questions?.is_irreversible || { irreversible: false },
+            loopCheck: evaluation.questions?.are_we_looping || { looping: false },
+            doneCheck: evaluation.questions?.are_we_done || { done: false }
+          },
           timestamp: new Date().toISOString()
         }));
       } catch (err) {

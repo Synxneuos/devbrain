@@ -1,5 +1,5 @@
-// Jev Brain - Complete Web3 AI Platform (100% Real, Zero Mocks)
-// Rainbow Wallet Integration (rainbow.me) & Dynamic DexScreener Engine
+// Jev Brain - Web3 AI Agent Platform & Decision Engine
+// Multi-Model Routing, Dynamic DexScreener Tiers & Agent Warden
 
 // ============================================
 // GLOBAL STATE & STORAGE
@@ -12,12 +12,20 @@ let currentChatId = null;
 let allOpenRouterModels = [];
 let discoveredProvider = null;
 let currentUserProfile = null;
+let activeGenerationController = null;
+let pendingAttachment = null;
+let speechRecognition = null;
+let audioRecorder = null;
+let audioChunks = [];
 
 // Persistent Chats & Projects
 const STORAGE_CHATS_KEY = 'jevbrain_chats_v2';
 const STORAGE_ACTIVE_CHAT_KEY = 'jevbrain_active_chat_v2';
 const STORAGE_WALLET_KEY = 'jevbrain_wallet';
+const STORAGE_SESSION_TOKEN = 'jevbrain_session_token';
 const STORAGE_PROFILE_PREFIX = 'jevbrain_profile_';
+const STORAGE_TIER_PREFIX = 'jevbrain_tier_';
+const STORAGE_PROJECTS_PREFIX = 'jevbrain_projects_';
 
 // ============================================
 // DOM SELECTORS
@@ -30,9 +38,16 @@ const elements = {
   input: document.getElementById('prompt-input'),
   sendBtn: document.getElementById('send-btn'),
   modelSelect: document.getElementById('model-select'),
+  modelInlineSearch: document.getElementById('model-inline-search'),
+  attachBtn: document.getElementById('attach-btn'),
+  attachmentInput: document.getElementById('attachment-input'),
+  attachmentChip: document.getElementById('attachment-chip'),
+  voiceBtn: document.getElementById('voice-input-btn'),
+  audioBtn: document.getElementById('audio-record-btn'),
   newChatBtn: document.getElementById('new-chat-btn'),
   savedPill: document.getElementById('total-saved-pill'),
   collapseBtn: document.getElementById('collapse-sidebar-btn'),
+  reopenBtn: document.getElementById('sidebar-reopen-btn'),
   sidebar: document.getElementById('sidebar'),
   gateOverlay: document.getElementById('wallet-gate-overlay'),
   connectBtn: document.getElementById('connect-wallet-btn'),
@@ -142,6 +157,25 @@ function getWeb3Provider() {
   return null;
 }
 
+function registerWalletProviderListeners() {
+  const provider = getWeb3Provider();
+  if (!provider?.on) return;
+  provider.on('accountsChanged', (accounts) => {
+    const next = accounts?.[0]?.toLowerCase();
+    if (!next || (currentWallet && next !== currentWallet.toLowerCase())) {
+      disconnectWallet();
+      if (next) elements.status.textContent = 'Account changed — reconnect required';
+    }
+  });
+  provider.on('chainChanged', () => {
+    // Token balances and eligibility are network-specific. Never keep the old tier.
+    if (currentWallet) {
+      disconnectWallet();
+      alert('Network changed. Please reconnect your wallet so Jev can verify the new network.');
+    }
+  });
+}
+
 // Convert string to hex for personal_sign parameters
 function stringToHex(str) {
   let hex = '0x';
@@ -226,13 +260,17 @@ async function connectMetaMaskWallet() {
         address: account,
         signature,
         message,
-        tokensHeld: 5000000
       })
     });
 
     const verifyData = await verifyRes.json();
     if (!verifyRes.ok || !verifyData.success) {
       throw new Error(verifyData.error || 'Cryptographic signature verification failed.');
+    }
+
+    if (verifyData.sessionToken) {
+      sessionStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
+      localStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
     }
 
     // Step 5: Unlock UI and update state
@@ -361,33 +399,19 @@ function promptOnboarding(address) {
   }, 100);
 }
 
-async function quickVerifyDemo() {
-  // Demo verified wallet with Dynasty Magnate holdings
-  await onWalletAuthenticated('0x71C8364437a9C47f45826027E2F891f7d43B339F', 5000000);
-}
-
-async function onWalletAuthenticated(address, tokens = 5000000, precalculatedTier = null) {
+async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = null) {
   try {
     let tierData = precalculatedTier;
     if (!tierData) {
-      const res = await fetch('/api/wallet-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, tokensHeld: tokens })
-      });
-      const data = await res.json();
-      if (!data.unlocked) {
-        isTokenHolder = false;
-        elements.gateOverlay.style.display = 'flex';
-        alert('Access Restricted: $JEV token holding required in your wallet.');
-        return;
-      }
-      tierData = data.userTier;
+      const cachedTier = localStorage.getItem(STORAGE_TIER_PREFIX + address.toLowerCase());
+      if (cachedTier) tierData = JSON.parse(cachedTier);
+      else throw new Error('Wallet session expired. Please reconnect MetaMask.');
     }
 
     currentWallet = address;
     isTokenHolder = true;
     userTier = tierData;
+    refreshInlineModelOptions(elements.modelInlineSearch?.value || '');
 
     // Unlock UI
     elements.gateOverlay.style.display = 'none';
@@ -438,6 +462,7 @@ async function onWalletAuthenticated(address, tokens = 5000000, precalculatedTie
     if (rDiscBtn) rDiscBtn.style.display = 'block';
 
     localStorage.setItem(STORAGE_WALLET_KEY, address);
+    localStorage.setItem(STORAGE_TIER_PREFIX + address.toLowerCase(), JSON.stringify(userTier));
     console.log(`✓ MetaMask Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
   } catch (err) {
     console.error('Verification failure:', err);
@@ -450,6 +475,8 @@ function disconnectWallet() {
   userTier = null;
   currentUserProfile = null;
   localStorage.removeItem(STORAGE_WALLET_KEY);
+  sessionStorage.removeItem(STORAGE_SESSION_TOKEN);
+  localStorage.removeItem(STORAGE_SESSION_TOKEN);
 
   if (elements.heroHeading) {
     elements.heroHeading.textContent = 'Welcome! I’m Jev Brain.';
@@ -490,7 +517,7 @@ function disconnectWallet() {
 }
 
 // ============================================
-// CHATS & MULTI-SESSION MANAGER (NO MOCKS)
+// CHATS & MULTI-SESSION MANAGER
 // ============================================
 function getSavedChats() {
   try {
@@ -631,6 +658,14 @@ function saveMessageToCurrentChat(role, payload) {
 
   saveChats(chats);
   renderChatsList();
+  if (currentWallet) {
+    const savedChat = chats.find(item => item.id === currentChatId);
+    fetch('/api/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: currentWallet, chat: savedChat })
+    }).catch(() => {});
+  }
 }
 
 // ============================================
@@ -643,51 +678,110 @@ async function handleSubmit() {
   }
 
   const text = elements.input.value.trim();
-  if (!text) return;
+  if (!text && !pendingAttachment) return;
+  const attachmentContext = pendingAttachment?.text ? `\n\nAttached file (${pendingAttachment.name}):\n${pendingAttachment.text.slice(0, 120000)}` : '';
+  const promptText = `${text}${attachmentContext}`.trim();
 
   if (elements.hero) elements.hero.style.display = 'none';
-  appendUserMessage(text, true);
+  appendUserMessage(text || `Attached ${pendingAttachment.name}`, true);
   elements.input.value = '';
   elements.input.style.height = '38px';
+  pendingAttachment = null;
+  if (elements.attachmentChip) elements.attachmentChip.hidden = true;
 
+  if (activeGenerationController) {
+    activeGenerationController.abort();
+    return;
+  }
   const loadingRow = appendLoading();
+  activeGenerationController = new AbortController();
+  if (elements.sendBtn) elements.sendBtn.title = 'Stop generation';
   elements.center.scrollTop = elements.center.scrollHeight;
 
   try {
     const model = elements.modelSelect.value;
-    const res = await fetch('/api/chat', {
+    const sessionToken = sessionStorage.getItem(STORAGE_SESSION_TOKEN) || localStorage.getItem(STORAGE_SESSION_TOKEN) || '';
+    const res = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': sessionToken ? `Bearer ${sessionToken}` : '',
+        'X-Session-Token': sessionToken
+      },
       body: JSON.stringify({
-        prompt: text,
+        prompt: promptText,
         model,
-        walletAddress: currentWallet
-      })
+        walletAddress: currentWallet,
+        sessionToken
+      }),
+      signal: activeGenerationController.signal
     });
 
-    if (!res.ok) throw new Error('API request failed: ' + res.status);
-    const data = await res.json();
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'API request failed: ' + res.status);
+    }
 
     loadingRow.remove();
-    appendAssistantResponse(data, true);
+    const streamRow = appendStreamingAssistant();
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let responseText = '';
+    let finalData = null;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const event of events) {
+        const line = event.split('\n').find(item => item.startsWith('data:'));
+        if (!line) continue;
+        const packet = JSON.parse(line.slice(5).trim());
+        if (packet.error) throw new Error(packet.error);
+        if (packet.token) {
+          responseText += packet.token;
+          streamRow.querySelector('.msg-bubble-assistant').innerHTML = formatMarkdown(responseText);
+          elements.center.scrollTop = elements.center.scrollHeight;
+        }
+        if (packet.done) finalData = packet;
+      }
+    }
+    finalData = finalData || { response: responseText, modelName: 'Jev Gateway', latencyMs: 0, dollarsSaved: 0 };
+    streamRow.querySelector('.routing-header-pill span').textContent = `⚡ ${finalData.modelName || model} • ${finalData.latencyMs || 0}ms • Saved $${(finalData.dollarsSaved || 0).toFixed(4)}`;
+    saveMessageToCurrentChat('assistant', { ...finalData, response: responseText });
 
-    totalSavingsUsd += (data.dollarsSaved || 0.019);
+    totalSavingsUsd += (finalData.dollarsSaved || 0);
     elements.savedPill.textContent = `Saved $${totalSavingsUsd.toFixed(4)}`;
 
     // Extract any code block as artifact
-    extractAndSaveArtifact(text, data.response);
+    extractAndSaveArtifact(text, responseText);
 
   } catch (err) {
     loadingRow.remove();
-    appendAssistantResponse({
-      response: `Connection warning: ${err.message}. Jev Brain local router remains operational.`,
-      modelName: 'Router Safeguard',
-      latencyMs: 1,
-      dollarsSaved: 0
-    }, true);
+    if (err.name !== 'AbortError') {
+      appendAssistantResponse({
+        response: `I couldn't complete that request. ${err.message}`,
+        modelName: 'Jev Gateway',
+        latencyMs: 0,
+        dollarsSaved: 0
+      }, true);
+    }
   }
 
+  activeGenerationController = null;
+  if (elements.sendBtn) elements.sendBtn.title = 'Send';
+
   elements.center.scrollTop = elements.center.scrollHeight;
+}
+
+function appendStreamingAssistant() {
+  const row = document.createElement('div');
+  row.className = 'msg-row assistant';
+  row.innerHTML = '<div class="routing-header-pill"><span>⚡ Jev Gateway • streaming...</span></div><div class="msg-bubble-assistant"></div>';
+  elements.messages.appendChild(row);
+  return row;
 }
 
 function appendUserMessage(text, shouldSave = true) {
@@ -748,22 +842,28 @@ function extractAndSaveArtifact(userPrompt, responseText) {
 // PROJECTS MANAGER (REAL API)
 // ============================================
 async function openProjectsModal() {
-  if (!isTokenHolder) { elements.gateOverlay.style.display = 'flex'; return; }
   elements.projectsModal.style.display = 'flex';
+  renderProjectsList(getLocalProjects());
+}
 
+function getLocalProjects() {
+  if (!currentWallet) return [];
   try {
-    const res = await fetch('/api/projects');
-    const data = await res.json();
-    renderProjectsList(data.projects || []);
-  } catch (e) {
-    console.error('Projects fetch error:', e);
+    return JSON.parse(localStorage.getItem(STORAGE_PROJECTS_PREFIX + currentWallet.toLowerCase()) || '[]');
+  } catch {
+    return [];
   }
+}
+
+function saveLocalProjects(projects) {
+  if (!currentWallet) return;
+  localStorage.setItem(STORAGE_PROJECTS_PREFIX + currentWallet.toLowerCase(), JSON.stringify(projects));
 }
 
 function renderProjectsList(projects) {
   elements.projectsList.innerHTML = '';
   if (projects.length === 0) {
-    elements.projectsList.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">No projects created yet.</div>';
+    elements.projectsList.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:12px 0;">${currentWallet ? 'No projects created yet. Create your first workspace above.' : 'Connect your wallet to create and access your private projects.'}</div>`;
     return;
   }
 
@@ -787,23 +887,26 @@ function renderProjectsList(projects) {
 }
 
 async function handleCreateProject() {
+  if (!currentWallet) {
+    elements.gateOverlay.style.display = 'flex';
+    return;
+  }
   const name = elements.newProjName.value.trim();
   const desc = elements.newProjDesc.value.trim();
   if (!name) { alert('Enter a project name'); return; }
 
-  try {
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description: desc })
-    });
-    const data = await res.json();
-    elements.newProjName.value = '';
-    elements.newProjDesc.value = '';
-    renderProjectsList(data.projects);
-  } catch (e) {
-    alert('Project creation failed');
-  }
+  const projects = getLocalProjects();
+  projects.unshift({
+    id: `project-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
+    name,
+    description: desc,
+    createdAt: new Date().toISOString().slice(0, 10),
+    chatCount: 0
+  });
+  saveLocalProjects(projects);
+  elements.newProjName.value = '';
+  elements.newProjDesc.value = '';
+  renderProjectsList(projects);
 }
 
 // ============================================
@@ -813,7 +916,6 @@ let loadedArtifacts = [];
 let selectedArtifactIndex = 0;
 
 async function openArtifactsModal() {
-  if (!isTokenHolder) { elements.gateOverlay.style.display = 'flex'; return; }
   elements.artifactsModal.style.display = 'flex';
 
   try {
@@ -881,7 +983,6 @@ function downloadActiveArtifact() {
 // AGENT WARDEN PRE-FLIGHT TEST BENCH
 // ============================================
 function openWardenModal() {
-  if (!isTokenHolder) { elements.gateOverlay.style.display = 'flex'; return; }
   elements.wardenModal.style.display = 'flex';
 }
 
@@ -915,17 +1016,27 @@ async function runWardenCheck(commandToTest) {
       elements.wardenBadge.style.color = '#059669';
     }
 
+    const q = data.questions || {};
     const checks = data.checks || {};
-    elements.wardenChkFile.textContent = `1. File: ${checks.fileCheck?.ok ? '✓ Safe' : '✗ Protected'}`;
-    elements.wardenChkFile.style.color = checks.fileCheck?.ok ? '#059669' : '#e11d48';
+    const fileCheck = checks.fileCheck || q.is_right_file || {};
+    const irrevCheck = checks.irrevCheck || q.is_irreversible || {};
+    const loopCheck = checks.loopCheck || q.are_we_looping || {};
+    const doneCheck = checks.doneCheck || q.are_we_done || {};
 
-    elements.wardenChkIrrev.textContent = `2. Irreversible: ${checks.irrevCheck?.irreversible ? '✗ Dangerous' : '✓ Safe'}`;
-    elements.wardenChkIrrev.style.color = checks.irrevCheck?.irreversible ? '#e11d48' : '#059669';
+    const isFileSafe = fileCheck.ok !== false;
+    elements.wardenChkFile.textContent = `1. File: ${isFileSafe ? '✓ Safe' : '✗ Protected'}`;
+    elements.wardenChkFile.style.color = isFileSafe ? '#059669' : '#e11d48';
 
-    elements.wardenChkLoop.textContent = `3. Loop: ${checks.loopCheck?.looping ? '✗ Loop' : '✓ OK'}`;
-    elements.wardenChkLoop.style.color = checks.loopCheck?.looping ? '#e11d48' : '#059669';
+    const isIrreversible = irrevCheck.irreversible === true;
+    elements.wardenChkIrrev.textContent = `2. Irreversible: ${isIrreversible ? '✗ Dangerous' : '✓ Safe'}`;
+    elements.wardenChkIrrev.style.color = isIrreversible ? '#e11d48' : '#059669';
 
-    elements.wardenChkDone.textContent = `4. Finished: ${checks.doneCheck?.done ? '✓ Done' : '○ Ongoing'}`;
+    const isLooping = loopCheck.looping === true;
+    elements.wardenChkLoop.textContent = `3. Loop: ${isLooping ? '✗ Loop' : '✓ OK'}`;
+    elements.wardenChkLoop.style.color = isLooping ? '#e11d48' : '#059669';
+
+    const isDone = doneCheck.done === true;
+    elements.wardenChkDone.textContent = `4. Finished: ${isDone ? '✓ Done' : '○ Ongoing'}`;
 
   } catch (e) {
     alert('Warden check failed');
@@ -938,21 +1049,27 @@ async function runWardenCheck(commandToTest) {
 // MODEL ROUTER MODAL
 // ============================================
 async function openRouterModal() {
-  if (!isTokenHolder) { elements.gateOverlay.style.display = 'flex'; return; }
   elements.routerModal.style.display = 'flex';
 
   try {
-    const res = await fetch('/api/market-info');
+    const res = await fetch('/api/models');
     const data = await res.json();
-    renderModelRouterGrid(data.models || {});
+    if (!res.ok) throw new Error(data.error || 'Unable to load OpenRouter models');
+    renderModelRouterGrid(data.models || []);
   } catch (e) {
-    console.error('Router modal load error:', e);
+    elements.routerModelsGrid.innerHTML = `<div style="grid-column:1/-1;color:#b91c1c;font-size:12px;padding:12px;">${escapeHtml(e.message)}</div>`;
   }
 }
 
 function renderModelRouterGrid(modelsMap) {
   elements.routerModelsGrid.innerHTML = '';
-  const entries = Object.entries(modelsMap);
+  const entries = Array.isArray(modelsMap)
+    ? modelsMap.map(model => [model.id, {
+      name: model.name || model.id,
+      tier: model.architecture?.modality === 'text->text' ? 'TEXT' : 'MULTIMODAL',
+      cost: Number(model.pricing?.prompt || 0) * 1000000
+    }])
+    : Object.entries(modelsMap);
   elements.routerModelCount.textContent = `${entries.length}+ Models`;
 
   entries.forEach(([id, m]) => {
@@ -967,6 +1084,9 @@ function renderModelRouterGrid(modelsMap) {
       <div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Est: $${m.cost}/1M tokens</div>
     `;
     card.addEventListener('click', () => {
+      if (![...elements.modelSelect.options].some(option => option.value === id)) {
+        elements.modelSelect.add(new Option(m.name, id));
+      }
       elements.modelSelect.value = id;
       elements.routerModal.style.display = 'none';
     });
@@ -982,11 +1102,127 @@ function filterRouterModels() {
   });
 }
 
+function refreshInlineModelOptions(query = '') {
+  if (!elements.modelSelect || !allOpenRouterModels.length) return;
+  const selected = elements.modelSelect.value;
+  const allowed = userTier?.allowedModels || [];
+  const canUseAll = allowed.includes('all') || !currentWallet;
+  const needle = query.trim().toLowerCase();
+  const models = allOpenRouterModels.filter(model => {
+    const haystack = `${model.id} ${model.name || ''}`.toLowerCase();
+    const matchesSearch = !needle || haystack.includes(needle);
+    const allowedForTier = canUseAll || allowed.some(rule => model.id === rule || model.id.startsWith(rule));
+    return matchesSearch && allowedForTier;
+  }).slice(0, 80);
+  elements.modelSelect.innerHTML = '<option value="auto">Jev Router • Auto (OpenRouter)</option>';
+  models.forEach(model => elements.modelSelect.add(new Option(model.name || model.id, model.id)));
+  if ([...elements.modelSelect.options].some(option => option.value === selected)) elements.modelSelect.value = selected;
+}
+
+async function loadOpenRouterModels() {
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.models)) {
+      allOpenRouterModels = data.models;
+      refreshInlineModelOptions(elements.modelInlineSearch?.value || '');
+    }
+  } catch (err) {
+    console.warn('Model catalog unavailable:', err.message);
+  }
+}
+
+function handleAttachment(file) {
+  if (!file) return;
+  const maxBytes = 1024 * 1024;
+  if (file.size > maxBytes) {
+    alert('Attachment is too large. Please choose a file under 1 MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingAttachment = { name: file.name, text: String(reader.result || '') };
+    if (elements.attachmentChip) {
+      elements.attachmentChip.hidden = false;
+      elements.attachmentChip.textContent = `📎 ${file.name} ×`;
+    }
+  };
+  reader.onerror = () => alert('Could not read this attachment.');
+  reader.readAsText(file);
+}
+
+function toggleVoiceDictation() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Voice dictation is not supported in this browser. Try Chrome or Edge.');
+    return;
+  }
+  if (speechRecognition) {
+    speechRecognition.stop();
+    speechRecognition = null;
+    elements.voiceBtn?.classList.remove('recording');
+    return;
+  }
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.continuous = true;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = navigator.language || 'en-US';
+  speechRecognition.onresult = event => {
+    const transcript = [...event.results].map(result => result[0].transcript).join('');
+    elements.input.value = transcript;
+    elements.input.dispatchEvent(new Event('input'));
+  };
+  speechRecognition.onerror = event => {
+    if (event.error !== 'aborted') alert(`Voice dictation failed: ${event.error}`);
+    speechRecognition = null;
+    elements.voiceBtn?.classList.remove('recording');
+  };
+  speechRecognition.onend = () => {
+    speechRecognition = null;
+    elements.voiceBtn?.classList.remove('recording');
+  };
+  speechRecognition.start();
+  elements.voiceBtn?.classList.add('recording');
+}
+
+async function toggleAudioRecording() {
+  if (audioRecorder?.state === 'recording') {
+    audioRecorder.stop();
+    elements.audioBtn.textContent = '✓';
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    alert('Audio recording is not supported in this browser.');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    audioRecorder = new MediaRecorder(stream);
+    audioRecorder.ondataavailable = event => { if (event.data.size) audioChunks.push(event.data); };
+    audioRecorder.onstop = () => {
+      stream.getTracks().forEach(track => track.stop());
+      const blob = new Blob(audioChunks, { type: audioRecorder.mimeType || 'audio/webm' });
+      pendingAttachment = { name: `voice-note-${Date.now()}.webm`, blob, text: '[Voice recording attached]' };
+      if (elements.attachmentChip) {
+        elements.attachmentChip.hidden = false;
+        elements.attachmentChip.textContent = `🎙️ Voice note ready ×`;
+      }
+      elements.audioBtn.textContent = '◉';
+      elements.audioBtn.classList.remove('recording');
+    };
+    audioRecorder.start();
+    elements.audioBtn.textContent = '■';
+    elements.audioBtn.classList.add('recording');
+  } catch (err) {
+    alert(`Microphone permission was not granted: ${err.message}`);
+  }
+}
+
 // ============================================
 // SEARCH & TRANSCRIPT EXPORT
 // ============================================
 function openSearchModal() {
-  if (!isTokenHolder) { elements.gateOverlay.style.display = 'flex'; return; }
   elements.searchModal.style.display = 'flex';
   elements.chatSearchInput.focus();
 }
@@ -1178,9 +1414,16 @@ async function refreshMobileDevices() {
       data.devices.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = `${d.name} • ${d.type === 'virtual' ? 'Virtual' : 'ADB'}`;
+        opt.textContent = `${d.name} • ADB`;
         select.appendChild(opt);
       });
+      const hasDevice = data.devices.length > 0;
+      const empty = document.getElementById('mobile-empty-state');
+      const phone = document.getElementById('mobile-phone-frame');
+      if (empty) empty.style.display = hasDevice ? 'none' : 'flex';
+      if (phone) phone.style.display = hasDevice ? 'flex' : 'none';
+      document.querySelectorAll('#mobile-modal .warden-preset-btn, #mobile-modal .phone-icon-btn').forEach(button => { button.disabled = !hasDevice; });
+      if (!hasDevice) select.innerHTML = '<option value="">No ADB device connected</option>';
     }
   } catch (e) {
     console.error('Failed to load mobile devices:', e);
@@ -1260,7 +1503,6 @@ async function refreshMobileLogs() {
 function bindEvents() {
   // Wallet
   elements.connectBtn?.addEventListener('click', connectMetaMaskWallet);
-  elements.verifyBtn?.addEventListener('click', quickVerifyDemo);
   elements.disconnectBtn?.addEventListener('click', disconnectWallet);
 
   // New Chat
@@ -1325,10 +1567,26 @@ function bindEvents() {
 
   // Sidebar Collapse
   elements.collapseBtn?.addEventListener('click', () => {
-    elements.sidebar.style.display = elements.sidebar.style.display === 'none' ? 'flex' : 'none';
+    elements.sidebar.classList.add('collapsed');
+    elements.reopenBtn?.classList.add('visible');
+  });
+  elements.reopenBtn?.addEventListener('click', () => {
+    elements.sidebar.classList.remove('collapsed');
+    elements.reopenBtn.classList.remove('visible');
   });
 
   // Chat Input
+  elements.attachBtn?.addEventListener('click', () => elements.attachmentInput?.click());
+  elements.attachmentInput?.addEventListener('change', event => handleAttachment(event.target.files?.[0]));
+  elements.attachmentChip?.addEventListener('click', () => {
+    pendingAttachment = null;
+    elements.attachmentChip.hidden = true;
+    if (elements.attachmentInput) elements.attachmentInput.value = '';
+  });
+  elements.voiceBtn?.addEventListener('click', toggleVoiceDictation);
+  elements.audioBtn?.addEventListener('click', toggleAudioRecording);
+  elements.modelInlineSearch?.addEventListener('input', event => refreshInlineModelOptions(event.target.value));
+
   elements.input?.addEventListener('input', () => {
     elements.input.style.height = 'auto';
     elements.input.style.height = Math.min(elements.input.scrollHeight, 180) + 'px';
@@ -1346,7 +1604,6 @@ function bindEvents() {
   const walletModal = document.getElementById('rainbow-modal');
   const walletModalClose = document.getElementById('rainbow-modal-close');
   const walletModalConn = document.getElementById('rainbow-modal-connect-btn');
-  const walletModalDemo = document.getElementById('rainbow-modal-demo-btn');
   const walletModalDisc = document.getElementById('rainbow-modal-disconnect-btn');
 
   topbarWalletBtn?.addEventListener('click', () => {
@@ -1366,10 +1623,6 @@ function bindEvents() {
     if (walletModal) walletModal.style.display = 'none';
   });
 
-  walletModalDemo?.addEventListener('click', async () => {
-    await quickVerifyDemo();
-    if (walletModal) walletModal.style.display = 'none';
-  });
 
   walletModalDisc?.addEventListener('click', () => {
     disconnectWallet();
@@ -1469,14 +1722,22 @@ function bindEvents() {
 async function init() {
   console.log('⚡ Jev Brain — Initializing Legit Web3 AI Platform');
   bindEvents();
+  registerWalletProviderListeners();
   initChats();
   await loadMarketInfo();
+  await loadOpenRouterModels();
   setInterval(loadMarketInfo, 30000);
 
   // Check persisted wallet
   const savedWallet = localStorage.getItem(STORAGE_WALLET_KEY);
   if (savedWallet) {
-    await onWalletAuthenticated(savedWallet, 5000000);
+    try {
+      const savedTier = JSON.parse(localStorage.getItem(STORAGE_TIER_PREFIX + savedWallet.toLowerCase()) || 'null');
+      if (savedTier) await onWalletAuthenticated(savedWallet, 0, savedTier);
+      else elements.gateOverlay.style.display = 'flex';
+    } catch {
+      disconnectWallet();
+    }
   } else {
     elements.gateOverlay.style.display = 'flex';
   }

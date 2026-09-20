@@ -172,7 +172,9 @@ export const HOLDING_TIERS = [
 export function calculateDynamicTier(tokenHoldingAmount, marketData) {
   const mc = marketData.marketCap || 100000;
   const priceUsd = marketData.priceUsd || (mc / 1_000_000_000);
-  const bagUsdValue = tokenHoldingAmount * priceUsd;
+  // Guard against priceUsd=0 to prevent Infinity/NaN in token calculations
+  const safePriceUsd = priceUsd > 0 ? priceUsd : 0.0000000001;
+  const bagUsdValue = tokenHoldingAmount * safePriceUsd;
   
   // Trust Multiplier scales sub-linearly with Market Cap (baseline 100k MC = 1.0x)
   const trustFactor = Math.max(1.0, Math.sqrt(mc / 100000));
@@ -198,7 +200,7 @@ export function calculateDynamicTier(tokenHoldingAmount, marketData) {
   // Compute live thresholds for all tiers under current Market Cap
   const dynamicTiers = HOLDING_TIERS.map(t => {
     const requiredUsd = Math.round(t.baseUsd * trustFactor * 100) / 100;
-    const requiredTokens = Math.max(1, Math.round(requiredUsd / priceUsd));
+    const requiredTokens = Math.max(1, Math.round(requiredUsd / safePriceUsd));
     return {
       ...t,
       requiredUsd,

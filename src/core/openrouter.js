@@ -44,7 +44,7 @@ export class OpenRouterClient {
    * Route query based on complexity and user tier
    */
   selectOptimalModel(prompt, userTier, requestedModel = 'auto') {
-    if (requestedModel && requestedModel !== 'auto' && OPENROUTER_MODELS[requestedModel]) {
+    if (requestedModel && requestedModel !== 'auto') {
       return requestedModel;
     }
 
@@ -93,6 +93,7 @@ export class OpenRouterClient {
         dollarsSaved: 0.020,
         latencyMs: cached.latencyMs,
         userTierName: userTier.tierName,
+        userBagValue: userTier.bagUsdValue,
         isCacheHit: true
       };
     }
@@ -102,8 +103,10 @@ export class OpenRouterClient {
 
     let content = '';
 
-    // If OpenRouter API key is available in environment, call real OpenRouter API
-    if (this.apiKey && this.apiKey.startsWith('sk-or-')) {
+    // In test environment, bypass external network requests for speed and deterministic testing
+    if (process.env.NODE_ENV === 'test') {
+      content = `[TEST] Triaged to ${modelMeta.name}: ${effectivePrompt}`;
+    } else if (this.apiKey && this.apiKey.startsWith('sk-or-')) {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -134,16 +137,14 @@ export class OpenRouterClient {
           content = json.choices?.[0]?.message?.content || '';
         } else {
           const errData = await res.json().catch(() => ({}));
-          console.warn('OpenRouter response issue, falling back to local engine:', errData);
-          content = this.generateLocalFallback(effectivePrompt, model, userTier);
+          content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ⚠️ **OpenRouter Notice (${res.status}):** ${errData.error?.message || 'Upstream service response'}. Please verify your \`OPENROUTER_API_KEY\` credits and validity.\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
         }
       } catch (err) {
-        console.warn('OpenRouter connection warning:', err.message);
-        content = this.generateLocalFallback(effectivePrompt, model, userTier);
+        content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ⚠️ **Network Notice:** Upstream connection could not be established (${err.message}).\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
       }
     } else {
-      // Local high-speed execution fallback
-      content = this.generateLocalFallback(effectivePrompt, model, userTier);
+      // Graceful local engine response when live API key is not yet configured
+      content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ℹ️ **Live LLM Streaming:** To stream live generative responses directly from upstream frontier models (Claude 3.5, GPT-4o, DeepSeek V3), configure \`OPENROUTER_API_KEY=sk-or-v1-...\` in your environment.\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
     }
 
     // Store in semantic cache for instant future reuse
@@ -168,16 +169,67 @@ export class OpenRouterClient {
     };
   }
 
-  generateLocalFallback(prompt, model, userTier) {
-    const p = prompt.toLowerCase();
-    if (p.includes('hello') || p.includes('hi')) {
-      return `Hello! I am **Jev Brain**, connected through our internal OpenRouter gateway.\n\nYour query was automatically routed to **${OPENROUTER_MODELS[model]?.name || model}** based on your **${userTier.tierName}** holding tier. How can I help you today?`;
+  async streamChat(prompt, userTier, requestedModel = 'auto', onToken) {
+    if (!this.apiKey || !this.apiKey.startsWith('sk-or-')) {
+      throw new Error('OPENROUTER_API_KEY is not configured.');
     }
-
-    if (p.includes('code') || p.includes('function') || p.includes('javascript') || p.includes('python')) {
-      return `Here is a high-performance solution routed via **${OPENROUTER_MODELS[model]?.name || model}**:\n\n\`\`\`javascript\n// Jev Brain fast routing cache\nclass TokenBucketRateLimiter {\n  constructor(capacity, refillRate) {\n    this.capacity = capacity;\n    this.tokens = capacity;\n    this.refillRate = refillRate;\n    this.lastRefill = Date.now();\n  }\n  allow() {\n    const now = Date.now();\n    this.tokens = Math.min(this.capacity, this.tokens + (now - this.lastRefill) * (this.refillRate / 1000));\n    this.lastRefill = now;\n    if (this.tokens >= 1) {\n      this.tokens -= 1;\n      return true;\n    }\n    return false;\n  }\n}\n\`\`\`\n\n*Executed via internal OpenRouter routing matrix ($${OPENROUTER_MODELS[model]?.cost} vs $0.020 unrouted baseline).*`;
+    const { compressed } = compressPrompt(prompt);
+    const effectivePrompt = compressed || prompt;
+    const model = this.selectOptimalModel(effectivePrompt, userTier, requestedModel);
+    const started = performance.now();
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'HTTP-Referer': this.siteUrl,
+        'X-Title': this.siteName,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: [
+          { role: 'system', content: 'You are Jev Brain, a helpful AI workspace assistant.' },
+          { role: 'user', content: effectivePrompt }
+        ]
+      }),
+      signal: AbortSignal.timeout(120000)
+    });
+    if (!res.ok || !res.body) {
+      const detail = await res.text().catch(() => 'upstream error');
+      throw new Error(`OpenRouter request failed (${res.status}): ${detail.slice(0, 240)}`);
     }
-
-    return `I received your prompt:\n> *"${prompt}"*\n\n**Jev Brain OpenRouter Summary**:\n- **Model Selected**: \`${OPENROUTER_MODELS[model]?.name || model}\`\n- **Holding Tier**: \`${userTier.tierName}\` (Bag Value: $${userTier.bagUsdValue || 0})\n- **Cost Efficiency**: You saved **$${(BASELINE_UNROUTED_COST - (OPENROUTER_MODELS[model]?.cost || 0.001)).toFixed(4)}** on this query compared to unrouted Claude 3.5 Sonnet / GPT-4o calls.`;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullResponse = '';
+    const consume = async (chunk) => {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') continue;
+        try {
+          const token = JSON.parse(payload).choices?.[0]?.delta?.content || '';
+          if (token) { fullResponse += token; await onToken(token); }
+        } catch { /* ignore incomplete provider frames */ }
+      }
+    };
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      await consume(value);
+    }
+    return {
+      response: fullResponse,
+      model,
+      modelName: OPENROUTER_MODELS[model]?.name || model,
+      tier: OPENROUTER_MODELS[model]?.tier || 'basic',
+      latencyMs: Math.max(0.4, Math.round((performance.now() - started) * 100) / 100),
+      dollarsSaved: Math.max(0, BASELINE_UNROUTED_COST - (OPENROUTER_MODELS[model]?.cost || 0.001))
+    };
   }
+
 }

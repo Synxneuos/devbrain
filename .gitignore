@@ -23,5 +23,7 @@ Thumbs.db
 .vscode/
 .idea/
 scratch/
+data/jev-state.json
+data/*.test.json
 
 .vercel

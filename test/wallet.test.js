@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 import test from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
@@ -115,4 +116,80 @@ test('User Profile: POST /api/user/profile saves and GET retrieves onboarding de
   assert.strictEqual(getData.profile.name, 'Naquib Mirza');
   assert.strictEqual(getData.profile.email, 'naquib@example.com');
 });
+
+test('Chat Security: /api/chat rejects unauthenticated requests (credit theft prevention)', async () => {
+  const testWallet = Wallet.createRandom();
+  const res = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: 'Summarize Bitcoin price history',
+      walletAddress: testWallet.address
+    })
+  });
+  assert.strictEqual(res.status, 401);
+  const data = await res.json();
+  assert.ok(data.error.includes('Unauthorized'));
+});
+
+test('Chat Security: /api/chat succeeds with signature-bound session token', async () => {
+  const testWallet = Wallet.createRandom();
+  
+  // 1. Get challenge
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${testWallet.address}`);
+  const { message } = await nonceRes.json();
+
+  // 2. Sign challenge
+  const signature = await testWallet.signMessage(message);
+
+  // 3. Verify signature and obtain session token
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address: testWallet.address,
+      signature,
+      message,
+      tokensHeld: 10000000
+    })
+  });
+  const verifyData = await verifyRes.json();
+  assert.ok(verifyData.sessionToken, 'Must issue cryptographic sessionToken');
+
+  // 4. Send chat request with sessionToken
+  const chatRes = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${verifyData.sessionToken}`
+    },
+    body: JSON.stringify({
+      prompt: 'Hello Jev Brain',
+      walletAddress: testWallet.address
+    })
+  });
+  assert.strictEqual(chatRes.status, 200);
+  const chatData = await chatRes.json();
+  assert.ok(chatData.response);
+  assert.strictEqual(chatData.walletAddress, testWallet.address.toLowerCase());
+});
+
+test('Warden Check: POST /api/warden-check returns questions and checks structure', async () => {
+  const res = await fetch(`${baseUrl}/api/warden-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      command: 'git status',
+      filepath: 'src/server.js'
+    })
+  });
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.verdict, 'AUTO_ALLOW');
+  assert.ok(data.checks, 'Must contain checks object');
+  assert.strictEqual(data.checks.fileCheck.ok, true);
+  assert.strictEqual(data.checks.irrevCheck.irreversible, false);
+  assert.strictEqual(data.checks.loopCheck.looping, false);
+});
+
 

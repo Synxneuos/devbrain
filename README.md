@@ -4,8 +4,8 @@
 > Ultra-fast local decision daemon (< 20ms) sitting in front of agents, scripts, and heavy LLMs.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Latency](https://img.shields.io/badge/Decision%20Latency-%3C1ms-brightgreen.svg)]()
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-success.svg)]()
+[![Local Triage Latency](https://img.shields.io/badge/Local%20Triage-%3C1ms-brightgreen.svg)]()
+[![Dependencies](https://img.shields.io/badge/Dependencies-ethers-informational.svg)]()
 [![Node](https://img.shields.io/badge/Node-v20%2B-informational.svg)]()
 
 ---
@@ -14,9 +14,9 @@
 
 LLMs are brilliant at reasoning, but terrible at mundane high-frequency triage:
 - Why wake up a heavy 70B/Opus model and wait **2,500ms** (and pay \$0.03) just to decide if an email is spam, or if a tool call is safe?
-- **Jev Brain** acts as a local attention firewall and decision daemon. It executes in **sub-millisecond latency (< 1ms)**:
-  - **Confidence $\ge$ 0.80** $\rightarrow$ **`AUTO_ACT`** (Instant zero-cost routing)
-  - **Confidence $<$ 0.80** $\rightarrow$ **`REVIEW_QUEUE`** (Pass to Grok / Claude / Human)
+- **Jev Brain** acts as a local attention firewall and decision daemon. It executes local heuristic classification and pre-flight safety triage in **sub-millisecond latency (< 1ms)**:
+  - **Confidence $\ge$ 0.80** $\rightarrow$ **`AUTO_ACT`** (Instant zero-cost local routing)
+  - **Confidence $<$ 0.80** $\rightarrow$ **`REVIEW_QUEUE`** (Pass to frontier LLM / Human)
 
 ```
 Incoming Stream (Emails / Tool Calls / Tweets)
@@ -65,7 +65,7 @@ Operates connected Android devices natively via ADB / Mobilerun protocol with pr
 ## 🚀 Quickstart
 
 ### Prerequisites
-- Node.js v20 or newer (No external dependencies required!)
+- Node.js v20 or newer (`npm install` for `ethers` Web3 verification)
 
 ### 1. Run via CLI
 Classify from standard input or file:
