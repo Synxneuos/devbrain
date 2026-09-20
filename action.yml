@@ -1,0 +1,38 @@
+name: 'Jev Agent Warden — AI Safety & Pre-Execution CI Firewall'
+description: 'Pre-flight safety gate (<1ms) for AI agents, PR commands, and CI bash scripts. Blocks rm -rf, .env leaks, and runaway loops.'
+author: 'Synxneuos'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  command:
+    description: 'Bash command, script, or tool argument to audit before execution'
+    required: false
+    default: ''
+  filepath:
+    description: 'Target file or path to check against protected patterns (.env, .git, SSH keys)'
+    required: false
+    default: ''
+  tool:
+    description: 'Tool name being invoked by the agent (e.g., bash, file_write, execute)'
+    required: false
+    default: 'bash'
+  fail-on-risk:
+    description: 'Whether to fail the CI step if evaluation returns BLOCKED_RISKY'
+    required: false
+    default: 'true'
+
+outputs:
+  decision:
+    description: 'Evaluation decision: AUTO_ALLOW, NEEDS_CONFIRM, or BLOCKED_RISKY'
+  color:
+    description: 'Gate status color: GREEN, YELLOW, or RED'
+  passed:
+    description: 'Boolean whether the command passed the safety check'
+  latency:
+    description: 'Verification latency in milliseconds'
+
+runs:
+  using: 'node20'
+  main: 'bin/action.js'

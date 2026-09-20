@@ -88,14 +88,37 @@ test('Wallet Auth: POST /api/wallet/verify-signature rejects invalid signature o
   assert.ok(data.error.includes('mismatch'));
 });
 
-test('User Profile: POST /api/user/profile saves and GET retrieves onboarding details', async () => {
+test('User Profile: POST /api/user/profile saves and GET retrieves onboarding details (session-bound)', async () => {
   const wallet = Wallet.createRandom();
   const address = wallet.address.toLowerCase();
 
-  // Save profile
-  const saveRes = await fetch(`${baseUrl}/api/user/profile`, {
+  // Establish a signed session first (profile writes are wallet-bound)
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${wallet.address}`);
+  const { message } = await nonceRes.json();
+  const signature = await wallet.signMessage(message);
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: wallet.address, signature, message })
+  });
+  const { sessionToken } = await verifyRes.json();
+  assert.ok(sessionToken, 'Session token required for profile access');
+
+  // Profile write without session must be rejected
+  const unauthRes = await fetch(`${baseUrl}/api/user/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, name: 'Hacker', email: 'h@x.io' })
+  });
+  assert.strictEqual(unauthRes.status, 401);
+
+  // Save profile with session
+  const saveRes = await fetch(`${baseUrl}/api/user/profile`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
     body: JSON.stringify({
       address,
       name: 'Naquib Mirza',
@@ -108,13 +131,30 @@ test('User Profile: POST /api/user/profile saves and GET retrieves onboarding de
   assert.strictEqual(saveData.profile.name, 'Naquib Mirza');
   assert.strictEqual(saveData.profile.email, 'naquib@example.com');
 
-  // Retrieve profile
-  const getRes = await fetch(`${baseUrl}/api/user/profile?address=${address}`);
+  // Retrieve profile with own session
+  const getRes = await fetch(`${baseUrl}/api/user/profile?address=${address}`, {
+    headers: { 'Authorization': `Bearer ${sessionToken}` }
+  });
   assert.strictEqual(getRes.status, 200);
   const getData = await getRes.json();
   assert.strictEqual(getData.success, true);
   assert.strictEqual(getData.profile.name, 'Naquib Mirza');
   assert.strictEqual(getData.profile.email, 'naquib@example.com');
+
+  // Reading someone else's profile must be forbidden
+  const otherSession = Wallet.createRandom();
+  const otherNonce = await (await fetch(`${baseUrl}/api/wallet/nonce?address=${otherSession.address}`)).json();
+  const otherSig = await otherSession.signMessage(otherNonce.message);
+  const otherVerify = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: otherSession.address, signature: otherSig, message: otherNonce.message })
+  });
+  const { sessionToken: otherToken } = await otherVerify.json();
+  const spyRes = await fetch(`${baseUrl}/api/user/profile?address=${address}`, {
+    headers: { 'Authorization': `Bearer ${otherToken}` }
+  });
+  assert.strictEqual(spyRes.status, 403);
 });
 
 test('Chat Security: /api/chat rejects unauthenticated requests (credit theft prevention)', async () => {
@@ -172,6 +212,80 @@ test('Chat Security: /api/chat succeeds with signature-bound session token', asy
   const chatData = await chatRes.json();
   assert.ok(chatData.response);
   assert.strictEqual(chatData.walletAddress, testWallet.address.toLowerCase());
+});
+
+test('Wallet Auth: client-supplied tokensHeld is ignored (server-authoritative tier, no elevation)', async () => {
+  const testWallet = Wallet.createRandom();
+
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${testWallet.address}`);
+  const { message } = await nonceRes.json();
+  const signature = await testWallet.signMessage(message);
+
+  // Client fraudulently claims a whale-size holding
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address: testWallet.address,
+      signature,
+      message,
+      tokensHeld: 999999999
+    })
+  });
+
+  assert.strictEqual(verifyRes.status, 200);
+  const data = await verifyRes.json();
+  assert.strictEqual(data.success, true);
+  // Server never trusts client holdings: with no token contract configured in
+  // the test env the fallback tier is baseline 'Wallet Member', never 'Dynasty Magnate'.
+  assert.notStrictEqual(data.userTier.tierName, 'Dynasty Magnate');
+  assert.strictEqual(data.userTier.tierName, 'Wallet Member');
+  assert.strictEqual(data.tokensHeld, 0);
+});
+
+test('Chat Security: /api/chat rejects models above the wallet holding tier', async () => {
+  const testWallet = Wallet.createRandom();
+
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${testWallet.address}`);
+  const { message } = await nonceRes.json();
+  const signature = await testWallet.signMessage(message);
+
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: testWallet.address, signature, message })
+  });
+  const verifyData = await verifyRes.json();
+  assert.ok(verifyData.sessionToken);
+
+  // 'Wallet Member' fallback tier only allows basic models; frontier must be rejected.
+  const chatRes = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${verifyData.sessionToken}`
+    },
+    body: JSON.stringify({
+      prompt: 'Give me the deepest answer',
+      model: 'anthropic/claude-3.5-sonnet'
+    })
+  });
+
+  assert.strictEqual(chatRes.status, 403);
+  const chatData = await chatRes.json();
+  assert.ok(chatData.error.includes('not included in your'));
+});
+
+test('Chat Security: /api/chat rejects forged (unsigned) session tokens', async () => {
+  const res = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer deadbeef.deadbeefdeadbeef'
+    },
+    body: JSON.stringify({ prompt: 'hello', model: 'auto' })
+  });
+  assert.strictEqual(res.status, 401);
 });
 
 test('Warden Check: POST /api/warden-check returns questions and checks structure', async () => {

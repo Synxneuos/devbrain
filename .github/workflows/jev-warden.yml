@@ -1,0 +1,31 @@
+name: Jev Agent Warden CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  agent-safety-gate:
+    name: Pre-Execution Agent & Script Safety Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js v20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Jev Agent Warden on Build Scripts
+        uses: ./
+        with:
+          tool: bash
+          command: npm test
+          fail-on-risk: true
+
+      - name: Run Test Suite
+        run: |
+          npm test

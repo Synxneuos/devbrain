@@ -13,7 +13,7 @@ export class AgentWarden {
   constructor(config = {}) {
     this.allowedPaths = config.allowedPaths || ['.'];
     this.protectedPatterns = config.protectedPatterns || [
-      /^\.env/i,
+      /(^|[\\/])\.env($|[./\\])/i,
       /\.pem$/i,
       /\.key$/i,
       /id_rsa/i,

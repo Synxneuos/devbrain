@@ -8,7 +8,7 @@ import { AgentWarden } from './core/warden.js';
 import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
 import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
 import { MobileRunner } from './core/mobile.js';
-import { verifyMessage } from 'ethers';
+import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,16 +34,115 @@ const savedState = readState();
 const activeNonces = new Map();
 const NONCE_TTL_MS = 5 * 60 * 1000;
 
-// Authenticated Sessions Map: sessionToken -> { address, userTier, tokensHeld, createdAt }
-const authenticatedSessions = new Map();
+// Stateless HMAC-signed session tokens: base64url(payload).hmacSignature
+// Survives server restarts and works across serverless instances when SESSION_SECRET is set.
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour session TTL
+const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
+  console.warn('[security] SESSION_SECRET is not set — session tokens will not survive restarts. Set SESSION_SECRET in production.');
+  return crypto.randomBytes(32).toString('hex');
+})();
 
-function cleanupSessions() {
-  const now = Date.now();
-  for (const [token, session] of authenticatedSessions.entries()) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      authenticatedSessions.delete(token);
-    }
+function signSessionPayload(payloadB64) {
+  return crypto.createHmac('sha256', SESSION_SECRET).update(payloadB64).digest('hex');
+}
+
+// session payload: { a: address, th: server-verified tokensHeld, dc: tokenCheckDisabled, exp: expiry }
+function issueSessionToken(session) {
+  const payloadB64 = Buffer.from(JSON.stringify(session)).toString('base64url');
+  return `${payloadB64}.${signSessionPayload(payloadB64)}`;
+}
+
+function verifySessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const dot = token.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const payloadB64 = token.slice(0, dot);
+  const signature = token.slice(dot + 1);
+  const expected = signSessionPayload(payloadB64);
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+  try {
+    const session = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (!session || !session.a || !session.exp || Date.now() > session.exp) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function parseSession(req, body = {}) {
+  const authHeader = (req.headers.authorization || '').trim();
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : (req.headers['x-session-token'] || body.sessionToken || '');
+  return verifySessionToken(token);
+}
+
+// Compute the effective access tier. Only server-verified balances are trusted.
+async function resolveUserTier(tokensHeld, tokenCheckDisabled, marketData) {
+  const market = marketData || await fetchLiveMarketData();
+  if (tokenCheckDisabled) {
+    // No token contract/RPC configured: any authenticated wallet gets entry-level access.
+    return {
+      ...calculateDynamicTier(1, market),
+      tierName: 'Wallet Member',
+      name: 'Wallet Member',
+      tokensHeld: 0,
+      tokenCheckDisabled: true
+    };
+  }
+  return calculateDynamicTier(tokensHeld, market);
+}
+
+// Server-side ERC-20 balance verification. Never trusts client-supplied amounts.
+const DEFAULT_RPC_URLS = {
+  ethereum: 'https://eth.llamarpc.com',
+  polygon: 'https://polygon-rpc.com',
+  base: 'https://mainnet.base.org',
+  arbitrum: 'https://arb1.arbitrum.io/rpc',
+  bsc: 'https://bsc-dataseed.binance.org'
+};
+const TOKEN_BALANCE_ABI = [
+  'function balanceOf(address owner) view returns (uint256)',
+  'function decimals() view returns (uint8)'
+];
+const balanceCache = new Map(); // address -> { tokensHeld, updatedAt }
+const BALANCE_CACHE_TTL_MS = 60 * 1000;
+
+async function getVerifiedTokenBalance(address) {
+  const contract = (process.env.TOKEN_CONTRACT_ADDRESS || '').trim();
+  const chain = (process.env.TOKEN_CHAIN || 'ethereum').toLowerCase();
+  const checkEnabled = (process.env.TOKEN_CHECK_ENABLED || 'true').toLowerCase() !== 'false';
+
+  // Token contract / balance check not configured: report disabled so callers
+  // can apply an explicit policy instead of trusting client input.
+  if (!checkEnabled || !contract || !isAddress(contract) || chain === 'solana') {
+    return {
+      tokensHeld: 0,
+      enabled: false,
+      contract,
+      chain,
+      reason: 'Token contract or RPC endpoint not configured. Signature authentication is active; token gating is disabled.'
+    };
+  }
+
+  const cached = balanceCache.get(address);
+  if (cached && Date.now() - cached.updatedAt < BALANCE_CACHE_TTL_MS) {
+    return { tokensHeld: cached.tokensHeld, enabled: true, contract, chain };
+  }
+
+  try {
+    const rpcUrl = (process.env.TOKEN_RPC_URL || DEFAULT_RPC_URLS[chain] || DEFAULT_RPC_URLS.ethereum).trim();
+    const provider = new JsonRpcProvider(rpcUrl);
+    const erc20 = new Contract(contract, TOKEN_BALANCE_ABI, provider);
+    const [rawBalance, decimals] = await Promise.all([erc20.balanceOf(address), erc20.decimals()]);
+    const tokensHeld = Number(rawBalance) / (10 ** Number(decimals));
+    balanceCache.set(address, { tokensHeld, updatedAt: Date.now() });
+    return { tokensHeld, enabled: true, contract, chain };
+  } catch (err) {
+    // Fail closed: gating stays enabled and unverifiable balance is treated as locked.
+    return { tokensHeld: 0, enabled: true, contract, chain, error: `Token balance verification failed: ${err.shortMessage || err.message}` };
   }
 }
 
@@ -59,28 +158,26 @@ const stats = {
   estimatedCostSavedUsd: 0.00
 };
 
+// Each REST surface gets an isolated warden instance so call-history (loop detection)
+// never leaks across endpoints, devices, or users.
 const defaultBrain = new JevBrain();
 const defaultWarden = new AgentWarden();
 const openRouterClient = new OpenRouterClient();
-const mobileRunner = new MobileRunner({ warden: defaultWarden });
+const mobileRunner = new MobileRunner({ warden: new AgentWarden() });
 
-// Persistent Real Projects Store
-let projects = savedState.projects || [
-  { id: 'proj-1', name: 'Trading Bot', description: 'Robinhood Chain DexScreener automation', createdAt: '2026-09-17', chatCount: 2 },
-  { id: 'proj-2', name: 'Agent Safety Proxy', description: 'Agent Warden pre-flight command firewall', createdAt: '2026-09-18', chatCount: 3 },
-  { id: 'proj-3', name: 'Inbox AI Triage', description: 'Zero-key sub-millisecond email classification', createdAt: '2026-09-19', chatCount: 1 }
-];
+// Persistent Real Projects Store (real user-created projects only, no seeds)
+let projects = savedState.projects || [];
 
-// Persistent Real Artifacts Store
-let artifacts = savedState.artifacts || [
-  { id: 'art-1', title: 'OpenRouter Dynamic Model Router', type: 'code', language: 'javascript', code: '// Jev Brain Multi-Model Dynamic Cost Matrix\nexport function routeModel(prompt, complexity) {\n  if (complexity === "simple") return "meta-llama/llama-3.1-8b-instruct";\n  if (complexity === "medium") return "anthropic/claude-3.5-haiku";\n  return "anthropic/claude-3.5-sonnet";\n}', createdAt: '2026-09-18' },
-  { id: 'art-2', title: 'Warden 4-Question Safety Ruleset', type: 'config', language: 'json', code: '{\n  "protectedPaths": [".env", ".git", "id_rsa", "*.pem"],\n  "destructiveKeywords": ["rm -rf", "drop database", "format", "mkfs"],\n  "maxLoopRepetition": 3\n}', createdAt: '2026-09-19' },
-  { id: 'art-3', title: 'Dynamic DexScreener Tier Curve', type: 'math', language: 'markdown', code: '# Dynamic MC Tier Formula\nTrust Multiplier = sqrt(MC / 100,000)\nRequired Bag ($) = baseUsd * Trust Multiplier\nTokens Needed = Required Bag / Token Price', createdAt: '2026-09-19' }
-];
+// Persistent Real Artifacts Store (real generated artifacts only, no seeds)
+let artifacts = savedState.artifacts || [];
+
+// Persistent Chats by Wallet Address (session-bound, see /api/chats)
+const chatSessions = new Map(Object.entries(savedState.chats || {}));
 
 function persistState() {
   writeState({
     profiles: Object.fromEntries(userProfiles.entries()),
+    chats: Object.fromEntries(chatSessions.entries()),
     projects,
     artifacts
   });
@@ -98,6 +195,16 @@ function getContentType(filePath) {
     case '.png': return 'image/png';
     default: return 'text/plain';
   }
+}
+
+// ── Tier-Based Model Allowlist ─────────────────────────────────────
+// Enforced server-side on every AI chat request: a session may only use
+// models included in its holding tier's allowedModels (or 'all').
+function isModelAllowedForTier(model, userTier) {
+  if (!model || model === 'auto') return true; // Jev auto-router picks a tier-safe model itself
+  const allowed = userTier?.allowedModels || [];
+  if (!allowed.length) return false;
+  return allowed.some(rule => rule === 'all' || rule === model || model.startsWith(rule));
 }
 
 function parseJsonBody(req) {
@@ -247,7 +354,7 @@ export async function handleRequest(req, res) {
     if (url.pathname === '/api/warden' && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
-        const result = defaultWarden.evaluate({
+        const result = new AgentWarden().evaluate({
           tool: body.tool || 'bash',
           command: body.command || '',
           filepath: body.filepath || '',
@@ -287,66 +394,92 @@ export async function handleRequest(req, res) {
         const prompt = body.prompt || '';
         const model = body.model || 'auto';
 
-        // Signature-bound cryptographic session validation
-        cleanupSessions();
-        const authHeader = req.headers['authorization'] || '';
-        const sessionToken = authHeader.startsWith('Bearer ')
-          ? authHeader.slice(7).trim()
-          : (req.headers['x-session-token'] || body.sessionToken || '');
-
-        if (!sessionToken || !authenticatedSessions.has(sessionToken)) {
+        // Signature-bound stateless HMAC session validation
+        const session = parseSession(req, body);
+        if (!session) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Unauthorized: Valid wallet signature session required. Please connect and sign in with your wallet.' }));
           return;
         }
 
-        const session = authenticatedSessions.get(sessionToken);
-        if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-          authenticatedSessions.delete(sessionToken);
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Session expired. Please reconnect and sign in with your wallet again.' }));
+        const walletAddress = session.a;
+        // Resolve tier fresh on every request from the server-verified balance
+        // bound into the session at signature-verification time.
+        const userTier = await resolveUserTier(session.th, session.dc, null);
+
+        if (!prompt.trim()) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Prompt is required.' }));
           return;
         }
 
-        const walletAddress = session.address;
-        const userTier = session.userTier;
-
-        // Execute via internal OpenRouter
-        const result = await openRouterClient.executeChat(prompt, userTier, model);
-
-        // Update statistics
-        stats.totalProcessed++;
-        stats.totalLatencyMs += result.latencyMs;
-        stats.estimatedCostSavedUsd += result.dollarsSaved;
-        if (result.tier === 'basic' || result.tier === 'pro') {
-          stats.autoActCount++;
-        } else {
-          stats.reviewCount++;
+        // Tier-based model allowlist (server-authoritative, closes frontier-tier theft)
+        if (!isModelAllowedForTier(model, userTier)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: `Model '${model}' is not included in your [${userTier.tierName || 'Guest'}] holding tier. Select an allowed model or increase your holding tier.`
+          }));
+          return;
         }
 
-        const payload = {
-          ...result,
-          walletAddress,
-          userTier,
-          totalSavedUsd: Math.round(stats.estimatedCostSavedUsd * 1000) / 1000
+        const recordStats = (r) => {
+          stats.totalProcessed++;
+          stats.totalLatencyMs += r.latencyMs || 0;
+          stats.estimatedCostSavedUsd += r.dollarsSaved || 0;
+          if (r.tier === 'frontier') stats.reviewCount++;
+          else stats.autoActCount++;
         };
 
         if (url.pathname === '/api/chat/stream') {
+          // True token-by-token streaming when a live OpenRouter key is configured;
+          // otherwise a single-chunk response from the local router engine.
           res.writeHead(200, {
             'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
           });
-          res.write(`data: ${JSON.stringify({ token: result.response })}\n\n`);
-          res.write(`data: ${JSON.stringify({ done: true, ...payload })}\n\n`);
+          const useLiveStream = openRouterClient.apiKey
+            && openRouterClient.apiKey.startsWith('sk-or-')
+            && process.env.NODE_ENV !== 'test';
+          let result = null;
+          if (useLiveStream) {
+            try {
+              result = await openRouterClient.streamChat(prompt, userTier, model, async (token) => {
+                res.write(`data: ${JSON.stringify({ token })}\n\n`);
+              });
+            } catch (streamErr) {
+              // Upstream failed (bad key/quota): degrade gracefully to the
+              // local router engine notice, matching the non-stream behavior.
+              result = null;
+            }
+          }
+          if (!result) {
+            result = await openRouterClient.executeChat(prompt, userTier, model);
+            res.write(`data: ${JSON.stringify({ token: result.response })}\n\n`);
+          }
+          recordStats(result);
+          res.write(`data: ${JSON.stringify({ done: true, ...result, walletAddress, userTier })}\n\n`);
           res.end();
         } else {
+          const result = await openRouterClient.executeChat(prompt, userTier, model);
+          recordStats(result);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(payload));
+          res.end(JSON.stringify({
+            ...result,
+            walletAddress,
+            userTier,
+            totalSavedUsd: Math.round(stats.estimatedCostSavedUsd * 1000) / 1000
+          }));
         }
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        if (res.headersSent) {
+          res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+          res.end();
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
       }
       return;
     }
@@ -371,9 +504,9 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/wallet/nonce' && req.method === 'GET') {
       const address = (url.searchParams.get('address') || '').toLowerCase();
-      if (!address) {
+      if (!address || !isAddress(address)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Wallet address is required.' }));
+        res.end(JSON.stringify({ error: 'Valid wallet address is required.' }));
         return;
       }
 
@@ -400,7 +533,8 @@ export async function handleRequest(req, res) {
         const address = (body.address || '').toLowerCase();
         const signature = body.signature || '';
         const message = body.message || '';
-        const tokensHeld = parseFloat(body.tokensHeld) || 5000000;
+        // NOTE: body.tokensHeld is deliberately ignored. Holdings are read
+        // server-side from the chain below — the client is never trusted.
 
         if (!address || !signature || !message) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -433,18 +567,33 @@ export async function handleRequest(req, res) {
 
         activeNonces.delete(address);
 
-        // 2. Fetch market data & calculate dynamic tier
+        // 2. Read the REAL ERC-20 balance from the chain (never trust client input),
+        //    then fetch market data & resolve the effective tier.
         const marketData = await fetchLiveMarketData();
-        const userTier = calculateDynamicTier(tokensHeld, marketData);
+        const balance = await getVerifiedTokenBalance(verifiedAddress);
+        const tokenCheckDisabled = !balance.enabled;
+        const tokensHeld = tokenCheckDisabled ? 0 : balance.tokensHeld;
+        const userTier = await resolveUserTier(tokensHeld, tokenCheckDisabled, marketData);
 
-        // 3. Issue cryptographic signature-bound session token
-        cleanupSessions();
-        const sessionToken = crypto.randomBytes(32).toString('hex');
-        authenticatedSessions.set(sessionToken, {
-          address: verifiedAddress,
-          userTier,
-          tokensHeld,
-          createdAt: Date.now()
+        if (!tokenCheckDisabled && userTier.tierId <= 0) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            verified: true,
+            error: balance.error
+              ? `Wallet signature verified, but on-chain token balance could not be verified: ${balance.error}`
+              : `Wallet signature verified, but no qualifying ${balance.contract} holding was detected on-chain. A minimum holding is required to unlock AI features.`
+          }));
+          return;
+        }
+
+        // 3. Issue stateless HMAC session token bound to the verified address and
+        //    server-verified holdings. Survives restarts when SESSION_SECRET is set.
+        const sessionToken = issueSessionToken({
+          a: verifiedAddress,
+          th: tokensHeld,
+          dc: tokenCheckDisabled,
+          exp: Date.now() + SESSION_TTL_MS
         });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -467,9 +616,33 @@ export async function handleRequest(req, res) {
       return;
     }
 
+    if (url.pathname === '/api/session/validate' && req.method === 'GET') {
+      const session = parseSession(req);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ valid: false, error: 'No active session.' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ valid: true, address: session.a, tokenCheckDisabled: !!session.dc }));
+      return;
+    }
+
     if (url.pathname === '/api/user/profile' && req.method === 'GET') {
-      const address = (url.searchParams.get('address') || '').toLowerCase();
-      const profile = userProfiles.get(address) || null;
+      // Profiles are PII: only the authenticated session owner may read theirs.
+      const session = parseSession(req);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized: Valid wallet signature session required.' }));
+        return;
+      }
+      const requested = (url.searchParams.get('address') || '').toLowerCase();
+      if (requested && requested !== session.a) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Forbidden: session does not match this address.' }));
+        return;
+      }
+      const profile = userProfiles.get(session.a) || null;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, profile }));
       return;
@@ -478,13 +651,20 @@ export async function handleRequest(req, res) {
     if (url.pathname === '/api/user/profile' && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
-        const address = (body.address || '').toLowerCase();
-        const name = (body.name || '').trim();
-        const email = (body.email || '').trim();
+        // Session-bound: a signed-in wallet can only write its own profile.
+        const session = parseSession(req, body);
+        if (!session) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Unauthorized: Valid wallet signature session required.' }));
+          return;
+        }
+        const address = session.a;
+        const name = (body.name || '').trim().slice(0, 120);
+        const email = (body.email || '').trim().slice(0, 200);
 
-        if (!address || !name) {
+        if (!name) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Address and name are required.' }));
+          res.end(JSON.stringify({ success: false, error: 'Name is required.' }));
           return;
         }
 
@@ -501,6 +681,67 @@ export async function handleRequest(req, res) {
       return;
     }
 
+    if (url.pathname === '/api/chats' && req.method === 'GET') {
+      // Server-side chat history — only ever for the authenticated session wallet.
+      const session = parseSession(req);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: Valid wallet signature session required.' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ chats: chatSessions.get(session.a) || [] }));
+      return;
+    }
+
+    if (url.pathname === '/api/chats' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: Valid wallet signature session required.' }));
+          return;
+        }
+
+        const chat = body.chat;
+        if (!chat || typeof chat !== 'object' || typeof chat.id !== 'string' || !Array.isArray(chat.messages)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'A valid chat object { id, messages } is required.' }));
+          return;
+        }
+
+        // Whitelist fields; cap sizes so the state file cannot be bloated by clients.
+        const cleanChat = {
+          id: chat.id.slice(0, 64),
+          title: String(chat.title || 'Chat').slice(0, 120),
+          createdAt: Number(chat.createdAt) || Date.now(),
+          messages: chat.messages.slice(0, 500).map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: String(m.content || '').slice(0, 100000),
+            modelName: m.modelName ? String(m.modelName).slice(0, 120) : undefined,
+            latencyMs: Number(m.latencyMs) || undefined,
+            dollarsSaved: Number(m.dollarsSaved) || undefined,
+            timestamp: Number(m.timestamp) || Date.now()
+          }))
+        };
+
+        const walletChats = chatSessions.get(session.a) || [];
+        const existingIdx = walletChats.findIndex(c => c.id === cleanChat.id);
+        if (existingIdx !== -1) walletChats[existingIdx] = cleanChat;
+        else walletChats.unshift(cleanChat);
+        chatSessions.set(session.a, walletChats.slice(0, 100));
+        persistState();
+
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     if (url.pathname === '/api/warden-check' && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
@@ -508,7 +749,7 @@ export async function handleRequest(req, res) {
         const tool = body.tool || 'bash';
         const filepath = body.filepath || '';
         
-        const evaluation = defaultWarden.evaluate({
+        const evaluation = new AgentWarden().evaluate({
           tool,
           command,
           filepath,
@@ -546,13 +787,14 @@ export async function handleRequest(req, res) {
         try {
           const body = await parseJsonBody(req);
           const newProject = {
-            id: 'proj-' + (projects.length + 1),
-            name: body.name || 'Untitled Project',
-            description: body.description || '',
+            id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: (body.name || 'Untitled Project').slice(0, 120),
+            description: (body.description || '').slice(0, 500),
             createdAt: new Date().toISOString().slice(0, 10),
             chatCount: 0
           };
           projects.unshift(newProject);
+          persistState();
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ project: newProject, projects }));
         } catch (err) {
@@ -573,14 +815,15 @@ export async function handleRequest(req, res) {
         try {
           const body = await parseJsonBody(req);
           const newArtifact = {
-            id: 'art-' + (artifacts.length + 1),
-            title: body.title || 'Generated Artifact',
+            id: `art-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            title: (body.title || 'Generated Artifact').slice(0, 120),
             type: body.type || 'code',
-            language: body.language || 'javascript',
-            code: body.code || '',
+            language: (body.language || 'javascript').slice(0, 40),
+            code: String(body.code || '').slice(0, 200000),
             createdAt: new Date().toISOString().slice(0, 10)
           };
           artifacts.unshift(newArtifact);
+          persistState();
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ artifact: newArtifact, artifacts }));
         } catch (err) {

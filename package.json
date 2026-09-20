@@ -3,6 +3,25 @@
   "version": "1.0.0",
   "description": "Don't think. Route. Ultra-fast local decision firewall (<20ms) for agents, streams, and LLMs.",
   "main": "src/index.js",
+  "types": "types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./warden": "./src/core/warden.js",
+    "./router": "./src/core/router.js",
+    "./cache": "./src/core/semantic-cache.js",
+    "./middleware": "./src/sdk/middleware.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "types",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "brain": "./bin/brain.js",
     "jev-brain": "./bin/brain.js"
@@ -11,21 +30,24 @@
   "scripts": {
     "start": "node bin/brain.js serve",
     "dev": "node bin/brain.js serve --port 3333",
-    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js",
+    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js && node test/sdk.test.js",
     "classify": "node bin/brain.js classify",
-    "warden": "node bin/brain.js warden"
+    "warden": "node bin/brain.js warden",
+    "audit": "node bin/brain.js audit"
   },
   "keywords": [
     "ai",
-    "router",
-    "classifier",
-    "decision-engine",
+    "agent-firewall",
     "agent-warden",
-    "fast-routing",
-    "llm-firewall",
+    "pre-execution-safety",
+    "router",
+    "llm-guardrails",
+    "semantic-cache",
+    "openai",
+    "github-action",
     "jev-brain"
   ],
-  "author": "codexbt",
+  "author": "Synxneuos <codexbt1@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "ethers": "^6.17.0"

@@ -23,6 +23,19 @@ const STORAGE_CHATS_KEY = 'jevbrain_chats_v2';
 const STORAGE_ACTIVE_CHAT_KEY = 'jevbrain_active_chat_v2';
 const STORAGE_WALLET_KEY = 'jevbrain_wallet';
 const STORAGE_SESSION_TOKEN = 'jevbrain_session_token';
+
+// Returns the wallet-signature-bound session token for authenticated API calls.
+function getSessionToken() {
+  return sessionStorage.getItem(STORAGE_SESSION_TOKEN) || localStorage.getItem(STORAGE_SESSION_TOKEN) || '';
+}
+
+// Authenticated fetch headers (Bearer + X-Session-Token) for session-bound endpoints.
+function authHeaders(extra = {}) {
+  const token = getSessionToken();
+  return token
+    ? { ...extra, 'Authorization': `Bearer ${token}`, 'X-Session-Token': token }
+    : { ...extra };
+}
 const STORAGE_PROFILE_PREFIX = 'jevbrain_profile_';
 const STORAGE_TIER_PREFIX = 'jevbrain_tier_';
 const STORAGE_PROJECTS_PREFIX = 'jevbrain_projects_';
@@ -317,9 +330,11 @@ async function getUserProfile(address) {
     } catch (e) {}
   }
 
-  // Fallback to server
+  // Fallback to server (session-bound: profile reads require own signed session)
   try {
-    const res = await fetch(`/api/user/profile?address=${encodeURIComponent(address.toLowerCase())}`);
+    const res = await fetch(`/api/user/profile?address=${encodeURIComponent(address.toLowerCase())}`, {
+      headers: { 'Authorization': `Bearer ${getSessionToken()}` }
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.profile) {
@@ -346,11 +361,14 @@ async function saveUserProfile(address, name, email) {
   const key = STORAGE_PROFILE_PREFIX + address.toLowerCase();
   localStorage.setItem(key, JSON.stringify(profile));
 
-  // Sync to backend
+  // Sync to backend (session-bound: a wallet can only write its own profile)
   try {
     await fetch('/api/user/profile', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getSessionToken()}`
+      },
       body: JSON.stringify(profile)
     });
   } catch (e) {
@@ -464,6 +482,7 @@ async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = nu
     localStorage.setItem(STORAGE_WALLET_KEY, address);
     localStorage.setItem(STORAGE_TIER_PREFIX + address.toLowerCase(), JSON.stringify(userTier));
     console.log(`✓ MetaMask Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
+    loadServerChats(address);
   } catch (err) {
     console.error('Verification failure:', err);
   }
@@ -658,13 +677,46 @@ function saveMessageToCurrentChat(role, payload) {
 
   saveChats(chats);
   renderChatsList();
-  if (currentWallet) {
+  // Fire-and-forget server sync (session-bound; server ignores any address in body).
+  if (getSessionToken()) {
     const savedChat = chats.find(item => item.id === currentChatId);
     fetch('/api/chats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: currentWallet, chat: savedChat })
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ chat: savedChat })
     }).catch(() => {});
+  }
+}
+
+// Merge this wallet's server-stored chats into the local list after auth.
+async function loadServerChats(address) {
+  if (!getSessionToken()) return;
+  try {
+    const res = await fetch('/api/chats', { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverChats = Array.isArray(data.chats) ? data.chats : [];
+    if (!serverChats.length) return;
+
+    const local = getSavedChats();
+    let merged = false;
+    for (const sc of serverChats) {
+      const existing = local.find(c => c.id === sc.id);
+      if (!existing) {
+        local.push(sc);
+        merged = true;
+      } else if ((sc.messages || []).length > (existing.messages || []).length) {
+        local[local.indexOf(existing)] = sc;
+        merged = true;
+      }
+    }
+    if (merged) {
+      saveChats(local);
+      renderChatsList();
+      if (currentChatId) loadChatMessages(currentChatId);
+    }
+  } catch (e) {
+    console.warn('Server chat sync unavailable:', e.message);
   }
 }
 
@@ -1728,13 +1780,26 @@ async function init() {
   await loadOpenRouterModels();
   setInterval(loadMarketInfo, 30000);
 
-  // Check persisted wallet
+  // Check persisted wallet, but never trust the locally cached tier blindly:
+  // the saved session token must validate against the server first.
   const savedWallet = localStorage.getItem(STORAGE_WALLET_KEY);
   if (savedWallet) {
     try {
       const savedTier = JSON.parse(localStorage.getItem(STORAGE_TIER_PREFIX + savedWallet.toLowerCase()) || 'null');
-      if (savedTier) await onWalletAuthenticated(savedWallet, 0, savedTier);
-      else elements.gateOverlay.style.display = 'flex';
+      if (!savedTier || !getSessionToken()) {
+        elements.gateOverlay.style.display = 'flex';
+      } else {
+        const validation = await fetch('/api/session/validate', { headers: authHeaders() });
+        const validationData = await validation.json().catch(() => ({}));
+        if (validation.ok && validationData.valid && validationData.address === savedWallet.toLowerCase()) {
+          await onWalletAuthenticated(savedWallet, 0, savedTier);
+        } else {
+          // Stale/expired session: force a fresh wallet signature.
+          sessionStorage.removeItem(STORAGE_SESSION_TOKEN);
+          localStorage.removeItem(STORAGE_SESSION_TOKEN);
+          elements.gateOverlay.style.display = 'flex';
+        }
+      }
     } catch {
       disconnectWallet();
     }

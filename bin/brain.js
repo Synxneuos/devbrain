@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { JevBrain, PRESETS } from '../src/core/router.js';
 import { AgentWarden } from '../src/core/warden.js';
-import { startServer } from '../src/server.js';
 import { MobileRunner } from '../src/core/mobile.js';
 
 const args = process.argv.slice(2);
@@ -167,6 +168,7 @@ async function handleServe() {
   if (portIdx !== -1 && args[portIdx + 1]) {
     port = parseInt(args[portIdx + 1], 10) || port;
   }
+  const { startServer } = await import('../src/server.js');
   startServer(port);
 }
 
@@ -208,24 +210,185 @@ async function handleMobile() {
   }
 }
 
+async function handleHook() {
+  const sub = args[1] || 'check';
+  const gitDir = path.join(process.cwd(), '.git');
+  const hooksDir = path.join(gitDir, 'hooks');
+  const hookFile = path.join(hooksDir, 'pre-commit');
+
+  if (sub === 'install') {
+    if (!fs.existsSync(gitDir)) {
+      console.error(`${RED}Error: Not a git repository (.git directory not found).${RESET}`);
+      process.exit(1);
+    }
+    fs.mkdirSync(hooksDir, { recursive: true });
+    const hookContent = `#!/bin/sh\n# Jev Agent Warden Pre-Commit Guard\nnode -e "import('./bin/brain.js').catch(() => import('jev-brain'))" hook check || npx --yes jev-brain hook check\n`;
+    fs.writeFileSync(hookFile, hookContent, { mode: 0o755 });
+    console.log(`${GREEN}✔ Jev Pre-Commit Hook installed successfully at .git/hooks/pre-commit${RESET}`);
+    console.log(`Agent Warden will now automatically verify staged files before every git commit.`);
+    return;
+  }
+
+  if (sub === 'uninstall') {
+    if (fs.existsSync(hookFile)) {
+      fs.unlinkSync(hookFile);
+      console.log(`${YELLOW}✔ Jev Pre-Commit Hook uninstalled.${RESET}`);
+    } else {
+      console.log(`No pre-commit hook found at .git/hooks/pre-commit.`);
+    }
+    return;
+  }
+
+  if (sub === 'check') {
+    try {
+      const stagedOutput = execSync('git diff --cached --name-only', { encoding: 'utf8' }).trim();
+      if (!stagedOutput) {
+        process.exit(0);
+      }
+      const files = stagedOutput.split(/\r?\n/).filter(Boolean);
+      const warden = new AgentWarden();
+      const violations = [];
+
+      for (const file of files) {
+        const check = warden.checkTargetFile(file);
+        if (!check.ok) {
+          violations.push({ file, reason: check.reason });
+        }
+      }
+
+      if (violations.length > 0) {
+        console.error(`\n${RED}${BOLD}✖ COMMIT REJECTED BY JEV AGENT WARDEN${RESET}`);
+        console.error(`${RED}Protected or sensitive files detected in staged git index:${RESET}\n`);
+        violations.forEach(v => {
+          console.error(`  ${RED}• ${v.file}${RESET} (${v.reason})`);
+        });
+        console.error(`\n${YELLOW}To unstage: git restore --staged <file>${RESET}\n`);
+        process.exit(1);
+      } else {
+        console.log(`${GREEN}✔ Jev Agent Warden: All ${files.length} staged files verified safe.${RESET}`);
+      }
+    } catch (err) {
+      // Pass through if not in git context or initial empty commit
+    }
+  }
+}
+
+async function handleAudit() {
+  const targetDir = args[1] || '.';
+  banner();
+  console.log(`${BOLD}Scanning codebase for agent security, protected files, and destructive commands...${RESET}`);
+  console.log(`Target: ${CYAN}${path.resolve(targetDir)}${RESET}\n`);
+
+  const warden = new AgentWarden();
+  const findings = [];
+  let filesScanned = 0;
+
+  function walk(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.name === 'node_modules' || e.name === '.git' || e.name === '.venv' || e.name === 'dist' || e.name === '.idea' || e.name === '.kilo') continue;
+      const full = path.join(dir, e.name);
+      const rel = path.relative(targetDir, full);
+      if (e.isDirectory()) {
+        walk(full);
+      } else if (e.isFile()) {
+        filesScanned++;
+        const check = warden.checkTargetFile(rel);
+        if (!check.ok) {
+          findings.push({ type: 'PROTECTED_FILE', target: rel, severity: 'HIGH', reason: check.reason });
+        }
+        if (rel.endsWith('.sh') || rel.endsWith('.bat') || rel.endsWith('.js') || rel.endsWith('package.json')) {
+          try {
+            const content = fs.readFileSync(full, 'utf8');
+            const irrev = warden.checkIrreversible(content);
+            if (irrev.irreversible) {
+              findings.push({ type: 'DESTRUCTIVE_COMMAND', target: rel, severity: 'CRITICAL', reason: irrev.reason });
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  try {
+    walk(targetDir);
+  } catch (err) {
+    console.error(`${RED}Audit error:${RESET}`, err.message);
+    process.exit(1);
+  }
+
+  console.log(`${BOLD}Scanned ${filesScanned} files.${RESET}\n`);
+  if (findings.length === 0) {
+    console.log(`${GREEN}${BOLD}✔ CLEAN REPOSITORY: No protected file leaks or unconstrained commands detected.${RESET}`);
+  } else {
+    console.log(`${RED}${BOLD}⚠ ${findings.length} Potential Security Concerns Detected:${RESET}`);
+    findings.forEach((f, i) => {
+      const color = f.severity === 'CRITICAL' ? RED : YELLOW;
+      console.log(`  [${i + 1}] ${color}${BOLD}${f.severity}${RESET} [${f.type}] ${CYAN}${f.target}${RESET}`);
+      console.log(`      ${GRAY}${f.reason}${RESET}`);
+    });
+  }
+}
+
+async function handleInit() {
+  banner();
+  console.log(`${BOLD}⚡ Initializing Jev Brain in current project...${RESET}\n`);
+  const configPath = path.join(process.cwd(), '.jev.json');
+  const defaultConfig = {
+    version: '1.0.0',
+    threshold: 0.8,
+    warden: {
+      protectedPatterns: ['.env', '*.pem', '*.key', 'id_rsa', '.git'],
+      failOnRisk: true
+    },
+    routing: {
+      defaultPreset: 'inbox'
+    }
+  };
+
+  fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+  console.log(`${GREEN}✔ Created .jev.json configuration.${RESET}`);
+
+  if (fs.existsSync(path.join(process.cwd(), '.git'))) {
+    await handleHook();
+  }
+
+  console.log(`\n${BOLD}Next steps:${RESET}`);
+  console.log(`  • Security audit:       ${CYAN}npx jev-brain audit${RESET}`);
+  console.log(`  • Test pre-flight gate: ${CYAN}npx jev-brain warden --command "rm -rf /"${RESET}`);
+  console.log(`  • Launch dashboard:     ${CYAN}npx jev-brain serve${RESET}\n`);
+}
+
 function showHelp() {
   banner();
   console.log(`${BOLD}Commands:${RESET}`);
+  console.log(`  ${CYAN}brain init${RESET}                         Setup .jev.json config and pre-commit hook`);
+  console.log(`  ${CYAN}brain hook [install|uninstall|check]${RESET}  Git pre-commit safety firewall hook`);
+  console.log(`  ${CYAN}brain audit [dir]${RESET}                  Scan codebase for secrets and destructive commands`);
+  console.log(`  ${CYAN}brain warden --tool <name> ...${RESET}     Coding agent 4-question pre-flight safety gate`);
+  console.log(`  ${CYAN}brain route "<text>" [--preset]${RESET}    Single item instant routing decision (<1ms)`);
   console.log(`  ${CYAN}brain classify <labels> [file]${RESET}    Batch route from stdin or file`);
-  console.log(`  ${CYAN}brain route "<text>" [--preset]${RESET}    Single item instant routing decision`);
-  console.log(`  ${CYAN}brain warden --tool <name> ...${RESET}     Coding agent 4-question safety gate`);
   console.log(`  ${CYAN}brain mobile [subcommand]${RESET}          Android device gateway (devices, tap, type, inspect)`);
   console.log(`  ${CYAN}brain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
   console.log(`\n${BOLD}Examples:${RESET}`);
-  console.log(`  brain classify urgent,later,ignore < inbox.txt`);
-  console.log(`  brain route "Server disk full emergency!" --preset inbox`);
+  console.log(`  brain init`);
+  console.log(`  brain hook install`);
+  console.log(`  brain audit .`);
   console.log(`  brain warden --tool bash --command "rm -rf /"`);
-  console.log(`  brain mobile devices`);
-  console.log(`  brain mobile tap 540 1200`);
+  console.log(`  brain route "Emergency: payment gateway failing" --preset inbox`);
   console.log(`  brain serve --port 3333`);
 }
 
 switch (command) {
+  case 'init':
+    handleInit();
+    break;
+  case 'hook':
+    handleHook();
+    break;
+  case 'audit':
+    handleAudit();
+    break;
   case 'classify':
     handleClassify();
     break;
@@ -248,3 +411,4 @@ switch (command) {
     showHelp();
     break;
 }
+
