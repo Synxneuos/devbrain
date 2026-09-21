@@ -233,17 +233,6 @@ Open **`http://localhost:3333`** to access:
 
 ---
 
-## 💎 Token Utility & Ecosystem Access
-
-- **Tiered Multi-Agent Access**: Holding verified Jev Brain tokens unlocks advanced model routing, higher autonomous throughput limits, and enterprise-grade Agent Warden rule filters.
-- **Holder Rewards Protocol**: A dedicated on-chain reward and protocol revenue-sharing mechanism is architected into the ecosystem. The reward distribution engine will be activated in an upcoming phase for all verified holding wallets.
-- **Official Treasury & Developer EVM Address**:
-  ```text
-  0xYourEVMWalletAddressHere
-  ```
-  *(Early seed contributions directly support decentralized firewall research, CI compute, and initial liquidity)*
-
----
 
 ## 👥 Authors & Maintainers
 
