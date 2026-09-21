@@ -15,6 +15,16 @@
 [![Pre-Flight Latency](https://img.shields.io/badge/Pre--Flight%20Latency-%3C1ms-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178c6.svg?logo=typescript&logoColor=white)]()
 
+<br/>
+
+### 🪙 Official Solana Contract Address (CA)
+```text
+AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump
+```
+[📊 Live Chart on DexScreener](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💊 Trade on Pump.fun](https://pump.fun/coin/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💬 Official Discord](https://discord.gg/yfvDARvRb)
+
+<br/>
+
 [Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics & CA](#-token-utility--contract-address)
 
 </div>

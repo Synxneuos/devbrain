@@ -2375,3 +2375,16 @@ body {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Netlify Drawer, Deploy Preview Banner & Feedback Badge Blocker */
+#netlify-drawer,
+[data-netlify-deploy-id],
+div[class*="netlify-feedback"],
+iframe[src*="netlify"],
+.netlify-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
