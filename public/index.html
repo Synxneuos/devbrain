@@ -3,39 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jev Brain — AI Workspace & Infrastructure</title>
+  <title>Jev Brain — AI Developer Workspace</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Ethers.js for Web3 & MetaMask Cryptographic Verification -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 </head>
 <body>
-  <div class="claude-layout">
+  <div class="app-layout">
     <!-- Mobile Drawer Backdrop -->
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-    <!-- Left Sidebar -->
-    <aside class="claude-sidebar" id="sidebar">
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar-container" id="sidebar">
       <div class="sidebar-top">
         <div class="brand-row">
           <div class="brand-logo">
-            <span class="asterisk">✻</span>
+            <svg class="brand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <line x1="12" y1="2" x2="12" y2="6"></line>
+              <line x1="12" y1="18" x2="12" y2="22"></line>
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+              <line x1="2" y1="12" x2="6" y2="12"></line>
+              <line x1="18" y1="12" x2="22" y2="12"></line>
+              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+            </svg>
             <span class="brand-text">Jev Brain</span>
             <span class="brand-tag">v1.0</span>
           </div>
           <button class="icon-btn" id="collapse-sidebar-btn" title="Collapse sidebar (Ctrl+B)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
           </button>
         </div>
 
-        <button class="new-chat-pill" id="new-chat-btn">
-          <span class="plus">+</span>
+        <button class="new-chat-btn" id="new-chat-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
           <span>New chat</span>
           <kbd class="kbd-shortcut">Ctrl+N</kbd>
         </button>
@@ -43,28 +56,51 @@
         <div class="nav-section-label">WORKSPACE</div>
         <nav class="sidebar-nav">
           <a href="#" class="nav-link" id="nav-projects">
-            <span class="nav-icon">📁</span>
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
             <span>Projects</span>
             <span class="nav-extra">+</span>
           </a>
           <a href="#" class="nav-link" id="nav-artifacts">
-            <span class="nav-icon">🗂</span>
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
             <span>Artifacts</span>
           </a>
           <a href="#" class="nav-link" id="nav-code">
-            <span class="nav-icon">🛡</span>
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
             <span>Agent Warden</span>
-            <span class="pill-upgrade">Active</span>
+            <span class="nav-status-pill">Active</span>
           </a>
           <a href="#" class="nav-link" id="nav-customize">
-            <span class="nav-icon">⚙</span>
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+              <rect x="9" y="9" width="6" height="6"></rect>
+              <line x1="9" y1="1" x2="9" y2="4"></line>
+              <line x1="15" y1="1" x2="15" y2="4"></line>
+              <line x1="9" y1="20" x2="9" y2="23"></line>
+              <line x1="15" y1="20" x2="15" y2="23"></line>
+              <line x1="20" y1="9" x2="23" y2="9"></line>
+              <line x1="20" y1="14" x2="23" y2="14"></line>
+              <line x1="1" y1="9" x2="4" y2="9"></line>
+              <line x1="1" y1="14" x2="4" y2="14"></line>
+            </svg>
             <span>Model Router</span>
-            <span class="pill-upgrade" style="background:var(--bg-subtle);color:var(--text-secondary);">440+</span>
+            <span class="nav-status-pill">440+</span>
           </a>
           <a href="#" class="nav-link" id="nav-mobile">
-            <span class="nav-icon">📱</span>
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
             <span>Mobile Runner</span>
-            <span class="pill-upgrade" style="background:rgba(16,185,129,0.12);color:#059669;">ADB</span>
+            <span class="nav-status-pill">ADB</span>
           </a>
         </nav>
       </div>
@@ -74,8 +110,19 @@
           <div class="chats-title-row">
             <span>Recent Chats</span>
             <div class="chats-actions">
-              <button class="mini-icon-btn" id="sidebar-search-btn" title="Search chats">🔍</button>
-              <button class="mini-icon-btn" id="sidebar-export-btn" title="Export transcripts">📥</button>
+              <button class="mini-icon-btn" id="sidebar-search-btn" title="Search conversations">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+              <button class="mini-icon-btn" id="sidebar-export-btn" title="Export Markdown">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -97,110 +144,115 @@
           </div>
           <div class="user-actions">
             <span class="holder-badge" id="holder-status-text" style="display:none;"></span>
-            <button class="icon-mini" id="sidebar-quick-verify" title="Verify Status">⚙</button>
+            <button class="icon-mini" id="sidebar-quick-verify" title="Holding Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content Area -->
-    <main class="claude-main">
-      <!-- Top Bar -->
-      <header class="claude-topbar">
+    <!-- Main Workspace Column -->
+    <main class="main-viewport">
+      <!-- Top Navigation Bar -->
+      <header class="topbar-container">
         <div class="topbar-left">
-          <button class="sidebar-reopen-btn" id="sidebar-reopen-btn" title="Open sidebar" aria-label="Open sidebar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="sidebar-reopen-btn" id="sidebar-reopen-btn" title="Toggle sidebar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
-          <div class="topbar-breadcrumb">
-            <span class="topbar-app-name">Jev Brain</span>
-            <span class="breadcrumb-separator">/</span>
+          <div class="breadcrumb-container">
+            <span class="breadcrumb-app">Jev Brain</span>
+            <span class="breadcrumb-sep">/</span>
             <div class="chat-dropdown" id="chat-dropdown-toggle">
               <span id="topbar-title">Your first chat with Jev Brain</span>
-              <span class="chevron">⌄</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
             </div>
           </div>
         </div>
 
-        <!-- Center: Token Market Cap Pill with Dropdown Popover -->
+        <!-- Center: Minimal Token Status with Popover -->
         <div class="topbar-center">
-          <div class="token-market-pill" id="mc-pill" title="Click to view live $JEVBRAIN market metrics & holding tiers">
-            <span class="live-dot" title="Live Polling"></span>
+          <div class="token-market-pill" id="mc-pill" title="Live $JEVBRAIN DexScreener market cap">
+            <span class="live-dot"></span>
             <span class="token-ticker">$JEVBRAIN</span>
             <span class="token-mc-value" id="mc-display">$...</span>
           </div>
 
-          <!-- Interactive Token Details Popover -->
+          <!-- Sleek Developer Popover -->
           <div class="token-popover" id="token-popover" style="display:none;">
-            <div class="popover-header">
-              <div class="popover-title">
-                <span class="token-ticker-bold">$JEVBRAIN</span>
-                <span class="live-status-chip">
-                  <span class="live-dot" style="width:5px;height:5px;"></span> Live DexScreener
-                </span>
+            <div class="popover-head">
+              <div class="popover-symbol-row">
+                <span class="popover-ticker">$JEVBRAIN</span>
+                <span class="popover-feed-tag">DexScreener Live</span>
               </div>
-              <a id="ca-dex-link" href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="popover-chart-link">Chart ↗</a>
+              <a id="ca-dex-link" href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="popover-link">Chart ↗</a>
             </div>
 
-            <div class="popover-stats-grid">
-              <div class="popover-stat-item">
-                <span class="stat-label">Market Cap</span>
-                <span class="stat-val" id="hero-mc">$...</span>
+            <div class="popover-metrics">
+              <div class="popover-metric">
+                <span class="metric-label">Market Cap</span>
+                <span class="metric-val" id="hero-mc">$...</span>
               </div>
-              <div class="popover-stat-item">
-                <span class="stat-label">Price</span>
-                <span class="stat-val accent-val" id="hero-price">$...</span>
+              <div class="popover-metric">
+                <span class="metric-label">Price</span>
+                <span class="metric-val text-cyan" id="hero-price">$...</span>
               </div>
-              <div class="popover-stat-item">
-                <span class="stat-label">24h Vol</span>
-                <span class="stat-val" id="hero-vol">$...</span>
+              <div class="popover-metric">
+                <span class="metric-label">24h Volume</span>
+                <span class="metric-val" id="hero-vol">$...</span>
               </div>
-              <div class="popover-stat-item">
-                <span class="stat-label">Liquidity</span>
-                <span class="stat-val green-val" id="hero-liq">$...</span>
+              <div class="popover-metric">
+                <span class="metric-label">Liquidity</span>
+                <span class="metric-val text-green" id="hero-liq">$...</span>
               </div>
             </div>
 
-            <div class="popover-ca-row">
-              <div class="popover-ca-text">
-                <span>CA:</span>
-                <code id="hero-ca-full" title="Click to copy full CA">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>
+            <div class="popover-ca-box">
+              <div class="ca-text-col">
+                <span class="ca-label">CA:</span>
+                <code class="ca-code" id="hero-ca-full">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>
               </div>
-              <button id="hero-copy-ca" class="btn-copy-chip" title="Copy Contract Address">Copy</button>
+              <button id="hero-copy-ca" class="btn-copy-mini">Copy</button>
             </div>
 
-            <button class="popover-tier-btn" id="popover-tier-btn">
-              <span>View Holding Tiers & Multipliers</span>
+            <button class="popover-tier-link-btn" id="popover-tier-btn">
+              <span>View Holding Tiers &amp; Multipliers</span>
               <span>→</span>
             </button>
           </div>
         </div>
 
-        <!-- Right: Tier, Wallet & Actions -->
+        <!-- Right: Status, Wallet & Share -->
         <div class="topbar-right">
-          <!-- Hidden fallback elements for app.js backwards-compat -->
+          <!-- Backwards-compat hidden tags -->
           <div id="ca-pill" style="display:none;"><span id="ca-short"></span><button id="copy-ca-btn"></button></div>
           <button id="quick-verify-btn" style="display:none;"></button>
 
           <!-- Holder Tier Pill -->
-          <div class="plan-pill" id="tier-pill" title="Current Token Holding Tier — Click to inspect requirements">
-            <span class="tier-label">Tier:</span>
+          <div class="tier-badge-pill" id="tier-pill" title="Holding Tier">
+            <span class="tier-prefix">Tier:</span>
             <b id="tier-display">Dynasty Magnate (Unlocked)</b>
-            <span class="close-x" id="disconnect-btn" title="Disconnect Session">&times;</span>
+            <span class="tier-disconnect-x" id="disconnect-btn" title="Disconnect Session">&times;</span>
           </div>
 
-          <!-- Topbar Wallet Connect Pill -->
-          <button class="topbar-wallet-btn" id="topbar-connect-wallet-btn" title="Connect Phantom or MetaMask">
-            <span class="wallet-status-dot"></span>
+          <!-- Topbar Wallet Connect Button -->
+          <button class="wallet-topbar-btn" id="topbar-connect-wallet-btn">
+            <span class="status-indicator-dot"></span>
             <span id="topbar-wallet-btn-text">Connect Wallet</span>
           </button>
 
-          <!-- Share / Settings Button -->
-          <button class="share-btn" id="share-btn" title="Export or share this chat session">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Share Button -->
+          <button class="action-btn-ghost" id="share-btn" title="Share or export transcript">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="18" cy="5" r="3"></circle>
               <circle cx="6" cy="12" r="3"></circle>
               <circle cx="18" cy="19" r="3"></circle>
@@ -212,67 +264,88 @@
         </div>
       </header>
 
-      <!-- Center Chat Area -->
-      <div class="claude-center" id="claude-center">
-        <!-- Compact Production Workspace Hero (Zero Messages State) -->
-        <div class="claude-hero" id="claude-hero">
-          <div class="workspace-intro-box">
-            <div class="workspace-brand-glyph">✻</div>
-            <h1 class="hero-heading" id="hero-heading">Jev Brain</h1>
-            <p class="hero-paragraph">
-              Your AI workspace for models, autonomous agents, and verified token holders.
+      <!-- Center Scrolling Workspace -->
+      <div class="workspace-scroll-pane" id="claude-center">
+        <!-- Zero-Message Minimal Introduction -->
+        <div class="workspace-hero" id="claude-hero">
+          <div class="hero-brand-block">
+            <div class="hero-brand-symbol">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <line x1="12" y1="2" x2="12" y2="6"></line>
+                <line x1="12" y1="18" x2="12" y2="22"></line>
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                <line x1="2" y1="12" x2="6" y2="12"></line>
+                <line x1="18" y1="12" x2="22" y2="12"></line>
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+              </svg>
+            </div>
+            <h1 class="hero-title" id="hero-heading">Jev Brain</h1>
+            <p class="hero-description">
+              Intelligent multi-model routing, autonomous agent safety, and verified token-holder workspace.
             </p>
           </div>
 
-          <!-- Real Starter Actions Grid (Fully Interactive) -->
-          <div class="starter-actions-grid">
+          <!-- 4 Real Starter Action Cards -->
+          <div class="starter-grid">
             <button class="starter-card" data-starter="conversation">
-              <div class="starter-card-top">
-                <span class="starter-icon">💬</span>
-                <span class="starter-arrow">→</span>
+              <div class="starter-card-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="starter-arrow">↗</span>
               </div>
-              <div class="starter-title">Start a conversation</div>
-              <div class="starter-desc">Ask a question or test multi-model routing</div>
+              <div class="starter-headline">Start a conversation</div>
+              <div class="starter-subtext">Evaluate dynamic multi-model routing &amp; reasoning</div>
             </button>
 
             <button class="starter-card" data-starter="code">
-              <div class="starter-card-top">
-                <span class="starter-icon">⚡</span>
-                <span class="starter-arrow">→</span>
+              <div class="starter-card-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                <span class="starter-arrow">↗</span>
               </div>
-              <div class="starter-title">Analyze code</div>
-              <div class="starter-desc">Audit architecture, security & performance</div>
+              <div class="starter-headline">Analyze code</div>
+              <div class="starter-subtext">Audit architecture, performance bottlenecks &amp; security</div>
             </button>
 
             <button class="starter-card" data-starter="project">
-              <div class="starter-card-top">
-                <span class="starter-icon">📁</span>
-                <span class="starter-arrow">→</span>
+              <div class="starter-card-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="starter-arrow">↗</span>
               </div>
-              <div class="starter-title">Build a project</div>
-              <div class="starter-desc">Organize pipelines, files & instructions</div>
+              <div class="starter-headline">Build a project</div>
+              <div class="starter-subtext">Organize instructions, pipelines &amp; custom workspaces</div>
             </button>
 
             <button class="starter-card" data-starter="warden">
-              <div class="starter-card-top">
-                <span class="starter-icon">🛡</span>
-                <span class="starter-arrow">→</span>
+              <div class="starter-card-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <span class="starter-arrow">↗</span>
               </div>
-              <div class="starter-title">Agent Warden</div>
-              <div class="starter-desc">Evaluate tool safety & destructive commands</div>
+              <div class="starter-headline">Agent Warden</div>
+              <div class="starter-subtext">Test tool safety verdicts &amp; pre-flight command firewall</div>
             </button>
           </div>
 
-          <!-- Compact Token Metadata Strip -->
+          <!-- Secondary Contract Address Strip -->
           <div class="hero-token-strip">
-            <div class="token-strip-meta">
-              <span class="token-strip-badge">SPL Token</span>
-              <span class="token-strip-ca">CA: <code id="hero-strip-ca">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code></span>
+            <div class="strip-left">
+              <span class="strip-label">SPL Token</span>
+              <span class="strip-ca">CA: <code id="hero-strip-ca">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code></span>
             </div>
-            <div class="token-strip-actions">
-              <button class="btn-text-action" id="strip-copy-ca-btn">Copy CA</button>
-              <span class="strip-sep">•</span>
-              <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="btn-text-action">DexScreener ↗</a>
+            <div class="strip-right">
+              <button class="strip-action-btn" id="strip-copy-ca-btn">Copy CA</button>
+              <span class="strip-dot">•</span>
+              <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="strip-action-btn">DexScreener ↗</a>
             </div>
           </div>
         </div>
@@ -281,54 +354,63 @@
         <div class="messages-stream" id="messages-stream"></div>
       </div>
 
-      <!-- Bottom Floating Composer Bar -->
-      <div class="claude-bottom-bar">
-        <!-- Compact Announcement & Savings Pill -->
-        <div class="info-pill" id="info-pill">
-          <div class="pill-text">
-            <span class="info-icon">⚡</span>
-            <span>95.2% Token Optimization Engine &bull; <span id="total-saved-pill">Saved $0.0000 in unrouted LLM costs</span></span>
+      <!-- Bottom Chat Composer Area -->
+      <div class="composer-container">
+        <!-- Token Optimization Banner -->
+        <div class="optimization-pill" id="info-pill">
+          <div class="pill-left">
+            <span class="pill-bolt">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+            </span>
+            <span>95.2% Token Reduction Engine &bull; <span id="total-saved-pill">Saved $0.0000 in unrouted LLM costs</span></span>
           </div>
-          <button class="pill-close" onclick="document.getElementById('info-pill').style.display='none'">&times;</button>
+          <button class="pill-close-btn" onclick="document.getElementById('info-pill').style.display='none'">&times;</button>
         </div>
 
-        <!-- Token Gate Locked Overlay (Appears only if wallet not holding token) -->
+        <!-- Wallet Gate Overlay (Only active when unverified) -->
         <div class="wallet-gate-overlay" id="wallet-gate-overlay" style="display:none;">
-          <div class="gate-dialog">
-            <div class="gate-icon-badge">
-              <span class="gate-glyph">🔒</span>
+          <div class="gate-card">
+            <div class="gate-icon-wrapper">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
             </div>
-            <h3 class="gate-heading">Jev Brain Access</h3>
-            <p class="gate-desc">
-              Connect your wallet to verify <strong style="color:var(--text-primary);">$JEVBRAIN</strong> token holdings and unlock full AI workspace access.
+            <h3 class="gate-title">Jev Brain Access</h3>
+            <p class="gate-description">
+              Connect your Web3 wallet to verify <strong style="color:var(--text-primary);">$JEVBRAIN</strong> token holdings and unlock full platform capabilities.
             </p>
             
-            <div class="gate-btn-row">
-              <button class="btn-wallet-gate solana-gate-btn" id="connect-solana-btn">
-                <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
-                  <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+            <div class="gate-actions-row">
+              <button class="gate-btn gate-solana-btn" id="connect-solana-btn">
+                <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+                  <circle cx="64" cy="64" r="64" fill="#7C3AED"/>
                   <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
                 </svg>
                 <span>Phantom (Solana)</span>
               </button>
 
-              <button class="btn-wallet-gate metamask-gate-btn" id="connect-wallet-btn">
-                <span class="metamask-fox-icon">🦊</span>
+              <button class="gate-btn gate-metamask-btn" id="connect-wallet-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
                 <span>MetaMask (EVM)</span>
               </button>
             </div>
             
-            <p class="gate-note">
-              Cryptographic signature is used solely to authenticate ownership and verify on-chain balance. No gas fees or transactions are triggered.
+            <p class="gate-footnote">
+              Cryptographic signature verifies on-chain holding without gas fees or blockchain transactions.
             </p>
           </div>
         </div>
 
-        <!-- Production AI Chat Composer Card -->
-        <div class="input-card">
-          <button class="attach-btn" title="Add files (.txt, .md, .json, .py, .js)" id="attach-btn">+</button>
+        <!-- Production AI Composer Card -->
+        <div class="composer-card">
+          <button class="composer-attach-btn" title="Add file attachment (.txt, .md, .py, .js, .json)" id="attach-btn">+</button>
           <input type="file" id="attachment-input" hidden accept=".txt,.md,.json,.csv,.html,.css,.js,.ts,.py,.sql,.xml,.yaml,.yml" />
-          <div class="attachment-chip" id="attachment-chip" hidden></div>
+          <div class="composer-attachment-chip" id="attachment-chip" hidden></div>
           
           <textarea 
             id="prompt-input" 
@@ -336,24 +418,24 @@
             placeholder="Ask anything, route queries, or run agent tasks..." 
             autofocus></textarea>
 
-          <div class="input-controls">
-            <button class="control-btn" title="Voice dictation" id="voice-input-btn" aria-label="Voice dictation">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div class="composer-controls">
+            <button class="composer-tool-btn" title="Voice dictation" id="voice-input-btn" aria-label="Voice dictation">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                 <line x1="12" y1="19" x2="12" y2="22"></line>
               </svg>
             </button>
 
-            <button class="control-btn" title="Record audio" id="audio-record-btn" aria-label="Record audio" style="display:none;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="composer-tool-btn" title="Record audio" id="audio-record-btn" aria-label="Record audio" style="display:none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 10v4"></path><path d="M6 7v10"></path><path d="M10 4v16"></path><path d="M14 7v10"></path><path d="M18 10v4"></path><path d="M22 12v0"></path>
               </svg>
             </button>
 
-            <!-- OpenRouter 500+ Model Selector Dropdown -->
-            <div class="model-picker-dropdown">
-              <input id="model-inline-search" class="model-inline-search" type="search" placeholder="Search models" aria-label="Search models" autocomplete="off" />
+            <!-- Model Selection Dropdown -->
+            <div class="composer-model-picker">
+              <input id="model-inline-search" class="model-filter-input" type="search" placeholder="Search..." aria-label="Filter models" autocomplete="off" />
               <select id="model-select">
                 <option value="auto" selected>Jev Router • Auto (OpenRouter)</option>
                 <option value="openai/gpt-4o">OpenAI GPT-4o (Frontier)</option>
@@ -366,21 +448,21 @@
               </select>
             </div>
 
-            <!-- Send / Stop Morphing Button -->
-            <button class="send-circle-btn" id="send-btn" title="Send (Enter)">
+            <!-- Send / Stop Morphing Action Button -->
+            <button class="composer-send-btn" id="send-btn" title="Send (Enter)">
               <svg class="send-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
               </svg>
-              <svg class="stop-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+              <svg class="stop-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
                 <rect x="4" y="4" width="16" height="16" rx="2"></rect>
               </svg>
             </button>
           </div>
         </div>
 
-        <div class="claude-footer-disclaimer">
-          Jev Brain routes queries intelligently. Token holding verified on-chain via Web3 wallet.
+        <div class="composer-footer-text">
+          Jev Brain routes queries automatically. Token holding verified on-chain via Web3 wallet.
         </div>
       </div>
     </main>
@@ -390,21 +472,23 @@
   <div class="tier-modal-overlay" id="tier-modal-overlay" style="display:none;">
     <div class="tier-modal-card">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="color:var(--accent-terracotta);font-size:18px;">✻</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Dynamic Token Holding Tiers</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          <h3>Dynamic Token Holding Tiers</h3>
         </div>
         <button class="tier-modal-close" id="tier-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+        <p class="modal-subtext">
           Tiers adapt dynamically based on live Market Cap from DexScreener. Early market entry enables accessible dollar thresholds, while scaling market cap scales trust requirements.
         </p>
         <div class="modal-ca-bar">
-          <span style="font-family:var(--font-mono);color:var(--text-secondary);font-size:11.5px;">
+          <span class="ca-text">
             CA: <strong style="user-select:all;color:var(--text-primary);">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</strong>
           </span>
-          <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="color:#0284c7;text-decoration:none;font-weight:600;font-size:11.5px;">
+          <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="chart-link">
             Live Chart ↗
           </a>
         </div>
@@ -422,28 +506,29 @@
 
   <!-- Projects Modal -->
   <div class="tier-modal-overlay" id="projects-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 580px;">
+    <div class="tier-modal-card" style="max-width: 560px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">📁</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Projects Manager</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <h3>Projects Manager</h3>
         </div>
         <button class="tier-modal-close" id="projects-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
-          Organize your AI decision pipelines, agent tools, and custom instructions into dedicated project workspaces.
+        <p class="modal-subtext">
+          Organize AI decision pipelines, agent tools, and custom instructions into dedicated project workspaces.
         </p>
         
-        <!-- Create Project Input -->
         <div class="project-create-box">
           <input type="text" id="new-project-name" placeholder="Project name (e.g. Robinhood Bot, Security Proxy)..." />
           <input type="text" id="new-project-desc" placeholder="Brief description..." />
-          <button id="btn-create-project" class="btn-claude-dark" style="margin-top:6px;width:100%;padding:9px;font-size:13px;">+ Create Project</button>
+          <button id="btn-create-project" class="btn-dark-primary">+ Create Project</button>
         </div>
 
-        <div style="margin-top:16px;font-size:11px;text-transform:uppercase;color:var(--text-tertiary);font-weight:700;letter-spacing:0.05em;">Active Workspaces</div>
-        <div class="projects-list-container" id="projects-list-container" style="margin-top:8px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+        <div class="modal-section-title">Active Workspaces</div>
+        <div class="projects-list-container" id="projects-list-container">
           <!-- Populated dynamically -->
         </div>
       </div>
@@ -452,16 +537,20 @@
 
   <!-- Artifacts Gallery Modal -->
   <div class="tier-modal-overlay" id="artifacts-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 720px;">
+    <div class="tier-modal-card" style="max-width: 700px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🗂</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Artifacts Gallery</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          <h3>Artifacts Gallery</h3>
         </div>
         <button class="tier-modal-close" id="artifacts-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
+        <p class="modal-subtext">
           Generated code, safety rulesets, decision architectures, and exported session artifacts.
         </p>
         <div class="artifacts-layout">
@@ -469,14 +558,14 @@
             <!-- Populated dynamically -->
           </div>
           <div class="artifact-preview-pane" id="artifact-preview-pane">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <strong id="artifact-preview-title" style="font-size:13px;">Select an artifact</strong>
-              <div style="display:flex;gap:6px;">
-                <button class="icon-mini-btn" id="btn-copy-artifact" title="Copy code">📋 Copy</button>
-                <button class="icon-mini-btn" id="btn-download-artifact" title="Download">💾 Save</button>
+            <div class="artifact-preview-head">
+              <strong id="artifact-preview-title">Select an artifact</strong>
+              <div class="artifact-preview-btns">
+                <button class="btn-ghost-sm" id="btn-copy-artifact">Copy</button>
+                <button class="btn-ghost-sm" id="btn-download-artifact">Save</button>
               </div>
             </div>
-            <pre class="artifact-pre"><code id="artifact-preview-code">// Select an artifact from the list to preview</code></pre>
+            <pre class="artifact-code-block"><code id="artifact-preview-code">// Select an artifact from the list to preview</code></pre>
           </div>
         </div>
       </div>
@@ -485,45 +574,45 @@
 
   <!-- Agent Warden Safety Suite Modal -->
   <div class="tier-modal-overlay" id="warden-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 660px;">
+    <div class="tier-modal-card" style="max-width: 640px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🛡</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Agent Warden Pre-Flight Firewall</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+          <h3>Agent Warden Pre-Flight Firewall</h3>
           <span class="status-badge-active">ACTIVE</span>
         </div>
         <button class="tier-modal-close" id="warden-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+        <p class="modal-subtext">
           4 Critical pre-flight verification checks executed prior to autonomous agent tool calls: 1. Target file? 2. Irreversible? 3. Loop pattern? 4. Task completion?
         </p>
 
-        <!-- Interactive Testbench -->
         <div class="warden-testbench-card">
-          <label style="font-size:11px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Test Any Shell Command or Tool Payload:</label>
-          <div style="display:flex;gap:6px;">
-            <input type="text" id="warden-test-input" placeholder="e.g. rm -rf / or cat .env or git push --force..." style="flex:1;padding:8px 10px;border:1px solid var(--border-medium);border-radius:6px;font-family:var(--font-mono);font-size:12px;" />
-            <button id="btn-run-warden-test" class="btn-claude-dark" style="padding:8px 14px;font-size:12px;">Evaluate</button>
+          <label class="warden-label">Test Any Shell Command or Tool Payload:</label>
+          <div class="warden-input-row">
+            <input type="text" id="warden-test-input" placeholder="e.g. rm -rf / or cat .env or git push --force..." />
+            <button id="btn-run-warden-test" class="btn-dark-primary">Evaluate</button>
           </div>
-          <!-- Quick Preset Buttons -->
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">
-            <span style="font-size:11px;color:var(--text-muted);">Presets:</span>
-            <button class="warden-preset-btn" data-cmd="rm -rf /">rm -rf /</button>
-            <button class="warden-preset-btn" data-cmd="cat .env">cat .env</button>
-            <button class="warden-preset-btn" data-cmd="git push --force origin main">git push --force</button>
-            <button class="warden-preset-btn" data-cmd="DROP TABLE users;">DROP TABLE</button>
-            <button class="warden-preset-btn" data-cmd="npm test">npm test (Safe)</button>
+          <div class="warden-presets-row">
+            <span class="presets-caption">Presets:</span>
+            <button class="warden-preset-chip" data-cmd="rm -rf /">rm -rf /</button>
+            <button class="warden-preset-chip" data-cmd="cat .env">cat .env</button>
+            <button class="warden-preset-chip" data-cmd="git push --force origin main">git push --force</button>
+            <button class="warden-preset-chip" data-cmd="DROP TABLE users;">DROP TABLE</button>
+            <button class="warden-preset-chip" data-cmd="npm test">npm test (Safe)</button>
           </div>
         </div>
 
-        <!-- Live Verdict Output -->
         <div id="warden-verdict-box" style="display:none;" class="warden-verdict-output">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Warden Verdict</span>
-            <span id="warden-verdict-badge" style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;">--</span>
+          <div class="verdict-head">
+            <span class="verdict-caption">Warden Verdict</span>
+            <span id="warden-verdict-badge" class="verdict-pill">--</span>
           </div>
-          <div id="warden-verdict-reason" style="font-size:12px;color:var(--text-primary);margin-bottom:8px;font-family:var(--font-mono);">--</div>
+          <div id="warden-verdict-reason" class="verdict-reason">--</div>
           <div class="warden-chk-grid">
             <div id="warden-chk-file">1. Target File: ?</div>
             <div id="warden-chk-irrev">2. Irreversible: ?</div>
@@ -537,29 +626,30 @@
 
   <!-- Model Router Suite Modal -->
   <div class="tier-modal-overlay" id="router-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 700px;">
+    <div class="tier-modal-card" style="max-width: 680px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">⚙</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">OpenRouter Model Router</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+          </svg>
+          <h3>OpenRouter Model Router</h3>
         </div>
         <button class="tier-modal-close" id="router-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
-          Sub-millisecond complexity triage automatically routes high-volume cheap queries to Llama 8B / Flash and deep architectural reasoning to GPT-4o / Claude.
+        <p class="modal-subtext">
+          Sub-millisecond complexity triage automatically routes high-volume queries to Llama 8B / Flash and deep architectural reasoning to GPT-4o / Claude.
         </p>
 
-        <!-- Stats Bar -->
         <div class="tier-stats-bar">
-          <div><span>OpenRouter Models:</span> <strong id="router-model-count">440+</strong></div>
+          <div><span>Available Models:</span> <strong id="router-model-count">440+</strong></div>
           <div><span>Routing Latency:</span> <strong>&lt;1.2ms</strong></div>
           <div><span>Cost Reduction:</span> <strong>~95.2%</strong></div>
         </div>
 
-        <!-- Model Search -->
         <div style="margin-bottom:12px;">
-          <input type="text" id="router-model-search" placeholder="Search 440+ models (e.g. gpt, claude, deepseek, llama, gemini)..." style="width:100%;padding:8px 12px;border:1px solid var(--border-medium);border-radius:6px;font-size:13px;" />
+          <input type="text" id="router-model-search" class="clean-search-input" placeholder="Search 440+ models (e.g. gpt, claude, deepseek, llama, gemini)..." />
         </div>
 
         <div id="router-models-grid" class="router-models-grid">
@@ -571,80 +661,84 @@
 
   <!-- Search & Transcript Export Modal -->
   <div class="tier-modal-overlay" id="search-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 520px;">
+    <div class="tier-modal-card" style="max-width: 500px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🔍</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Search & Export Transcripts</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <h3>Search &amp; Export Transcripts</h3>
         </div>
         <button class="tier-modal-close" id="search-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
         <div style="margin-bottom:12px;">
-          <input type="text" id="chat-search-input" placeholder="Search in conversation history..." style="width:100%;padding:8px 12px;border:1px solid var(--border-medium);border-radius:6px;font-size:13px;" />
+          <input type="text" id="chat-search-input" class="clean-search-input" placeholder="Search in conversation history..." />
         </div>
-        <div id="chat-search-results" style="max-height:160px;overflow-y:auto;font-size:12.5px;margin-bottom:14px;color:var(--text-secondary);">
+        <div id="chat-search-results" class="search-results-box">
           Type above to search messages across all sessions.
         </div>
-        <div style="border-top:1px solid var(--border-subtle);padding-top:12px;display:flex;gap:8px;">
-          <button id="btn-export-json" class="btn-claude-dark" style="flex:1;padding:8px;font-size:12px;">📥 Export JSON</button>
-          <button id="btn-export-md" class="btn-claude-ghost" style="flex:1;padding:8px;font-size:12px;">📄 Export Markdown</button>
+        <div class="export-actions-row">
+          <button id="btn-export-json" class="btn-dark-primary" style="flex:1;">Export JSON</button>
+          <button id="btn-export-md" class="btn-ghost-sm" style="flex:1;">Export Markdown</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Jev Mobile Runner Modal -->
+  <!-- Mobile Runner Modal -->
   <div class="tier-modal-overlay" id="mobile-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 860px; max-height: 90vh;">
+    <div class="tier-modal-card" style="max-width: 840px; max-height: 90vh;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:20px;">📱</span>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
           <div>
-            <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);margin:0;">Jev Mobile Runner</h3>
-            <div style="font-size:11px;color:var(--text-secondary);">Autonomous Android Device Gateway • Mobilerun Protocol Bridge</div>
+            <h3 style="margin:0;">Jev Mobile Runner</h3>
+            <div style="font-size:11px;color:var(--text-tertiary);">Autonomous Android Device Gateway • Mobilerun Protocol Bridge</div>
           </div>
         </div>
         <button class="tier-modal-close" id="mobile-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body mobile-modal-body">
-        <!-- Left: Android Device Screen Canvas -->
+        <!-- Left: Canvas -->
         <div style="display:flex;flex-direction:column;align-items:center;">
           <div class="mobile-empty-state" id="mobile-empty-state" style="display:none;">
             <strong>No Android device connected</strong>
-            <span>Connect a device with USB debugging enabled to synthesize touch coordinates.</span>
+            <span>Connect a physical or emulator device with USB debugging enabled.</span>
           </div>
           <div class="mobile-phone-frame" id="mobile-phone-frame">
-            <div class="phone-notch">
-              <span class="phone-camera"></span>
-            </div>
+            <div class="phone-notch"><span class="phone-camera"></span></div>
             <div class="phone-screen" id="phone-screen-canvas">
               <div class="phone-status-bar">
                 <span>09:41</span>
-                <span>📶 5G  🔋 88%</span>
+                <span>5G 88%</span>
               </div>
               <div class="phone-content" id="phone-content-area">
                 <div class="phone-app-header" id="phone-app-title">Jev Mobile Gateway</div>
                 <div class="phone-card">
-                  <div style="font-size:11px;font-weight:600;color:var(--accent-terracotta);">● AGENT EXECUTION READY</div>
-                  <div style="font-size:10px;margin-top:4px;color:var(--text-secondary);" id="phone-sub-state">Foreground: com.android.launcher3</div>
+                  <div style="font-size:10.5px;font-weight:600;color:var(--text-secondary);">AGENT EXECUTION READY</div>
+                  <div style="font-size:9.5px;color:var(--text-muted);" id="phone-sub-state">Foreground: com.android.launcher3</div>
                 </div>
                 <div class="phone-grid">
                   <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.settings">
-                    <span style="font-size:18px;">⚙</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle></svg>
                     <span>Settings</span>
                   </div>
                   <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.chrome">
-                    <span style="font-size:18px;">🌐</span>
-                    <span>Chrome</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>
+                    <span>Browser</span>
                   </div>
                   <div class="phone-icon-btn" data-action="tap" data-x="300" data-y="1000">
-                    <span style="font-size:18px;">📁</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                     <span>Files</span>
                   </div>
                   <div class="phone-icon-btn" data-action="tap" data-x="700" data-y="1000">
-                    <span style="font-size:18px;">💬</span>
-                    <span>Messages</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span>Terminal</span>
                   </div>
                 </div>
                 <div id="phone-tap-indicator" style="display:none;" class="tap-ripple"></div>
@@ -656,44 +750,41 @@
               </div>
             </div>
           </div>
-          <div style="font-size:10.5px;color:var(--text-muted);margin-top:8px;text-align:center;">
-            Click anywhere on screen to synthesize real ADB touch coordinates
+          <div style="font-size:10px;color:var(--text-muted);margin-top:8px;">
+            Click anywhere on screen to synthesize real ADB coordinates
           </div>
         </div>
 
-        <!-- Right: Device Controls & Real-Time Execution Logs -->
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <!-- Top Bar: Device Selector -->
-          <div style="display:flex;gap:8px;align-items:center;background:var(--bg-subtle);padding:8px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
+        <!-- Right: Controls & Logs -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="device-select-bar">
             <div style="flex:1;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Active Device</div>
-              <select id="mobile-device-select" style="background:transparent;border:none;font-weight:600;font-size:12px;color:var(--text-primary);cursor:pointer;width:100%;">
-                <option value="pixel-8-virtual">Pixel 8 Pro (Jev Virtual Device) • Android 14</option>
+              <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Active Device</div>
+              <select id="mobile-device-select" class="device-dropdown">
+                <option value="pixel-8-virtual">Pixel 8 Pro (Virtual Testbed) • Android 14</option>
               </select>
             </div>
-            <button id="btn-refresh-devices" class="btn-claude-ghost" style="padding:4px 8px;font-size:11px;">🔄 Refresh</button>
+            <button id="btn-refresh-devices" class="btn-ghost-sm">Refresh</button>
           </div>
 
-          <!-- Quick Action Bar -->
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Direct Agent Actions</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="warden-preset-btn" id="btn-mobile-open-chrome">🌐 Chrome</button>
-              <button class="warden-preset-btn" id="btn-mobile-open-settings">⚙ Settings</button>
-              <button class="warden-preset-btn" id="btn-mobile-type">⌨ Type Text</button>
-              <button class="warden-preset-btn" id="btn-mobile-swipe-up">⬆ Swipe</button>
-              <button class="warden-preset-btn" id="btn-mobile-inspect">🔍 Inspect UI</button>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button class="warden-preset-chip" id="btn-mobile-open-chrome">Browser</button>
+              <button class="warden-preset-chip" id="btn-mobile-open-settings">Settings</button>
+              <button class="warden-preset-chip" id="btn-mobile-type">Type Text</button>
+              <button class="warden-preset-chip" id="btn-mobile-swipe-up">Swipe Up</button>
+              <button class="warden-preset-chip" id="btn-mobile-inspect">Inspect UI</button>
             </div>
           </div>
 
-          <!-- Real-Time Execution Logs -->
           <div style="flex:1;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Execution Stream</span>
-              <span style="font-size:10px;color:#10b981;">● Bridge Active</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Execution Logs</span>
+              <span style="font-size:10px;color:var(--status-success);">● Protocol Active</span>
             </div>
-            <div id="mobile-logs-container" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:6px; background:var(--bg-card); border:1px solid var(--border-medium); border-radius:8px; padding:8px;">
-              <div style="font-size:11.5px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or select action above.</div>
+            <div id="mobile-logs-container" class="mobile-logs-container">
+              <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or trigger actions above.</div>
             </div>
           </div>
         </div>
@@ -701,47 +792,50 @@
     </div>
   </div>
 
-  <!-- Dedicated Web3 & Wallet Modal -->
+  <!-- Dedicated Web3 Wallet Modal -->
   <div class="tier-modal-overlay" id="rainbow-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 440px;">
+    <div class="tier-modal-card" style="max-width: 420px;">
       <div class="tier-modal-head">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🔐</span>
-          <h3 style="font-size:16px;font-weight:600;margin:0;font-family:var(--font-serif);">Connect Your Wallet</h3>
+        <div class="modal-head-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <h3 style="margin:0;">Connect Your Wallet</h3>
         </div>
         <button class="tier-modal-close" id="rainbow-modal-close">&times;</button>
       </div>
-      <div class="tier-modal-body" style="padding-top: 12px;">
-        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
-          Authenticate with your Web3 wallet. A cryptographic signature challenge will verify your token holding on-chain and unlock Jev Brain.
+      <div class="tier-modal-body">
+        <p class="modal-subtext">
+          Authenticate with your Web3 wallet. A cryptographic challenge validates on-chain $JEVBRAIN holdings to unlock platform features.
         </p>
 
-        <!-- Live Connection Status Box -->
-        <div id="rainbow-modal-status-box" class="modal-status-box">
+        <div id="rainbow-modal-status-box" class="modal-status-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Connection Status</span>
-            <span id="rainbow-modal-badge" class="status-pill-disconnected">Disconnected</span>
+            <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Session Status</span>
+            <span id="rainbow-modal-badge" class="status-disconnected">Disconnected</span>
           </div>
-          <div style="font-size: 12.5px; font-weight: 600; font-family: var(--font-mono); word-break: break-all;" id="rainbow-modal-address">No wallet connected</div>
-          <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px;" id="rainbow-modal-tier-text">Requires token holding to access frontier AI models</div>
+          <div class="status-address-text" id="rainbow-modal-address">No wallet connected</div>
+          <div class="status-tier-desc" id="rainbow-modal-tier-text">Requires token holding to access frontier AI models</div>
         </div>
 
-        <!-- Action Buttons -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
-          <button class="btn-wallet-connect solana-action-btn" id="rainbow-modal-solana-btn">
-            <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
-              <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+          <button class="btn-wallet-choice solana-wallet-choice" id="rainbow-modal-solana-btn">
+            <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+              <circle cx="64" cy="64" r="64" fill="#7C3AED"/>
               <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
             </svg>
             <span>Connect with Phantom (Solana)</span>
           </button>
           
-          <button class="btn-wallet-connect metamask-action-btn" id="rainbow-modal-connect-btn">
-            <span class="metamask-fox-icon">🦊</span>
+          <button class="btn-wallet-choice metamask-wallet-choice" id="rainbow-modal-connect-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
             <span>Connect with MetaMask (EVM)</span>
           </button>
 
-          <button class="btn-claude-ghost" id="rainbow-modal-disconnect-btn" style="padding: 8px; font-size: 12px; color: #ef4444; display: none;">
+          <button class="btn-danger-text" id="rainbow-modal-disconnect-btn" style="display:none;">
             Disconnect Wallet
           </button>
         </div>
@@ -751,43 +845,35 @@
 
   <!-- User Onboarding Modal -->
   <div class="tier-modal-overlay" id="onboarding-modal" style="display:none; z-index: 9999;">
-    <div class="tier-modal-card" style="max-width: 420px; padding: 28px 24px; text-align: left;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 22px; color: var(--accent-terracotta);">✻</span>
-          <h2 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin: 0; color: var(--text-primary);">Welcome to Jev Brain</h2>
-        </div>
+    <div class="tier-modal-card" style="max-width: 400px; padding: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <h2 style="font-size: 17px; font-weight: 600; margin: 0; color: var(--text-primary);">Initialize Profile</h2>
         <button class="tier-modal-close" id="onboarding-modal-close">&times;</button>
       </div>
       
-      <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 18px 0; line-height: 1.5;">
-        Your wallet is verified on-chain. Enter your name and email to initialize your workspace profile.
+      <p class="modal-subtext" style="margin-bottom:14px;">
+        Your wallet is verified on-chain. Please enter your name and email to initialize your workspace session.
       </p>
 
       <form id="onboarding-form">
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Display Name</label>
+          <input type="text" id="onboarding-name-input" class="clean-search-input" placeholder="e.g. Developer" required />
+        </div>
+
         <div style="margin-bottom: 14px;">
-          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">Display Name</label>
-          <input type="text" id="onboarding-name-input" placeholder="e.g. Developer" required 
-            style="width: 100%; box-sizing: border-box; padding: 9px 12px; font-size: 13.5px; border: 1px solid var(--border-medium); border-radius: 6px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+          <label style="display: block; font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Email Address</label>
+          <input type="email" id="onboarding-email-input" class="clean-search-input" placeholder="dev@domain.com" required />
         </div>
 
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">Email Address</label>
-          <input type="email" id="onboarding-email-input" placeholder="dev@domain.com" required 
-            style="width: 100%; box-sizing: border-box; padding: 9px 12px; font-size: 13.5px; border: 1px solid var(--border-medium); border-radius: 6px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+        <div class="onboarding-wallet-row">
+          <span style="font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono);">
+            Wallet: <span id="onboarding-wallet-addr">0x...</span>
+          </span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 6px; margin-bottom: 18px;">
-          <span style="font-size: 13px;">🔑</span>
-          <div style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all;">
-            <span style="color: var(--text-secondary); font-weight: 600;">Wallet:</span> <span id="onboarding-wallet-addr">0x...</span>
-          </div>
-        </div>
-
-        <button type="submit" class="btn-claude-dark" id="onboarding-confirm-btn" 
-          style="width: 100%; padding: 10px; font-size: 13.5px; font-weight: 600; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <span>Enter Workspace</span>
-          <span>→</span>
+        <button type="submit" class="btn-dark-primary" id="onboarding-confirm-btn" style="width:100%;padding:9px;">
+          Enter Workspace →
         </button>
       </form>
     </div>

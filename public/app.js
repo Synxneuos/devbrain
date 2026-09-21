@@ -220,7 +220,19 @@ async function connectMetaMaskWallet() {
 
   try {
     if (btn) {
-      btn.innerHTML = '<span>🦊</span> <span>Requesting Accounts...</span>';
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+        </svg>
+        <span>Requesting Accounts...</span>
+      `;
       btn.disabled = true;
     }
 
@@ -232,7 +244,13 @@ async function connectMetaMaskWallet() {
     const account = accounts[0].toLowerCase();
 
     if (btn) {
-      btn.innerHTML = '<span>🦊</span> <span>Sign Message in MetaMask...</span>';
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Sign Message in MetaMask...</span>
+      `;
     }
 
     // Step 2: Request challenge nonce from backend
@@ -301,18 +319,10 @@ async function connectMetaMaskWallet() {
   } finally {
     if (btn) {
       btn.innerHTML = originalHtml || `
-        <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
-          <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
         </svg>
-        <span>Connect Wallet</span>
+        <span>Connect MetaMask</span>
       `;
       btn.disabled = false;
     }
@@ -340,7 +350,19 @@ async function connectSolanaWallet() {
 
   try {
     if (btn) {
-      btn.innerHTML = '<span>🟣</span> <span>Connecting Phantom...</span>';
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+        </svg>
+        <span>Connecting Phantom...</span>
+      `;
       btn.disabled = true;
     }
 
@@ -348,7 +370,13 @@ async function connectSolanaWallet() {
     const pubkey = resp.publicKey.toString();
 
     if (btn) {
-      btn.innerHTML = '<span>🟣</span> <span>Sign Message in Phantom...</span>';
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        <span>Sign Message in Phantom...</span>
+      `;
     }
 
     // Step 1: Request authentication challenge nonce from server
@@ -404,8 +432,8 @@ async function connectSolanaWallet() {
   } finally {
     if (btn) {
       btn.innerHTML = originalHtml || `
-        <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
-          <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+        <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+          <circle cx="64" cy="64" r="64" fill="#7C3AED"/>
           <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
         </svg>
         <span>Phantom (Solana)</span>
@@ -922,7 +950,11 @@ async function handleSubmit() {
       }
     }
     finalData = finalData || { response: responseText, modelName: 'Jev Gateway', latencyMs: 0, dollarsSaved: 0 };
-    streamRow.querySelector('.routing-header-pill span').textContent = `⚡ ${finalData.modelName || model} • ${finalData.latencyMs || 0}ms • Saved $${(finalData.dollarsSaved || 0).toFixed(4)}`;
+    streamRow.querySelector('.routing-header-pill span').innerHTML = `
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>${escapeHtml(finalData.modelName || model)} • ${finalData.latencyMs || 0}ms • Saved $${(finalData.dollarsSaved || 0).toFixed(4)}
+    `;
     saveMessageToCurrentChat('assistant', { ...finalData, response: responseText });
 
     totalSavingsUsd += (finalData.dollarsSaved || 0);
@@ -958,7 +990,7 @@ async function handleSubmit() {
 function appendStreamingAssistant() {
   const row = document.createElement('div');
   row.className = 'msg-row assistant';
-  row.innerHTML = '<div class="routing-header-pill"><span>⚡ Jev Gateway • streaming...</span></div><div class="msg-bubble-assistant"></div>';
+  row.innerHTML = '<div class="routing-header-pill"><span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Jev Gateway • streaming...</span></div><div class="msg-bubble-assistant"></div>';
   elements.messages.appendChild(row);
   return row;
 }
@@ -983,7 +1015,7 @@ function appendAssistantResponse(data, shouldSave = true) {
   const row = document.createElement('div');
   row.className = 'msg-row assistant';
   const pillHtml = data.modelName ? 
-    `<div class="routing-header-pill"><span>⚡ ${data.modelName} • ${data.latencyMs}ms • Saved $${(data.dollarsSaved || 0).toFixed(4)}</span></div>` : 
+    `<div class="routing-header-pill"><span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>${escapeHtml(data.modelName)} • ${data.latencyMs}ms • Saved $${(data.dollarsSaved || 0).toFixed(4)}</span></div>` : 
     '';
   row.innerHTML = `${pillHtml}<div class="msg-bubble-assistant">${formatMarkdown(data.response || '')}</div>`;
   elements.messages.appendChild(row);
@@ -993,7 +1025,7 @@ function appendAssistantResponse(data, shouldSave = true) {
 function appendLoading() {
   const row = document.createElement('div');
   row.className = 'msg-row assistant';
-  row.innerHTML = `<div class="routing-header-pill"><span>⚡ Jev Routing...</span></div><div class="msg-bubble-assistant"><span>Analyzing complexity and routing model...</span></div>`;
+  row.innerHTML = `<div class="routing-header-pill"><span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Jev Routing...</span></div><div class="msg-bubble-assistant"><span>Analyzing complexity and routing model...</span></div>`;
   elements.messages.appendChild(row);
   return row;
 }
@@ -1140,8 +1172,21 @@ function copyActiveArtifact() {
   const activeArt = loadedArtifacts[selectedArtifactIndex];
   if (activeArt && activeArt.code) {
     navigator.clipboard.writeText(activeArt.code);
-    elements.btnCopyArtifact.textContent = '✓ Copied!';
-    setTimeout(() => { elements.btnCopyArtifact.textContent = '📋 Copy'; }, 1500);
+    elements.btnCopyArtifact.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>Copied!</span>
+    `;
+    setTimeout(() => {
+      elements.btnCopyArtifact.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>Copy</span>
+      `;
+    }, 1500);
   }
 }
 
@@ -1323,7 +1368,13 @@ function handleAttachment(file) {
     pendingAttachment = { name: file.name, text: String(reader.result || '') };
     if (elements.attachmentChip) {
       elements.attachmentChip.hidden = false;
-      elements.attachmentChip.textContent = `📎 ${file.name} ×`;
+      elements.attachmentChip.innerHTML = `
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+        </svg>
+        <span>${escapeHtml(file.name)}</span>
+        <span style="opacity:0.6;margin-left:3px;">&times;</span>
+      `;
     }
   };
   reader.onerror = () => alert('Could not read this attachment.');
@@ -1367,7 +1418,7 @@ function toggleVoiceDictation() {
 async function toggleAudioRecording() {
   if (audioRecorder?.state === 'recording') {
     audioRecorder.stop();
-    elements.audioBtn.textContent = '✓';
+    elements.audioBtn?.classList.remove('recording');
     return;
   }
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -1385,14 +1436,21 @@ async function toggleAudioRecording() {
       pendingAttachment = { name: `voice-note-${Date.now()}.webm`, blob, text: '[Voice recording attached]' };
       if (elements.attachmentChip) {
         elements.attachmentChip.hidden = false;
-        elements.attachmentChip.textContent = `🎙️ Voice note ready ×`;
+        elements.attachmentChip.innerHTML = `
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span>Voice note attached</span>
+          <span style="opacity:0.6;margin-left:3px;">&times;</span>
+        `;
       }
-      elements.audioBtn.textContent = '◉';
-      elements.audioBtn.classList.remove('recording');
+      elements.audioBtn?.classList.remove('recording');
     };
     audioRecorder.start();
-    elements.audioBtn.textContent = '■';
-    elements.audioBtn.classList.add('recording');
+    elements.audioBtn?.classList.add('recording');
   } catch (err) {
     alert(`Microphone permission was not granted: ${err.message}`);
   }
