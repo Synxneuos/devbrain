@@ -10,6 +10,7 @@ import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js
 import { MobileRunner } from './core/mobile.js';
 import { EXTENDED_MODELS, getModelTier } from './core/extended-models.js';
 import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
+import { discordBot, DISCORD_CONFIG, OFFICIAL_TOKEN_CA, SERVER_ROLES } from './discord/bot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -832,6 +833,138 @@ export async function handleRequest(req, res) {
       return;
     }
 
+    if (url.pathname === '/api/discord/info' && req.method === 'GET') {
+      const sanitizedRoles = SERVER_ROLES.map(r => ({
+        ...r,
+        permissions: (r.permissions || []).map(p => typeof p === 'bigint' ? p.toString() : p)
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        clientId: DISCORD_CONFIG.clientId,
+        guildId: DISCORD_CONFIG.guildId,
+        officialCA: OFFICIAL_TOKEN_CA,
+        roles: sanitizedRoles
+      }));
+      return;
+    }
+
+    if (url.pathname === '/api/discord/exchange-code' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const { code, redirectUri } = body;
+        if (!code) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'OAuth2 code is required' }));
+          return;
+        }
+
+        const tokenParams = new URLSearchParams({
+          client_id: DISCORD_CONFIG.clientId,
+          client_secret: DISCORD_CONFIG.clientSecret,
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri || DISCORD_CONFIG.verifyUrl
+        });
+
+        const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: tokenParams.toString(),
+          signal: AbortSignal.timeout(8000)
+        });
+
+        if (!tokenRes.ok) {
+          const errText = await tokenRes.text();
+          throw new Error(`Discord token exchange failed: ${errText}`);
+        }
+
+        const tokenData = await tokenRes.json();
+        const userRes = await fetch('https://discord.com/api/users/@me', {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+          signal: AbortSignal.timeout(8000)
+        });
+
+        if (!userRes.ok) {
+          throw new Error('Failed to fetch Discord user profile');
+        }
+
+        const user = await userRes.json();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, user }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/discord/verify' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const { discordUserId, address, signature, message } = body;
+
+        if (!discordUserId || !address || !signature || !message) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'discordUserId, address, signature, and message are required.' }));
+          return;
+        }
+
+        const isSol = isSolanaAddress(address);
+        let isValid = false;
+        if (isSol) {
+          isValid = verifySolanaSignature(address, message, signature);
+        } else {
+          try {
+            const recovered = verifyMessage(message, signature).toLowerCase();
+            isValid = recovered === address.toLowerCase();
+          } catch {
+            isValid = false;
+          }
+        }
+
+        if (!isValid) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid wallet cryptographic signature.' }));
+          return;
+        }
+
+        // Check on-chain holding
+        const marketData = await fetchLiveMarketData();
+        const balance = await getVerifiedTokenBalance(address);
+        const tokensHeld = balance.tokensHeld || 0;
+        const userTier = await resolveUserTier(tokensHeld, !balance.enabled, marketData);
+
+        // Assign role via Discord bot if bot is running
+        let botRoleResult = null;
+        try {
+          botRoleResult = await discordBot.grantVerifiedRole(discordUserId, userTier.tierName);
+        } catch (botErr) {
+          console.warn('[DiscordVerify] Bot role assignment note:', botErr.message);
+          botRoleResult = {
+            success: false,
+            warning: botErr.message,
+            rolesAssigned: ['Verified Token Holder', userTier.tierName]
+          };
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          verified: true,
+          discordUserId,
+          address,
+          tokensHeld,
+          userTier,
+          rolesAssigned: botRoleResult?.rolesAssigned || ['Verified Token Holder', userTier.tierName],
+          botStatus: botRoleResult?.success ? 'Roles granted in Discord server' : (botRoleResult?.warning || 'Bot sync queued')
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
     if (url.pathname === '/api/session/validate' && req.method === 'GET') {
       const session = parseSession(req);
       if (!session) {
@@ -1136,6 +1269,13 @@ export function startServer(port = 3333) {
   server.listen(port, () => {
     console.log(`\n⚡ Jev Brain Web Daemon running at: http://localhost:${port}`);
     console.log(`“Don't think. Route.” (Decision threshold: 0.8)\n`);
+
+    // Auto-launch Discord Sentinel Bot if botToken is present and not running unit tests
+    if (process.env.NODE_ENV !== 'test' && (process.env.DISCORD_BOT_TOKEN || DISCORD_CONFIG.botToken)) {
+      discordBot.start().catch(err => {
+        console.warn('[DiscordBot] Background initialization notice:', err.message);
+      });
+    }
   });
 
   return server;

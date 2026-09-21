@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: jev-brain-discord-sentinel
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node bin/brain.js serve --port $PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TOKEN_CONTRACT_ADDRESS
+        value: AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump
+      - key: TOKEN_CHAIN
+        value: solana
+      - key: DISCORD_CLIENT_ID
+        value: 1551686988145491978
+      - key: DISCORD_GUILD_ID
+        value: 1551685785432883332
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Server Rules & Security Policy — Jev Brain</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    .rules-page-layout {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-main, #09090b);
+      color: var(--text-primary, #f4f4f5);
+    }
+    .rules-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      background: var(--bg-surface, #111114);
+    }
+    .nav-brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .rules-main {
+      flex: 1;
+      max-width: 860px;
+      width: 100%;
+      margin: 40px auto;
+      padding: 0 20px 80px;
+    }
+    .rules-header {
+      margin-bottom: 36px;
+    }
+    .rules-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 9999px;
+      background: rgba(124,58,237,0.12);
+      color: #a78bfa;
+      border: 1px solid rgba(124,58,237,0.25);
+      margin-bottom: 14px;
+    }
+    .rules-title {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+    }
+    .rules-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      margin: 0;
+      line-height: 1.5;
+    }
+    .section-card {
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .role-box {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 20px;
+      background: rgba(255,255,255,0.02);
+    }
+    .role-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-mono, monospace);
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .role-arbiter {
+      background: rgba(124,58,237,0.15);
+      color: #c4b5fd;
+      border: 1px solid rgba(124,58,237,0.3);
+    }
+    .role-warden {
+      background: rgba(2,132,199,0.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(2,132,199,0.3);
+    }
+    .role-desc {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .rights-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 12px;
+      color: #d4d4d8;
+    }
+    .rights-list li {
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .rights-list li::before {
+      content: "•";
+      color: #71717a;
+    }
+    .protocol-box {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .protocol-item {
+      padding: 16px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+      border-left: 3px solid #71717a;
+    }
+    .protocol-item.critical {
+      border-left-color: #ef4444;
+      background: rgba(239,68,68,0.03);
+    }
+    .protocol-item.warning {
+      border-left-color: #f59e0b;
+      background: rgba(245,158,11,0.03);
+    }
+    .protocol-item.info {
+      border-left-color: #0284c7;
+      background: rgba(2,132,199,0.03);
+    }
+    .protocol-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fafafa;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .protocol-tag {
+      font-size: 11px;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .tag-critical { background: rgba(239,68,68,0.2); color: #f87171; }
+    .tag-warning { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .tag-info { background: rgba(2,132,199,0.2); color: #38bdf8; }
+    .protocol-desc {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .tier-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+    .tier-table th {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: #71717a;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-family: var(--font-mono, monospace);
+    }
+    .tier-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      color: #d4d4d8;
+    }
+    .secondary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: transparent;
+      color: #d4d4d8;
+      font-weight: 500;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .secondary-btn:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      background: #f4f4f5;
+      color: #09090b;
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 6px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body class="rules-page-layout">
+  <!-- Top Navigation -->
+  <header class="rules-nav">
+    <a href="/" class="nav-brand-group">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <line x1="12" y1="2" x2="12" y2="6"></line>
+        <line x1="12" y1="18" x2="12" y2="22"></line>
+        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+        <line x1="2" y1="12" x2="6" y2="12"></line>
+        <line x1="18" y1="12" x2="22" y2="12"></line>
+      </svg>
+      <span style="font-weight:600; font-size:14px; letter-spacing:-0.01em;">Jev Brain</span>
+      <span style="font-size:11px; color:#71717a; font-family:monospace;">/ SECURITY & RULES</span>
+    </a>
+    <div style="display:flex; gap:12px;">
+      <a href="/verify.html" class="primary-btn">Verify Token Holding →</a>
+      <a href="/" class="secondary-btn">← Back to Workspace</a>
+    </div>
+  </header>
+
+  <main class="rules-main">
+    <div class="rules-header">
+      <div class="rules-badge">Autonomous Governance & Moderation Policy</div>
+      <h1 class="rules-title">Discord Server Rules & Security Protocol</h1>
+      <p class="rules-subtitle">
+        Jev Brain is protected 24/7 by an automated <strong>Agent Warden Sentinel</strong>. The server operates under strict zero-trust parameters to safeguard all community members and token holders against phishing, rogue moderator takeovers, and fraudulent announcements.
+      </p>
+    </div>
+
+    <!-- 1. Thematic Moderation Roles -->
+    <div class="section-card">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        <span>Thematic Moderation Rights & Hierarchy</span>
+      </div>
+      <p style="font-size:13px; color:#a1a1aa; margin:0 0 16px; line-height:1.5;">
+        Two specialized authority tiers govern the server. All actions are logged and subject to autonomous anomaly detection.
+      </p>
+
+      <div class="role-grid">
+        <!-- Role 1: Neural Arbiter -->
+        <div class="role-box">
+          <span class="role-badge role-arbiter">👑 Neural Arbiter</span>
+          <div class="role-desc">
+            High-Court Executive Authority. Reserved for senior administrators responsible for governance, role orchestration, and server protection.
+          </div>
+          <ul class="rights-list">
+            <li>Permanent Server Ban & Quarantine</li>
+            <li>Kick Infringing Members</li>
+            <li>Manage Server Roles & Permissions</li>
+            <li>Manage & Purge Channels / Messages</li>
+            <li>Full Audit Log & Telemetry Access</li>
+            <li>Emergency Lockdown Protocol</li>
+          </ul>
+        </div>
+
+        <!-- Role 2: Agent Warden -->
+        <div class="role-box">
+          <span class="role-badge role-warden">🛡️ Agent Warden</span>
+          <div class="role-desc">
+            Field Security Guard. Tasked with active chat moderation, incident triage, and maintaining civil technical discussions.
+          </div>
+          <ul class="rights-list">
+            <li>Kick Violating Members</li>
+            <li>12-Hour Scam / FUD Member Timeout</li>
+            <li>Delete Prohibited / Phishing Messages</li>
+            <li>View Moderation Audit Logs</li>
+            <li>Channel Thread Enforcement</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Autonomous Sentinel Protocols -->
+    <div class="section-card">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span>Autonomous Sentinel Protocols (Active 24/7)</span>
+      </div>
+
+      <div class="protocol-box">
+        <!-- Rogue Mod Shield -->
+        <div class="protocol-item critical">
+          <div class="protocol-title">
+            <span>1. Rogue Moderator & Unauthorized Launch Shield</span>
+            <span class="protocol-tag tag-critical">AUTONOMOUS IMMEDIATE STRIP</span>
+          </div>
+          <p class="protocol-desc">
+            If any moderator or member posts announcements claiming <em>"dev is launching a new token"</em>, stealth launches, unauthorized contract addresses, or pins unauthorized messages: the Sentinel <strong>immediately deletes the message</strong>, unpins it, <strong>strips all moderator/admin roles from the rogue moderator</strong>, and delivers an urgent direct alert to the Server Owner.
+          </p>
+        </div>
+
+        <!-- Media Restriction -->
+        <div class="protocol-item warning">
+          <div class="protocol-title">
+            <span>2. Text-Only Communication (Anti-Attachment Protocol)</span>
+            <span class="protocol-tag tag-warning">REGULAR MEMBERS</span>
+          </div>
+          <p class="protocol-desc">
+            Non-moderator members are restricted to text-only communication. Image uploads, files, stickers, and embedded media attachments are strictly prohibited and automatically deleted upon posting to prevent malicious QR codes and wallet drainer infographics.
+          </p>
+        </div>
+
+        <!-- Anti-Link -->
+        <div class="protocol-item warning">
+          <div class="protocol-title">
+            <span>3. Strict Anti-Link & Anti-Phishing Firewall</span>
+            <span class="protocol-tag tag-warning">ZERO EXTERNAL URLS</span>
+          </div>
+          <p class="protocol-desc">
+            External links, Discord invites, and Telegram channels are blocked for regular members. Only official announcements pinned by verified administrators are permitted.
+          </p>
+        </div>
+
+        <!-- Scam Timeout -->
+        <div class="protocol-item critical">
+          <div class="protocol-title">
+            <span>4. Prohibited Scam / FUD Filter with 12-Hour Timeout</span>
+            <span class="protocol-tag tag-critical">12-HOUR TIMEOUT</span>
+          </div>
+          <p class="protocol-desc">
+            Keywords such as <em>scam, fake, rug, honeypot, drainer, claim airdrop</em> trigger instant message deletion and an automatic <strong>12-Hour Member Timeout</strong>. Repeated offenses result in permanent ban by a Neural Arbiter.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Token Holder Tiers -->
+    <div class="section-card">
+      <div class="section-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        <span>Token Holder Role Hierarchy ($JEVBRAIN)</span>
+      </div>
+      <p style="font-size:13px; color:#a1a1aa; margin:0 0 14px; line-height:1.5;">
+        Holding requirements are verified on-chain via Solana Mainnet. Tiers unlock specific developer channels and model routing quotas:
+      </p>
+
+      <table class="tier-table">
+        <thead>
+          <tr>
+            <th>Tier Role</th>
+            <th>Color Tag</th>
+            <th>Required Holding</th>
+            <th>AI Model Access</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600; color:#fbbf24;">Dynasty Magnate</td>
+            <td>Amber Gold</td>
+            <td>Top 1% / 5M+ $JEV</td>
+            <td>All 510+ Frontier & Flagship Models Uncapped</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:#34d399;">Syndicate Director</td>
+            <td>Emerald</td>
+            <td>2.5M - 5M $JEV</td>
+            <td>Claude 3.5 Sonnet, GPT-4o, DeepSeek-V3 High Quota</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:#818cf8;">Principal Partner</td>
+            <td>Indigo</td>
+            <td>1M - 2.5M $JEV</td>
+            <td>Llama 3.3 70B, Qwen 2.5 72B, DeepSeek Coder</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:#94a3b8;">Charter Associate</td>
+            <td>Slate</td>
+            <td>250k - 1M $JEV</td>
+            <td>Flash & Fast Models (Gemini 2.0 Flash, GPT-4o-mini)</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600; color:#a1a1aa;">Reserve Initiate</td>
+            <td>Zinc</td>
+            <td>1 - 250k $JEV</td>
+            <td>Base Models + Community Holder Access</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:20px; text-align:center;">
+        <a href="/verify.html" class="primary-btn">Connect Wallet & Claim Discord Role →</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
