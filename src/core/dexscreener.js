@@ -18,7 +18,7 @@ export async function fetchLiveMarketData(contractAddress = '', chain = 'solana'
     return cachedMarketData;
   }
 
-  const ca = contractAddress || process.env.TOKEN_CONTRACT_ADDRESS;
+  const ca = contractAddress || process.env.TOKEN_CONTRACT_ADDRESS || 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump';
 
   if (!ca) {
     // Simulated initial launch phase (e.g. 100k MC base) until CA is provided

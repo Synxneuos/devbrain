@@ -10,12 +10,12 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Jev%20Agent%20Warden-purple.svg?logo=github)](https://github.com/marketplace/actions/jev-agent-warden-ai-safety-ci-firewall)
 [![CI](https://github.com/Synxneuos/jevbrain/actions/workflows/jev-warden.yml/badge.svg)](https://github.com/Synxneuos/jevbrain/actions)
+[![Solana CA](https://img.shields.io/badge/Solana%20CA-AxwSUU...pump-14F195?logo=solana&logoColor=white)](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Pre-Flight Latency](https://img.shields.io/badge/Pre--Flight%20Latency-%3C1ms-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178c6.svg?logo=typescript&logoColor=white)]()
-[![Dependencies](https://img.shields.io/badge/Dependencies-ethers-informational.svg)]()
 
-[Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics](#-token-utility--ecosystem-access)
+[Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics & CA](#-token-utility--contract-address)
 
 </div>
 
@@ -233,6 +233,18 @@ Open **`http://localhost:3333`** to access:
 
 ---
 
+## 💎 Token Utility & Contract Address
+
+- **Official Token Contract Address (CA — Solana / Pump.fun)**:
+  ```text
+  AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump
+  ```
+  [![DexScreener](https://img.shields.io/badge/DexScreener-Live%20Chart-green.svg?logo=solana)](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump)
+
+- **Tiered Multi-Agent Access**: Holding verified Jev Brain tokens unlocks advanced model routing, higher autonomous throughput limits, and enterprise-grade Agent Warden rule filters.
+- **Holder Rewards Protocol**: A dedicated on-chain reward and protocol revenue-sharing mechanism is architected into the ecosystem. The reward distribution engine will be activated in an upcoming phase for all verified holding wallets.
+
+---
 
 ## 👥 Authors & Maintainers
 
