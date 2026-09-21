@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
 import { handleRequest } from '../src/server.js';
-import { SERVER_ROLES, OFFICIAL_TOKEN_CA } from '../src/discord/bot.js';
+import { SERVER_ROLES, OFFICIAL_TOKEN_CA, DEVELOPER_USERNAME, DEVELOPER_USER_ID, isDeveloper } from '../src/discord/bot.js';
 
 let server;
 let baseUrl;
@@ -132,4 +132,13 @@ test('Discord Human Verification: POST /api/discord/verify-human rejects missing
   assert.strictEqual(res.status, 400);
   const data = await res.json();
   assert.strictEqual(data.success, false);
+});
+
+test('Discord Developer Authority: isDeveloper correctly identifies synxneuos', () => {
+  assert.strictEqual(DEVELOPER_USERNAME, 'synxneuos');
+  assert.strictEqual(DEVELOPER_USER_ID, '1551685204119126028');
+  assert.strictEqual(isDeveloper({ username: 'synxneuos' }), true);
+  assert.strictEqual(isDeveloper({ id: '1551685204119126028' }), true);
+  assert.strictEqual(isDeveloper({ username: 'SYNXNEUOS' }), true);
+  assert.strictEqual(isDeveloper({ id: '999999999', username: 'random_attacker' }), false);
 });

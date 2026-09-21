@@ -12,7 +12,7 @@
 // 7. On-chain Verified Token Holder Role Synchronization.
 // ================================================================
 
-import { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, AuditLogEvent } from 'discord.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,15 +42,31 @@ try {
 
 export const OFFICIAL_TOKEN_CA = (process.env.TOKEN_CONTRACT_ADDRESS || 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump').trim();
 
+// Master Developer Identity
+export const DEVELOPER_USERNAME = 'synxneuos';
+export const DEVELOPER_USER_ID = '1551685204119126028';
+
 // Target Server Configuration
 export const DISCORD_CONFIG = {
   get clientId() { return (process.env.DISCORD_CLIENT_ID || '1551686988145491978').trim(); },
   get clientSecret() { return (process.env.DISCORD_CLIENT_SECRET || '').trim(); },
   get botToken() { return (process.env.DISCORD_BOT_TOKEN || '').trim(); },
   get guildId() { return (process.env.DISCORD_GUILD_ID || '1551685785432883332').trim(); },
+  get developerUsername() { return (process.env.DISCORD_DEVELOPER_USERNAME || DEVELOPER_USERNAME).trim(); },
+  get developerUserId() { return (process.env.DISCORD_DEVELOPER_USER_ID || DEVELOPER_USER_ID).trim(); },
   get officialCA() { return OFFICIAL_TOKEN_CA; },
   get verifyUrl() { return process.env.SITE_URL ? `${process.env.SITE_URL}/verify.html` : 'http://localhost:3333/verify.html'; }
 };
+
+export function isDeveloper(userOrMember, guild) {
+  if (!userOrMember) return false;
+  const id = userOrMember.id || userOrMember.user?.id;
+  const username = userOrMember.username || userOrMember.user?.username || '';
+  if (guild && id === guild.ownerId) return true;
+  if (id === DEVELOPER_USER_ID) return true;
+  if (username.toLowerCase() === DEVELOPER_USERNAME.toLowerCase()) return true;
+  return false;
+}
 
 // 2 Unique Thematic Moderation Roles + 5 Holding Tier Roles
 export const SERVER_ROLES = [
@@ -170,7 +186,8 @@ export class JevDiscordBot {
           GatewayIntentBits.GuildMembers,
           GatewayIntentBits.GuildMessages,
           GatewayIntentBits.MessageContent,
-          GatewayIntentBits.DirectMessages
+          GatewayIntentBits.DirectMessages,
+          GatewayIntentBits.GuildVoiceStates
         ],
         partials: [Partials.Message, Partials.Channel]
       });
@@ -224,6 +241,21 @@ export class JevDiscordBot {
     // Pinned announcement guardian
     this.client.on('channelPinsUpdate', async (channel) => {
       await this.handlePinUpdate(channel);
+    });
+
+    // Anti-Channel Creation Sentinel (Only Developer synxneuos can create channels)
+    this.client.on('channelCreate', async (channel) => {
+      await this.handleChannelCreate(channel);
+    });
+
+    // Anti-Voice Sentinel (Voice calls and voice channels strictly disabled)
+    this.client.on('voiceStateUpdate', async (oldState, newState) => {
+      await this.handleVoiceStateUpdate(oldState, newState);
+    });
+
+    // Official Channel Safeguard (Preserves permanent invite link to #verify-here)
+    this.client.on('channelDelete', async (channel) => {
+      await this.handleChannelDelete(channel);
     });
 
     // Instant 1-Click Human Verification Button Handler
@@ -313,7 +345,17 @@ export class JevDiscordBot {
           });
         }
       }
-      console.log('[DiscordBot] ✓ All 8 thematic roles verified and active.');
+      // Enforce zero-trust restrictions on @everyone role guild-wide
+      if (this.guild.roles.everyone) {
+        await this.guild.roles.everyone.setPermissions([
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ReadMessageHistory,
+          PermissionsBitField.Flags.AddReactions,
+          PermissionsBitField.Flags.ChangeNickname,
+          PermissionsBitField.Flags.UseApplicationCommands
+        ], 'Enforce Sentinel Zero-Trust Baseline for @everyone').catch(() => {});
+      }
+      console.log('[DiscordBot] ✓ All server roles and zero-trust permissions active.');
     } catch (err) {
       console.error('[DiscordBot] Role creation error:', err.message);
     }
@@ -337,7 +379,7 @@ export class JevDiscordBot {
 
       const channels = await this.guild.channels.fetch();
 
-      // Clean up any unconstrained default channels
+      // Clean up any unconstrained or voice channels/categories
       for (const [, chan] of channels) {
         if (!chan) continue;
         if (chan.name.toLowerCase() === 'general' && chan.type === ChannelType.GuildText) {
@@ -346,9 +388,15 @@ export class JevDiscordBot {
         if (chan.name.toLowerCase() === 'text channels' && chan.type === ChannelType.GuildCategory) {
           await chan.delete('Remove unconstrained Text Channels category').catch(() => {});
         }
+        if (chan.name.toLowerCase().includes('voice channels') && chan.type === ChannelType.GuildCategory) {
+          await chan.delete('Remove unconstrained Voice Channels category').catch(() => {});
+        }
+        if (chan.type === ChannelType.GuildVoice || chan.type === ChannelType.GuildStageVoice) {
+          await chan.delete('Purge voice channel: Voice is strictly disabled').catch(() => {});
+        }
       }
 
-      // 1. CATEGORY: 🛡️ VERIFICATION & GOVERNANCE (Visible to everyone, READ-ONLY)
+      // 1. CATEGORY: 🛡️ VERIFICATION & GOVERNANCE (Visible to everyone, READ-ONLY, No Channel Creation, No Voice)
       let govCategory = channels.find(c => c && c.type === ChannelType.GuildCategory && c.name.includes('VERIFICATION'));
       const govOverwrites = [
         {
@@ -359,7 +407,11 @@ export class JevDiscordBot {
             PermissionsBitField.Flags.SendMessagesInThreads,
             PermissionsBitField.Flags.CreatePublicThreads,
             PermissionsBitField.Flags.CreatePrivateThreads,
-            PermissionsBitField.Flags.AddReactions
+            PermissionsBitField.Flags.AddReactions,
+            PermissionsBitField.Flags.CreateInstantInvite,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.ManageChannels
           ]
         }
       ];
@@ -505,7 +557,11 @@ export class JevDiscordBot {
           deny: [
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.CreateInstantInvite,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.ManageChannels
           ]
         }
       ];
@@ -520,6 +576,14 @@ export class JevDiscordBot {
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
             PermissionsBitField.Flags.ReadMessageHistory
+          ],
+          deny: [
+            PermissionsBitField.Flags.AttachFiles,
+            PermissionsBitField.Flags.EmbedLinks,
+            PermissionsBitField.Flags.CreateInstantInvite,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.ManageChannels
           ]
         });
       }
@@ -530,6 +594,11 @@ export class JevDiscordBot {
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
             PermissionsBitField.Flags.ReadMessageHistory
+          ],
+          deny: [
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak,
+            PermissionsBitField.Flags.ManageChannels
           ]
         });
       }
@@ -539,7 +608,13 @@ export class JevDiscordBot {
           allow: [
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.ManageMessages
+          ],
+          deny: [
+            PermissionsBitField.Flags.ManageChannels,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak
           ]
         });
       }
@@ -549,7 +624,13 @@ export class JevDiscordBot {
           allow: [
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.ManageMessages
+          ],
+          deny: [
+            PermissionsBitField.Flags.ManageChannels,
+            PermissionsBitField.Flags.Connect,
+            PermissionsBitField.Flags.Speak
           ]
         });
       }
@@ -622,7 +703,7 @@ export class JevDiscordBot {
 
     const content = message.content || '';
     const member = message.member;
-    const isOwner = message.author.id === message.guild.ownerId;
+    const isOwner = isDeveloper(message.author, message.guild);
     const isMod = member && (
       member.permissions.has(PermissionsBitField.Flags.Administrator) ||
       member.roles.cache.some(r => r.name === 'Neural Arbiter' || r.name === 'Agent Warden')
@@ -763,12 +844,12 @@ export class JevDiscordBot {
     try {
       const pins = await channel.messages.fetchPinned();
       for (const msg of pins.values()) {
-        const isOwner = msg.author.id === channel.guild.ownerId;
+        const isOwner = isDeveloper(msg.author, channel.guild);
         const isRogue = ROGUE_LAUNCH_PATTERNS.some(r => r.test(msg.content));
         if (isRogue && !isOwner) {
           await msg.unpin();
           await msg.delete();
-          await this.notifyOwner({
+          await this.notifyDeveloper({
             title: '🚨 CRITICAL: Unauthorized Pinned Message Removed',
             color: 0xEF4444,
             fields: [
@@ -785,11 +866,139 @@ export class JevDiscordBot {
     }
   }
 
-  async notifyOwner({ title, color, fields }) {
+  /**
+   * Anti-Channel Creation Sentinel:
+   * Strictly blocks anyone except Developer synxneuos from creating channels/categories.
+   */
+  async handleChannelCreate(channel) {
+    if (!channel.guild) return;
     try {
-      if (!this.guild) return;
-      const owner = await this.guild.fetchOwner();
-      if (!owner) return;
+      // Brief pause to allow Discord audit log entry to register
+      await new Promise(r => setTimeout(r, 600));
+      const auditLogs = await channel.guild.fetchAuditLogs({
+        type: AuditLogEvent.ChannelCreate,
+        limit: 1
+      }).catch(() => null);
+
+      const entry = auditLogs?.entries?.first();
+      const executor = entry?.executor;
+      const isDev = isDeveloper(executor, channel.guild) || (executor && executor.id === this.client?.user?.id);
+
+      if (!isDev) {
+        console.warn(`[DEFENSE-TRIGGERED] Unauthorized channel creation intercepted: "${channel.name}" (Type: ${channel.type}) by ${executor?.tag || 'Unknown'}`);
+
+        // 1. Immediately delete the unauthorized channel
+        await channel.delete('Unauthorized channel creation blocked: Only Developer synxneuos can create channels').catch(() => {});
+
+        // 2. If executor has any moderation/admin roles, strip them immediately
+        if (executor && channel.guild) {
+          const member = await channel.guild.members.fetch(executor.id).catch(() => null);
+          if (member) {
+            const modRoles = member.roles.cache.filter(r =>
+              r.name === 'Neural Arbiter' ||
+              r.name === 'Agent Warden' ||
+              r.permissions.has(PermissionsBitField.Flags.ManageChannels) ||
+              r.permissions.has(PermissionsBitField.Flags.Administrator)
+            );
+            if (modRoles.size > 0) {
+              await member.roles.remove(modRoles, 'Agent Warden: Unauthorized Channel Creation Attempt').catch(() => {});
+              console.log(`[DEFENSE-TRIGGERED] Stripped mod roles from rogue user: ${executor.tag}`);
+            }
+          }
+        }
+
+        // 3. Notify Developer synxneuos
+        await this.notifyDeveloper({
+          title: '🚨 CRITICAL DEFENSE: Unauthorized Channel Blocked',
+          color: 0xEF4444,
+          fields: [
+            { name: 'Channel Attempted', value: `\`${channel.name}\` (Type: ${channel.type})` },
+            { name: 'Created By', value: executor ? `${executor.tag} (<@${executor.id}>)` : 'Unknown' },
+            { name: 'Action Taken', value: 'Channel deleted immediately. Offender roles stripped.' },
+            { name: 'Developer Lock', value: 'Channel creation is locked to developer `synxneuos` only.' }
+          ]
+        });
+      }
+    } catch (err) {
+      console.error('[DiscordBot] handleChannelCreate error:', err.message);
+    }
+  }
+
+  /**
+   * Anti-Voice Sentinel:
+   * Voice channels, stage channels, and voice calls are strictly disabled.
+   */
+  async handleVoiceStateUpdate(oldState, newState) {
+    if (!newState.guild) return;
+    const channel = newState.channel;
+    if (!channel) return;
+
+    const member = newState.member;
+    if (!member) return;
+
+    if (isDeveloper(member, newState.guild)) return; // Developer permitted
+
+    try {
+      console.warn(`[DEFENSE-TRIGGERED] Unauthorized voice activity detected from ${member.user.tag} in ${channel.name}`);
+
+      // 1. Disconnect user from voice
+      await newState.disconnect('Voice channels and voice calls are strictly disabled on this server.').catch(() => {});
+
+      // 2. If an unauthorized voice channel exists, delete it
+      if (channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice) {
+        await channel.delete('Unauthorized voice channel removed by Sentinel').catch(() => {});
+      }
+
+      // 3. Notify Developer synxneuos
+      await this.notifyDeveloper({
+        title: '🔇 Voice Activity Blocked',
+        color: 0xF59E0B,
+        fields: [
+          { name: 'User', value: `${member.user.tag} (<@${member.id}>)` },
+          { name: 'Channel', value: channel.name },
+          { name: 'Action Taken', value: 'User disconnected. Voice channel purged.' }
+        ]
+      });
+    } catch (err) {
+      console.error('[DiscordBot] handleVoiceStateUpdate error:', err.message);
+    }
+  }
+
+  /**
+   * Official Channel Safeguard:
+   * If #verify-here is ever deleted, immediately reconstruct it to keep permanent invite intact.
+   */
+  async handleChannelDelete(channel) {
+    if (!channel.guild) return;
+    if (channel.name === 'verify-here' || channel.name === 'token-verify') {
+      console.error('[DEFENSE-TRIGGERED] Critical channel deleted: #verify-here! Initiating emergency reconstruction...');
+      await this.notifyDeveloper({
+        title: '⚠️ CRITICAL: #verify-here Channel Deleted',
+        color: 0xEF4444,
+        fields: [
+          { name: 'Alert', value: 'The verification channel was deleted. Sentinel is reconstructing it to restore permanent invite routing.' }
+        ]
+      });
+      await this.setupServerChannels();
+    }
+  }
+
+  async notifyOwner(payload) {
+    return this.notifyDeveloper(payload);
+  }
+
+  async notifyDeveloper({ title, color, fields }) {
+    try {
+      if (!this.client) return;
+      let targetUser = null;
+      if (this.config.developerUserId) {
+        targetUser = await this.client.users.fetch(this.config.developerUserId).catch(() => null);
+      }
+      if (!targetUser && this.guild) {
+        const owner = await this.guild.fetchOwner().catch(() => null);
+        targetUser = owner?.user;
+      }
+      if (!targetUser) return;
 
       const embed = new EmbedBuilder()
         .setTitle(title)
@@ -797,11 +1006,11 @@ export class JevDiscordBot {
         .setTimestamp()
         .addFields(fields);
 
-      await owner.send({ embeds: [embed] }).catch((e) => {
-        console.warn('[DiscordBot] Could not DM owner:', e.message);
+      await targetUser.send({ embeds: [embed] }).catch((e) => {
+        console.warn('[DiscordBot] Could not DM developer synxneuos:', e.message);
       });
     } catch (err) {
-      console.error('[DiscordBot] notifyOwner failed:', err.message);
+      console.error('[DiscordBot] notifyDeveloper failed:', err.message);
     }
   }
 
