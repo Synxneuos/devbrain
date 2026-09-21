@@ -352,5 +352,92 @@ test('Wallet Auth: POST /api/wallet/verify-signature authenticates valid Solana 
   assert.ok(verifyData.sessionToken);
 });
 
+test('Projects API: POST /api/projects saves project scoped to session wallet and GET retrieves it', async () => {
+  const wallet = Wallet.createRandom();
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${wallet.address}`);
+  const { message } = await nonceRes.json();
+  const signature = await wallet.signMessage(message);
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: wallet.address, signature, message })
+  });
+  const { sessionToken } = await verifyRes.json();
+  assert.ok(sessionToken);
 
+  // Create project
+  const postRes = await fetch(`${baseUrl}/api/projects`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({ name: 'Alpha Bot', description: 'Algorithmic trading workspace' })
+  });
+  assert.strictEqual(postRes.status, 201);
+  const postData = await postRes.json();
+  assert.strictEqual(postData.project.name, 'Alpha Bot');
 
+  // Retrieve projects
+  const getRes = await fetch(`${baseUrl}/api/projects`, {
+    headers: { 'Authorization': `Bearer ${sessionToken}` }
+  });
+  assert.strictEqual(getRes.status, 200);
+  const getData = await getRes.json();
+  assert.ok(Array.isArray(getData.projects));
+  assert.ok(getData.projects.some(p => p.name === 'Alpha Bot'));
+});
+
+test('Artifacts API: POST /api/artifacts saves artifact scoped to session wallet and GET retrieves it', async () => {
+  const wallet = Wallet.createRandom();
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${wallet.address}`);
+  const { message } = await nonceRes.json();
+  const signature = await wallet.signMessage(message);
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: wallet.address, signature, message })
+  });
+  const { sessionToken } = await verifyRes.json();
+  assert.ok(sessionToken);
+
+  // Save artifact
+  const postRes = await fetch(`${baseUrl}/api/artifacts`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({ title: 'Safety Formula', type: 'code', language: 'javascript', code: 'const safe = true;' })
+  });
+  assert.strictEqual(postRes.status, 201);
+  const postData = await postRes.json();
+  assert.strictEqual(postData.artifact.title, 'Safety Formula');
+
+  // Retrieve artifacts
+  const getRes = await fetch(`${baseUrl}/api/artifacts`, {
+    headers: { 'Authorization': `Bearer ${sessionToken}` }
+  });
+  assert.strictEqual(getRes.status, 200);
+  const getData = await getRes.json();
+  assert.ok(Array.isArray(getData.artifacts));
+  assert.ok(getData.artifacts.some(a => a.title === 'Safety Formula'));
+});
+
+test('Mobile Devices: GET /api/mobile/devices includes virtual device in UI gateway', async () => {
+  const res = await fetch(`${baseUrl}/api/mobile/devices`);
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.ok(Array.isArray(data.devices));
+  assert.ok(data.devices.length >= 1, 'UI gateway must provide at least one device for interaction');
+  assert.ok(data.devices.some(d => d.id === 'pixel-8-virtual' || d.type === 'physical_adb'));
+});
+
+test('Model Catalog: GET /api/models returns maintenance status and notice', async () => {
+  const res = await fetch(`${baseUrl}/api/models`);
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.status, 'maintenance');
+  assert.strictEqual(data.count, 0);
+  assert.ok(data.message.includes('Backend infrastructure upgrade is currently undergoing maintenance'));
+});

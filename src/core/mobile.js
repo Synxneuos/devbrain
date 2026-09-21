@@ -51,7 +51,8 @@ export class MobileRunner {
   /**
    * List connected physical and virtual Android devices
    */
-  async listDevices() {
+  async listDevices(options = {}) {
+    const includeVirtual = !!options.includeVirtual;
     const devices = [];
 
     // 1. Try detecting real ADB devices
@@ -79,6 +80,10 @@ export class MobileRunner {
       }
     } catch (e) {
       // ADB not installed or no physical devices; fallback cleanly to Virtual Device
+    }
+
+    if (includeVirtual && devices.length === 0) {
+      devices.push(this.virtualDevice);
     }
 
     return devices;

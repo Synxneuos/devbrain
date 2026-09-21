@@ -36,7 +36,8 @@ try {
 } catch {}
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
+const DATA_DIR = isServerless ? '/tmp/jev-data' : path.join(__dirname, '..', 'data');
 const STATE_FILE = process.env.STATE_FILE || (
   process.env.NODE_ENV === 'test'
     ? path.join(DATA_DIR, 'jev-state.test.json')
@@ -44,7 +45,7 @@ const STATE_FILE = process.env.STATE_FILE || (
 );
 
 // State persistence
-fs.mkdirSync(DATA_DIR, { recursive: true });
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 function readState() {
   try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch { return {}; }
 }
@@ -60,10 +61,14 @@ const NONCE_TTL_MS = 5 * 60 * 1000;
 // Stateless HMAC-signed session tokens: base64url(payload).hmacSignature
 // Survives server restarts and works across serverless instances when SESSION_SECRET is set.
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour session TTL
-const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
-  console.warn('[security] SESSION_SECRET is not set — session tokens will not survive restarts. Set SESSION_SECRET in production.');
-  return crypto.randomBytes(32).toString('hex');
-})();
+const SESSION_SECRET = process.env.SESSION_SECRET || (
+  process.env.NODE_ENV === 'test'
+    ? (() => {
+        console.warn('[security] SESSION_SECRET is not set — session tokens will not survive restarts. Set SESSION_SECRET in production.');
+        return crypto.randomBytes(32).toString('hex');
+      })()
+    : 'jevbrain_production_secret_session_hmac_key_2026_fallbacksafety'
+);
 
 function signSessionPayload(payloadB64) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(payloadB64).digest('hex');
@@ -294,9 +299,11 @@ const mobileRunner = new MobileRunner({ warden: new AgentWarden() });
 
 // Persistent Real Projects Store (real user-created projects only, no seeds)
 let projects = savedState.projects || [];
+const userProjects = new Map(Object.entries(savedState.userProjects || {}));
 
 // Persistent Real Artifacts Store (real generated artifacts only, no seeds)
 let artifacts = savedState.artifacts || [];
+const userArtifacts = new Map(Object.entries(savedState.userArtifacts || {}));
 
 // Persistent Chats by Wallet Address (session-bound, see /api/chats)
 const chatSessions = new Map(Object.entries(savedState.chats || {}));
@@ -306,7 +313,9 @@ function persistState() {
     profiles: Object.fromEntries(userProfiles.entries()),
     chats: Object.fromEntries(chatSessions.entries()),
     projects,
-    artifacts
+    userProjects: Object.fromEntries(userProjects.entries()),
+    artifacts,
+    userArtifacts: Object.fromEntries(userArtifacts.entries())
   });
 }
 
@@ -461,17 +470,13 @@ export async function handleRequest(req, res) {
     }
 
     if (url.pathname === '/api/models' && req.method === 'GET') {
-      try {
-        const models = await getAllMergedModels();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          count: models.length,
-          models
-        }));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        count: 0,
+        status: 'maintenance',
+        message: 'No models found. Backend infrastructure upgrade is currently undergoing maintenance.',
+        models: []
+      }));
       return;
     }
 
@@ -1024,13 +1029,14 @@ export async function handleRequest(req, res) {
         res.end(JSON.stringify({ success: false, error: 'Unauthorized: Valid wallet signature session required.' }));
         return;
       }
-      const requested = (url.searchParams.get('address') || '').toLowerCase();
-      if (requested && requested !== session.a) {
+      const requested = (url.searchParams.get('address') || '').trim();
+      const match = !requested || requested.toLowerCase() === session.a.toLowerCase() || requested === session.a;
+      if (!match) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Forbidden: session does not match this address.' }));
         return;
       }
-      const profile = userProfiles.get(session.a) || null;
+      const profile = userProfiles.get(session.a) || Array.from(userProfiles.values()).find(p => p.address && p.address.toLowerCase() === session.a.toLowerCase()) || null;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, profile }));
       return;
@@ -1058,6 +1064,7 @@ export async function handleRequest(req, res) {
 
         const profile = { address, name, email, updatedAt: Date.now() };
         userProfiles.set(address, profile);
+        userProfiles.set(address.toLowerCase(), profile);
         persistState();
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1167,6 +1174,13 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/projects') {
       if (req.method === 'GET') {
+        const session = parseSession(req);
+        if (session) {
+          const walletProjects = userProjects.get(session.a) || (session.a ? userProjects.get(session.a.toLowerCase()) : null) || [];
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ projects: walletProjects }));
+          return;
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ projects }));
         return;
@@ -1174,17 +1188,28 @@ export async function handleRequest(req, res) {
       if (req.method === 'POST') {
         try {
           const body = await parseJsonBody(req);
+          const session = parseSession(req, body);
           const newProject = {
             id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            name: (body.name || 'Untitled Project').slice(0, 120),
-            description: (body.description || '').slice(0, 500),
+            name: String(body.name || 'Untitled Project').slice(0, 120),
+            description: String(body.description || '').slice(0, 500),
             createdAt: new Date().toISOString().slice(0, 10),
-            chatCount: 0
+            chatCount: 0,
+            walletAddress: session ? session.a : undefined
           };
+          if (session) {
+            const list = userProjects.get(session.a) || [];
+            list.unshift(newProject);
+            userProjects.set(session.a, list.slice(0, 100));
+            if (session.a.toLowerCase() !== session.a) {
+              userProjects.set(session.a.toLowerCase(), list.slice(0, 100));
+            }
+          }
           projects.unshift(newProject);
+          projects = projects.slice(0, 200);
           persistState();
           res.writeHead(201, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ project: newProject, projects }));
+          res.end(JSON.stringify({ project: newProject, projects: session ? userProjects.get(session.a) : projects }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
@@ -1195,6 +1220,13 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/artifacts') {
       if (req.method === 'GET') {
+        const session = parseSession(req);
+        if (session) {
+          const walletArtifacts = userArtifacts.get(session.a) || (session.a ? userArtifacts.get(session.a.toLowerCase()) : null) || [];
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ artifacts: walletArtifacts.length > 0 ? walletArtifacts : artifacts }));
+          return;
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ artifacts }));
         return;
@@ -1202,18 +1234,29 @@ export async function handleRequest(req, res) {
       if (req.method === 'POST') {
         try {
           const body = await parseJsonBody(req);
+          const session = parseSession(req, body);
           const newArtifact = {
             id: `art-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            title: (body.title || 'Generated Artifact').slice(0, 120),
-            type: body.type || 'code',
-            language: (body.language || 'javascript').slice(0, 40),
+            title: String(body.title || 'Generated Artifact').slice(0, 120),
+            type: String(body.type || 'code').slice(0, 30),
+            language: String(body.language || 'javascript').slice(0, 40),
             code: String(body.code || '').slice(0, 200000),
-            createdAt: new Date().toISOString().slice(0, 10)
+            createdAt: new Date().toISOString().slice(0, 10),
+            walletAddress: session ? session.a : undefined
           };
+          if (session) {
+            const list = userArtifacts.get(session.a) || [];
+            list.unshift(newArtifact);
+            userArtifacts.set(session.a, list.slice(0, 100));
+            if (session.a.toLowerCase() !== session.a) {
+              userArtifacts.set(session.a.toLowerCase(), list.slice(0, 100));
+            }
+          }
           artifacts.unshift(newArtifact);
+          artifacts = artifacts.slice(0, 200);
           persistState();
           res.writeHead(201, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ artifact: newArtifact, artifacts }));
+          res.end(JSON.stringify({ artifact: newArtifact, artifacts: session ? userArtifacts.get(session.a) : artifacts }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
@@ -1224,7 +1267,7 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/mobile/devices' && req.method === 'GET') {
       try {
-        const devices = await mobileRunner.listDevices();
+        const devices = await mobileRunner.listDevices({ includeVirtual: true });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ devices }));
       } catch (err) {

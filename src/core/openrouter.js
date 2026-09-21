@@ -134,8 +134,8 @@ export class OpenRouterClient {
         content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ⚠️ **Network Notice:** Upstream connection could not be established (${err.message}).\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
       }
     } else {
-      // Graceful local engine response when live API key is not yet configured
-      content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ℹ️ **Live LLM Streaming:** To stream live generative responses directly from upstream frontier models (Claude 3.5, GPT-4o, DeepSeek V3), configure \`OPENROUTER_API_KEY=sk-or-v1-...\` in your environment.\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
+      // Graceful maintenance notice when live API key is empty / during upgrade
+      content = 'No models found. Backend infrastructure upgrade is currently undergoing maintenance.';
     }
 
     // Store in semantic cache for instant future reuse

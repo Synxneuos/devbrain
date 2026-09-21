@@ -458,7 +458,7 @@ async function getUserProfile(address) {
 
   // Fallback to server (session-bound: profile reads require own signed session)
   try {
-    const res = await fetch(`/api/user/profile?address=${encodeURIComponent(address.toLowerCase())}`, {
+    const res = await fetch(`/api/user/profile?address=${encodeURIComponent(address)}`, {
       headers: { 'Authorization': `Bearer ${getSessionToken()}` }
     });
     if (res.ok) {
@@ -477,7 +477,7 @@ async function saveUserProfile(address, name, email) {
   const cleanName = (name || '').trim();
   const cleanEmail = (email || '').trim();
   const profile = {
-    address: address.toLowerCase(),
+    address: address,
     name: cleanName,
     email: cleanEmail,
     updatedAt: Date.now()
@@ -1038,7 +1038,7 @@ function extractAndSaveArtifact(userPrompt, responseText) {
     const code = match[2].trim();
     fetch('/api/artifacts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         title: userPrompt.slice(0, 32) + ' snippet',
         type: 'code',
@@ -1055,6 +1055,21 @@ function extractAndSaveArtifact(userPrompt, responseText) {
 async function openProjectsModal() {
   elements.projectsModal.style.display = 'flex';
   renderProjectsList(getLocalProjects());
+
+  if (currentWallet && getSessionToken()) {
+    try {
+      const res = await fetch('/api/projects', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.projects) && data.projects.length > 0) {
+          saveLocalProjects(data.projects);
+          renderProjectsList(data.projects);
+        }
+      }
+    } catch (e) {
+      console.warn('Projects sync error:', e);
+    }
+  }
 }
 
 function getLocalProjects() {
@@ -1106,18 +1121,39 @@ async function handleCreateProject() {
   const desc = elements.newProjDesc.value.trim();
   if (!name) { alert('Enter a project name'); return; }
 
-  const projects = getLocalProjects();
-  projects.unshift({
+  const newProj = {
     id: `project-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`,
     name,
     description: desc,
     createdAt: new Date().toISOString().slice(0, 10),
     chatCount: 0
-  });
+  };
+
+  const projects = getLocalProjects();
+  projects.unshift(newProj);
   saveLocalProjects(projects);
   elements.newProjName.value = '';
   elements.newProjDesc.value = '';
   renderProjectsList(projects);
+
+  if (getSessionToken()) {
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ name, description: desc })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.projects)) {
+          saveLocalProjects(data.projects);
+          renderProjectsList(data.projects);
+        }
+      }
+    } catch (e) {
+      console.warn('Project save sync error:', e);
+    }
+  }
 }
 
 // ============================================
@@ -1130,7 +1166,7 @@ async function openArtifactsModal() {
   elements.artifactsModal.style.display = 'flex';
 
   try {
-    const res = await fetch('/api/artifacts');
+    const res = await fetch('/api/artifacts', { headers: authHeaders() });
     const data = await res.json();
     loadedArtifacts = data.artifacts || [];
     renderArtifactsGallery();
@@ -1293,6 +1329,17 @@ async function openRouterModal() {
   try {
     const res = await fetch('/api/models');
     const data = await res.json();
+    if (data.status === 'maintenance' || (Array.isArray(data.models) && data.models.length === 0)) {
+      if (elements.routerModelsGrid) {
+        elements.routerModelsGrid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px 24px;color:var(--text-secondary);font-size:13px;">
+          <div style="font-size:24px;margin-bottom:12px;">🛠️</div>
+          <strong style="color:var(--text-primary);font-size:14px;display:block;margin-bottom:6px;">No Models Found</strong>
+          ${escapeHtml(data.message || 'Backend infrastructure upgrade is currently undergoing maintenance.')}
+        </div>`;
+      }
+      if (elements.routerModelCount) elements.routerModelCount.textContent = '0 (Maintenance)';
+      return;
+    }
     if (!res.ok) throw new Error(data.error || 'Unable to load OpenRouter models');
     allOpenRouterModels = data.models || [];
     renderModelRouterGrid(allOpenRouterModels);
@@ -1448,9 +1495,22 @@ async function loadOpenRouterModels() {
   try {
     const res = await fetch('/api/models');
     const data = await res.json();
-    if (res.ok && Array.isArray(data.models)) {
-      allOpenRouterModels = data.models;
-      refreshInlineModelOptions(elements.modelInlineSearch?.value || '');
+    if (res.ok) {
+      if (data.status === 'maintenance' || (Array.isArray(data.models) && data.models.length === 0)) {
+        allOpenRouterModels = [];
+        if (elements.modelSelect) {
+          elements.modelSelect.innerHTML = '<option value="auto" selected>No models found • Backend infrastructure upgrade underway</option>';
+          elements.modelSelect.disabled = true;
+        }
+        if (elements.routerModelCount) {
+          elements.routerModelCount.textContent = '0 (Maintenance)';
+        }
+        return;
+      }
+      if (Array.isArray(data.models)) {
+        allOpenRouterModels = data.models;
+        refreshInlineModelOptions(elements.modelInlineSearch?.value || '');
+      }
     }
   } catch (err) {
     console.warn('Model catalog unavailable:', err.message);
@@ -2268,7 +2328,11 @@ async function init() {
       } else {
         const validation = await fetch('/api/session/validate', { headers: authHeaders() });
         const validationData = await validation.json().catch(() => ({}));
-        if (validation.ok && validationData.valid && validationData.address === savedWallet.toLowerCase()) {
+        const isMatch = validationData.address && (
+          validationData.address.toLowerCase() === savedWallet.toLowerCase() ||
+          validationData.address === savedWallet
+        );
+        if (validation.ok && validationData.valid && isMatch) {
           await onWalletAuthenticated(savedWallet, 0, savedTier);
         } else {
           // Stale/expired session: force a fresh wallet signature.
