@@ -237,7 +237,15 @@
               Connect your MetaMask or Web3 wallet to verify token holding, securely sign in, and unlock Jev Brain AI features.
             </p>
             
-            <div class="gate-btn-row" style="display:flex; gap:10px; justify-content:center; align-items:center;">
+            <div class="gate-btn-row" style="display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;">
+              <button class="btn-claude-dark solana-btn-style" id="connect-solana-btn" style="display:flex; align-items:center; gap:8px; padding:10px 18px; font-size:13.5px; font-weight:600; background:#512da8; color:#ffffff; border:1px solid #7e57c2; border-radius:6px; cursor:pointer; transition:all 0.2s;">
+                <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
+                  <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+                  <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
+                </svg>
+                <span>Phantom (Solana)</span>
+              </button>
+
               <button class="btn-claude-dark metamask-btn-style" id="connect-wallet-btn" style="display:flex; align-items:center; gap:8px; padding:10px 18px; font-size:13.5px; font-weight:600;">
                 <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
                   <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
@@ -250,12 +258,12 @@
                   <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
                   <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span>Connect Wallet</span>
+                <span>MetaMask (EVM)</span>
               </button>
             </div>
             
             <p class="gate-note" style="margin-top:14px; font-size:11.5px; color:var(--text-muted);">
-              🦊 Supported: MetaMask • Web3 Injected • Rainbow • Coinbase Wallet
+              🟣 Solana (Phantom / Solflare) • 🦊 MetaMask • Token CA: <code style="color:var(--text-primary);">AxwSUU...pump</code>
             </p>
           </div>
         </div>
@@ -673,6 +681,13 @@
 
         <!-- Action Buttons -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn-claude-dark solana-btn-style" id="rainbow-modal-solana-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; background: #512da8; color: #ffffff; border: 1px solid #7e57c2; border-radius: 6px; cursor: pointer;">
+            <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
+              <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+              <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
+            </svg>
+            <span>Connect with Phantom (Solana)</span>
+          </button>
           <button class="btn-claude-dark" id="rainbow-modal-connect-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
             <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
               <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>

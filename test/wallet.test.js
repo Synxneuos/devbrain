@@ -306,4 +306,51 @@ test('Warden Check: POST /api/warden-check returns questions and checks structur
   assert.strictEqual(data.checks.loopCheck.looping, false);
 });
 
+test('Wallet Auth: POST /api/wallet/verify-signature authenticates valid Solana Ed25519 signature', async () => {
+  const crypto = await import('node:crypto');
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const BASE = BigInt(58);
+  function encodeBase58(buffer) {
+    let num = BigInt('0x' + buffer.toString('hex'));
+    let str = '';
+    while (num > 0n) {
+      const rem = num % BASE;
+      num = num / BASE;
+      str = ALPHABET[Number(rem)] + str;
+    }
+    for (let i = 0; i < buffer.length; i++) {
+      if (buffer[i] === 0) str = '1' + str;
+      else break;
+    }
+    return str;
+  }
+
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const rawPub = publicKey.export({ type: 'spki', format: 'der' }).subarray(12);
+  const solAddress = encodeBase58(rawPub);
+
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${solAddress}`);
+  assert.strictEqual(nonceRes.status, 200);
+  const { message } = await nonceRes.json();
+
+  const sig = crypto.sign(null, Buffer.from(message), privateKey);
+  const signature = encodeBase58(sig);
+
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address: solAddress,
+      signature,
+      message
+    })
+  });
+  assert.strictEqual(verifyRes.status, 200);
+  const verifyData = await verifyRes.json();
+  assert.strictEqual(verifyData.success, true);
+  assert.strictEqual(verifyData.address, solAddress);
+  assert.ok(verifyData.sessionToken);
+});
+
+
 

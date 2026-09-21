@@ -64,6 +64,8 @@ const elements = {
   sidebar: document.getElementById('sidebar'),
   gateOverlay: document.getElementById('wallet-gate-overlay'),
   connectBtn: document.getElementById('connect-wallet-btn'),
+  connectSolanaBtn: document.getElementById('connect-solana-btn'),
+  rainbowSolanaBtn: document.getElementById('rainbow-modal-solana-btn'),
   verifyBtn: document.getElementById('quick-verify-btn'),
   disconnectBtn: document.getElementById('disconnect-btn'),
   mc: document.getElementById('mc-display'),
@@ -318,6 +320,102 @@ async function connectMetaMaskWallet() {
 }
 
 // ============================================
+// PHANTOM (SOLANA) WALLET & ON-CHAIN HOLDER AUTHENTICATION
+// ============================================
+async function connectSolanaWallet() {
+  const solana = window.phantom?.solana?.isPhantom 
+    ? window.phantom.solana 
+    : (window.solana?.isPhantom ? window.solana : window.solana);
+
+  if (!solana) {
+    const install = confirm('Phantom wallet is required for Solana authentication.\n\nClick OK to visit https://phantom.app/ and install Phantom.');
+    if (install) {
+      window.open('https://phantom.app/', '_blank');
+    }
+    return;
+  }
+
+  const btn = elements.connectSolanaBtn || document.getElementById('connect-solana-btn');
+  const originalHtml = btn ? btn.innerHTML : '';
+
+  try {
+    if (btn) {
+      btn.innerHTML = '<span>🟣</span> <span>Connecting Phantom...</span>';
+      btn.disabled = true;
+    }
+
+    const resp = await solana.connect();
+    const pubkey = resp.publicKey.toString();
+
+    if (btn) {
+      btn.innerHTML = '<span>🟣</span> <span>Sign Message in Phantom...</span>';
+    }
+
+    // Step 1: Request authentication challenge nonce from server
+    const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(pubkey)}`);
+    if (!nonceRes.ok) {
+      throw new Error('Failed to generate challenge nonce from server.');
+    }
+    const { nonce, message } = await nonceRes.json();
+
+    // Step 2: Sign message using Solana Ed25519 standard
+    const encoded = new TextEncoder().encode(message);
+    const signResult = await solana.signMessage(encoded, 'utf8');
+    const rawSig = signResult.signature || signResult;
+    const sigHex = Array.from(new Uint8Array(rawSig))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    if (btn) {
+      btn.innerHTML = '<span>⏳</span> <span>Verifying On-Chain Holding...</span>';
+    }
+
+    // Step 3: Verify signature and on-chain SPL token balance on backend
+    const verifyRes = await fetch('/api/wallet/verify-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: pubkey,
+        signature: sigHex,
+        message: message,
+      })
+    });
+
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok || !verifyData.success) {
+      throw new Error(verifyData.error || 'Token verification failed. Only holders can unlock AI features.');
+    }
+
+    if (verifyData.sessionToken) {
+      sessionStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
+      localStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
+    }
+
+    // Step 4: Unlock UI and update state
+    await onWalletAuthenticated(verifyData.address, verifyData.tokensHeld, verifyData.userTier);
+
+  } catch (err) {
+    console.error('Solana wallet authentication error:', err);
+    if (err.code === 4001) {
+      alert('Phantom request rejected by user.');
+    } else {
+      alert('Solana Verification: ' + (err.message || err));
+    }
+  } finally {
+    if (btn) {
+      btn.innerHTML = originalHtml || `
+        <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
+          <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
+          <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
+        </svg>
+        <span>Phantom (Solana)</span>
+      `;
+      btn.disabled = false;
+    }
+  }
+}
+
+// ============================================
 // USER PROFILE & FIRST-TIME ONBOARDING
 // ============================================
 async function getUserProfile(address) {
@@ -468,6 +566,7 @@ async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = nu
     const rAddr = document.getElementById('rainbow-modal-address');
     const rTier = document.getElementById('rainbow-modal-tier-text');
     const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
+    const rSolanaBtn = document.getElementById('rainbow-modal-solana-btn');
     const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
     if (rBadge) {
       rBadge.textContent = 'Verified Holder';
@@ -477,11 +576,17 @@ async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = nu
     if (rAddr) rAddr.textContent = address;
     if (rTier) rTier.textContent = `Tier: ${userTier.tierName || 'Dynasty Magnate'} • Unlocked Full Access`;
     if (rConnBtn) rConnBtn.style.display = 'none';
+    if (rSolanaBtn) rSolanaBtn.style.display = 'none';
     if (rDiscBtn) rDiscBtn.style.display = 'block';
+
+    const isSol = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+    if (elements.status) {
+      elements.status.textContent = isSol ? 'Solana Verified' : 'MetaMask Verified';
+    }
 
     localStorage.setItem(STORAGE_WALLET_KEY, address);
     localStorage.setItem(STORAGE_TIER_PREFIX + address.toLowerCase(), JSON.stringify(userTier));
-    console.log(`✓ MetaMask Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
+    console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
     loadServerChats(address);
   } catch (err) {
     console.error('Verification failure:', err);
@@ -523,6 +628,7 @@ function disconnectWallet() {
   const rAddr = document.getElementById('rainbow-modal-address');
   const rTier = document.getElementById('rainbow-modal-tier-text');
   const rConnBtn = document.getElementById('rainbow-modal-connect-btn');
+  const rSolanaBtn = document.getElementById('rainbow-modal-solana-btn');
   const rDiscBtn = document.getElementById('rainbow-modal-disconnect-btn');
   if (rBadge) {
     rBadge.textContent = 'Disconnected';
@@ -532,6 +638,7 @@ function disconnectWallet() {
   if (rAddr) rAddr.textContent = 'No wallet connected';
   if (rTier) rTier.textContent = 'Requires token holding to access frontier AI models';
   if (rConnBtn) rConnBtn.style.display = 'flex';
+  if (rSolanaBtn) rSolanaBtn.style.display = 'flex';
   if (rDiscBtn) rDiscBtn.style.display = 'none';
 }
 
@@ -1626,6 +1733,7 @@ async function refreshMobileLogs() {
 function bindEvents() {
   // Wallet
   elements.connectBtn?.addEventListener('click', connectMetaMaskWallet);
+  elements.connectSolanaBtn?.addEventListener('click', connectSolanaWallet);
   elements.disconnectBtn?.addEventListener('click', disconnectWallet);
 
   // New Chat
@@ -1722,19 +1830,16 @@ function bindEvents() {
   });
   elements.sendBtn?.addEventListener('click', handleSubmit);
 
-  // Web3 & MetaMask Modal & Topbar Events
+  // Web3 & Wallet Modals & Topbar Events
   const topbarWalletBtn = document.getElementById('topbar-connect-wallet-btn');
   const walletModal = document.getElementById('rainbow-modal');
   const walletModalClose = document.getElementById('rainbow-modal-close');
   const walletModalConn = document.getElementById('rainbow-modal-connect-btn');
+  const walletModalSolana = document.getElementById('rainbow-modal-solana-btn');
   const walletModalDisc = document.getElementById('rainbow-modal-disconnect-btn');
 
   topbarWalletBtn?.addEventListener('click', () => {
-    if (!currentWallet) {
-      connectMetaMaskWallet();
-    } else {
-      if (walletModal) walletModal.style.display = 'flex';
-    }
+    if (walletModal) walletModal.style.display = 'flex';
   });
 
   walletModalClose?.addEventListener('click', () => {
@@ -1746,6 +1851,10 @@ function bindEvents() {
     if (walletModal) walletModal.style.display = 'none';
   });
 
+  walletModalSolana?.addEventListener('click', async () => {
+    await connectSolanaWallet();
+    if (walletModal) walletModal.style.display = 'none';
+  });
 
   walletModalDisc?.addEventListener('click', () => {
     disconnectWallet();

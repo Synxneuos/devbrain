@@ -12,6 +12,27 @@ import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Auto-load .env configuration if present
+try {
+  const envPath = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    for (const rawLine of envContent.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eqIdx = line.indexOf('=');
+      if (eqIdx > 0) {
+        const key = line.slice(0, eqIdx).trim();
+        const val = line.slice(eqIdx + 1).trim();
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch {}
+
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const STATE_FILE = process.env.STATE_FILE || (
@@ -110,26 +131,131 @@ const TOKEN_BALANCE_ABI = [
 const balanceCache = new Map(); // address -> { tokensHeld, updatedAt }
 const BALANCE_CACHE_TTL_MS = 60 * 1000;
 
+// Base58 Utilities for Solana
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const BASE58_BIGINT = BigInt(58);
+
+function decodeBase58(str) {
+  let num = 0n;
+  for (const c of str) {
+    const idx = BASE58_ALPHABET.indexOf(c);
+    if (idx === -1) throw new Error('Invalid Base58 char: ' + c);
+    num = num * BASE58_BIGINT + BigInt(idx);
+  }
+  let hex = num.toString(16);
+  if (hex.length % 2 !== 0) hex = '0' + hex;
+  let bytes = Buffer.from(hex, 'hex');
+  let leadingZeros = 0;
+  for (const c of str) {
+    if (c === '1') leadingZeros++;
+    else break;
+  }
+  if (leadingZeros > 0) bytes = Buffer.concat([Buffer.alloc(leadingZeros), bytes]);
+  return bytes;
+}
+
+function isSolanaAddress(addr) {
+  return typeof addr === 'string' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
+}
+
+function verifySolanaSignature(address, message, signature) {
+  try {
+    const rawKey = decodeBase58(address);
+    if (rawKey.length !== 32) return false;
+    const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex');
+    const derKey = Buffer.concat([spkiPrefix, rawKey]);
+    const pubKey = crypto.createPublicKey({ key: derKey, format: 'der', type: 'spki' });
+
+    let sigBytes;
+    if (/^[0-9a-fA-F]{128}$/.test(signature)) {
+      sigBytes = Buffer.from(signature, 'hex');
+    } else {
+      sigBytes = decodeBase58(signature);
+    }
+    if (sigBytes.length !== 64) return false;
+
+    const msgBytes = Buffer.isBuffer(message) ? message : Buffer.from(message, 'utf8');
+    return crypto.verify(null, msgBytes, pubKey, sigBytes);
+  } catch (err) {
+    return false;
+  }
+}
+
+async function getSolanaTokenBalance(address, mint = 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump') {
+  const rpcUrl = (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com').trim();
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getTokenAccountsByOwner',
+      params: [
+        address,
+        { mint },
+        { encoding: 'jsonParsed' }
+      ]
+    }),
+    signal: AbortSignal.timeout(6000)
+  });
+  if (!res.ok) throw new Error(`Solana RPC error: ${res.status}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.message || 'Solana RPC error');
+  const accounts = json.result?.value || [];
+  let totalBalance = 0;
+  for (const acc of accounts) {
+    const amount = acc.account?.data?.parsed?.info?.tokenAmount?.uiAmount;
+    if (typeof amount === 'number') {
+      totalBalance += amount;
+    }
+  }
+  return totalBalance;
+}
+
 async function getVerifiedTokenBalance(address) {
-  const contract = (process.env.TOKEN_CONTRACT_ADDRESS || '').trim();
-  const chain = (process.env.TOKEN_CHAIN || 'ethereum').toLowerCase();
+  const contract = (process.env.TOKEN_CONTRACT_ADDRESS || 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump').trim();
+  const chain = (process.env.TOKEN_CHAIN || 'solana').toLowerCase();
   const checkEnabled = (process.env.TOKEN_CHECK_ENABLED || 'true').toLowerCase() !== 'false';
 
-  // Token contract / balance check not configured: report disabled so callers
-  // can apply an explicit policy instead of trusting client input.
-  if (!checkEnabled || !contract || !isAddress(contract) || chain === 'solana') {
+  // In test suite, skip external on-chain calls so unit tests remain fast & deterministic
+  if (process.env.NODE_ENV === 'test' || !checkEnabled || !contract) {
     return {
       tokensHeld: 0,
       enabled: false,
       contract,
       chain,
-      reason: 'Token contract or RPC endpoint not configured. Signature authentication is active; token gating is disabled.'
+      reason: 'Token balance check disabled in test or unconfigured.'
     };
   }
 
   const cached = balanceCache.get(address);
   if (cached && Date.now() - cached.updatedAt < BALANCE_CACHE_TTL_MS) {
     return { tokensHeld: cached.tokensHeld, enabled: true, contract, chain };
+  }
+
+  // Solana SPL Token Verification
+  if (chain === 'solana' || isSolanaAddress(address) || isSolanaAddress(contract)) {
+    if (!isSolanaAddress(address)) {
+      return {
+        tokensHeld: 0,
+        enabled: true,
+        contract,
+        chain: 'solana',
+        error: 'Non-Solana wallet address provided. Connect your Phantom/Solana wallet holding $jevbrain.'
+      };
+    }
+    try {
+      const tokensHeld = await getSolanaTokenBalance(address, contract);
+      balanceCache.set(address, { tokensHeld, updatedAt: Date.now() });
+      return { tokensHeld, enabled: true, contract, chain: 'solana' };
+    } catch (err) {
+      return { tokensHeld: 0, enabled: true, contract, chain: 'solana', error: `Solana token check failed: ${err.message}` };
+    }
+  }
+
+  // EVM Token Verification
+  if (!isAddress(contract) || !isAddress(address)) {
+    return { tokensHeld: 0, enabled: false, contract, chain, reason: 'Invalid address' };
   }
 
   try {
@@ -141,7 +267,6 @@ async function getVerifiedTokenBalance(address) {
     balanceCache.set(address, { tokensHeld, updatedAt: Date.now() });
     return { tokensHeld, enabled: true, contract, chain };
   } catch (err) {
-    // Fail closed: gating stays enabled and unverifiable balance is treated as locked.
     return { tokensHeld: 0, enabled: true, contract, chain, error: `Token balance verification failed: ${err.shortMessage || err.message}` };
   }
 }
@@ -503,10 +628,12 @@ export async function handleRequest(req, res) {
     }
 
     if (url.pathname === '/api/wallet/nonce' && req.method === 'GET') {
-      const address = (url.searchParams.get('address') || '').toLowerCase();
-      if (!address || !isAddress(address)) {
+      const rawAddress = (url.searchParams.get('address') || '').trim();
+      const isSol = isSolanaAddress(rawAddress);
+      const address = isSol ? rawAddress : rawAddress.toLowerCase();
+      if (!address || (!isAddress(address) && !isSol)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Valid wallet address is required.' }));
+        res.end(JSON.stringify({ error: 'Valid wallet address (Solana or EVM) is required.' }));
         return;
       }
 
@@ -523,14 +650,16 @@ export async function handleRequest(req, res) {
       const message = `Welcome to Jev Brain!\n\nClick to sign and authenticate your wallet.\nThis request will not trigger a blockchain transaction or cost any gas fees.\n\nWallet: ${address}\nNonce: ${nonce}\nTimestamp: ${timestamp}`;
       activeNonces.set(address, { nonce, message, createdAt: Date.now() });
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ nonce, message }));
+      res.end(JSON.stringify({ nonce, message, chain: isSol ? 'solana' : 'evm' }));
       return;
     }
 
     if (url.pathname === '/api/wallet/verify-signature' && req.method === 'POST') {
       try {
         const body = await parseJsonBody(req);
-        const address = (body.address || '').toLowerCase();
+        const rawAddress = (body.address || '').trim();
+        const isSol = isSolanaAddress(rawAddress);
+        const address = isSol ? rawAddress : rawAddress.toLowerCase();
         const signature = body.signature || '';
         const message = body.message || '';
         // NOTE: body.tokensHeld is deliberately ignored. Holdings are read
@@ -549,20 +678,30 @@ export async function handleRequest(req, res) {
           return;
         }
 
-        // 1. Verify cryptographic signature with ethers
+        // 1. Verify cryptographic signature (Solana Ed25519 or EVM Secp256k1)
         let verifiedAddress = '';
-        try {
-          verifiedAddress = verifyMessage(message, signature).toLowerCase();
-        } catch (sigErr) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Invalid cryptographic signature: ' + sigErr.message }));
-          return;
-        }
+        if (isSol) {
+          const isValidSol = verifySolanaSignature(address, message, signature);
+          if (!isValidSol) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid Solana cryptographic signature.' }));
+            return;
+          }
+          verifiedAddress = address;
+        } else {
+          try {
+            verifiedAddress = verifyMessage(message, signature).toLowerCase();
+          } catch (sigErr) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid cryptographic signature: ' + sigErr.message }));
+            return;
+          }
 
-        if (verifiedAddress !== address) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Signature address mismatch' }));
-          return;
+          if (verifiedAddress !== address) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Signature address mismatch' }));
+            return;
+          }
         }
 
         activeNonces.delete(address);

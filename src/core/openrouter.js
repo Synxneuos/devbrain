@@ -8,26 +8,17 @@ import { compressPrompt } from './context-compressor.js';
  */
 export const OPENROUTER_MODELS = {
   // Frontier / High Reasoning (Tier 3 - Whale)
-  'anthropic/claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', cost: 0.015, tier: 'frontier', family: 'anthropic' },
   'openai/gpt-4o': { name: 'OpenAI GPT-4o', cost: 0.012, tier: 'frontier', family: 'openai' },
-  'openai/o1-preview': { name: 'OpenAI o1 Preview', cost: 0.030, tier: 'frontier', family: 'openai' },
-  'anthropic/claude-3-opus': { name: 'Claude 3 Opus', cost: 0.035, tier: 'frontier', family: 'anthropic' },
-  'google/gemini-pro-1.5': { name: 'Gemini 1.5 Pro', cost: 0.007, tier: 'frontier', family: 'google' },
+  'anthropic/claude-3-haiku': { name: 'Claude 3 Haiku', cost: 0.0025, tier: 'frontier', family: 'anthropic' },
+  'openai/gpt-4o-mini': { name: 'GPT-4o Mini', cost: 0.0006, tier: 'frontier', family: 'openai' },
 
   // Balanced / Coding Specialists (Tier 2 - Pro)
-  'meta-llama/llama-3.1-70b-instruct': { name: 'Llama 3.1 70B', cost: 0.0018, tier: 'pro', family: 'meta' },
   'deepseek/deepseek-chat': { name: 'DeepSeek V3', cost: 0.0006, tier: 'pro', family: 'deepseek' },
-  'deepseek/deepseek-coder': { name: 'DeepSeek Coder 33B', cost: 0.0008, tier: 'pro', family: 'deepseek' },
-  'anthropic/claude-3.5-haiku': { name: 'Claude 3.5 Haiku', cost: 0.0025, tier: 'pro', family: 'anthropic' },
-  'openai/gpt-4o-mini': { name: 'GPT-4o Mini', cost: 0.0006, tier: 'pro', family: 'openai' },
-  'qwen/qwen-2.5-72b-instruct': { name: 'Qwen 2.5 72B', cost: 0.0015, tier: 'pro', family: 'qwen' },
+  'google/gemini-2.5-flash': { name: 'Gemini 2.5 Flash', cost: 0.0002, tier: 'pro', family: 'google' },
+  'meta-llama/llama-3.1-70b-instruct': { name: 'Llama 3.1 70B', cost: 0.0018, tier: 'pro', family: 'meta' },
 
-  // Ultra-Cheap & Free (Tier 1 - Community Holder)
-  'meta-llama/llama-3.1-8b-instruct:free': { name: 'Llama 3.1 8B (Free)', cost: 0.0000, tier: 'basic', family: 'meta' },
-  'meta-llama/llama-3.1-8b-instruct': { name: 'Llama 3.1 8B Instant', cost: 0.0001, tier: 'basic', family: 'meta' },
-  'google/gemini-flash-1.5': { name: 'Gemini 1.5 Flash', cost: 0.0002, tier: 'basic', family: 'google' },
-  'mistralai/mistral-7b-instruct:free': { name: 'Mistral 7B (Free)', cost: 0.0000, tier: 'basic', family: 'mistral' },
-  'qwen/qwen-2.5-7b-instruct': { name: 'Qwen 2.5 7B', cost: 0.0001, tier: 'basic', family: 'qwen' }
+  // Ultra-Fast & Lightweight (Tier 1 - Community Holder)
+  'meta-llama/llama-3.1-8b-instruct': { name: 'Llama 3.1 8B Instant', cost: 0.0001, tier: 'basic', family: 'meta' }
 };
 
 const BASELINE_UNROUTED_COST = 0.020; // $0.02 standard baseline cost per query
@@ -56,15 +47,15 @@ export class OpenRouterClient {
 
     // Tier 3 (Whale) gets frontier for complex, pro for medium, cheap for simple
     if (userTier.tierId >= 3) {
-      if (isComplex) return 'anthropic/claude-3.5-sonnet';
+      if (isComplex) return 'openai/gpt-4o';
       if (isMedium) return 'deepseek/deepseek-chat';
-      return 'meta-llama/llama-3.1-8b-instruct';
+      return 'google/gemini-2.5-flash';
     }
 
     // Tier 2 (Pro) gets pro models
     if (userTier.tierId === 2) {
       if (isComplex || isMedium) return 'deepseek/deepseek-chat';
-      return 'meta-llama/llama-3.1-8b-instruct';
+      return 'google/gemini-2.5-flash';
     }
 
     // Tier 1 (Community) gets basic / ultra-cheap models
