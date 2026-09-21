@@ -12,7 +12,7 @@
 // 7. On-chain Verified Token Holder Role Synchronization.
 // ================================================================
 
-import { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -224,15 +224,27 @@ export class JevDiscordBot {
 
   async initGuild() {
     try {
-      this.guild = await this.client.guilds.fetch(this.config.guildId).catch(() => null);
+      if (this.config.guildId) {
+        this.guild = await this.client.guilds.fetch(this.config.guildId).catch(() => null);
+      }
+      if (!this.guild && this.client.guilds.cache.size > 0) {
+        this.guild = this.client.guilds.cache.first();
+      }
       if (!this.guild) {
-        console.warn(`[DiscordBot] Guild ${this.config.guildId} not found. Ensure bot is invited.`);
+        const userGuilds = await this.client.guilds.fetch().catch(() => null);
+        if (userGuilds && userGuilds.size > 0) {
+          const firstOAuthGuild = userGuilds.first();
+          this.guild = await firstOAuthGuild.fetch().catch(() => null);
+        }
+      }
+      if (!this.guild) {
+        console.warn(`[DiscordBot] Guild not found. Bot is not yet invited to any server.`);
         return;
       }
 
-      console.log(`[DiscordBot] Managing Guild: "${this.guild.name}" (ID: ${this.guild.id})`);
+      console.log(`[DiscordBot] ✓ Successfully managing Guild: "${this.guild.name}" (ID: ${this.guild.id})`);
       await this.ensureRolesExist();
-      await this.ensureVerifyChannel();
+      await this.setupServerChannels();
     } catch (err) {
       console.error('[DiscordBot] Init guild error:', err.message);
     }
@@ -261,16 +273,28 @@ export class JevDiscordBot {
     }
   }
 
-  async ensureVerifyChannel() {
+  async setupServerChannels() {
     if (!this.guild) return;
     try {
       const channels = await this.guild.channels.fetch();
-      let verifyChan = channels.find(c => c.name === 'verify-here' || c.name === 'token-verify');
 
+      // 1. CATEGORY: 🛡️ VERIFICATION & GOVERNANCE
+      let govCategory = channels.find(c => c && c.type === ChannelType.GuildCategory && c.name.includes('VERIFICATION'));
+      if (!govCategory) {
+        govCategory = await this.guild.channels.create({
+          name: '🛡️ VERIFICATION & GOVERNANCE',
+          type: ChannelType.GuildCategory,
+          reason: 'Jev Brain Automated Category Setup'
+        });
+      }
+
+      // #verify-here
+      let verifyChan = channels.find(c => c && (c.name === 'verify-here' || c.name === 'token-verify'));
       if (!verifyChan) {
         console.log('[DiscordBot] Creating #verify-here channel...');
         verifyChan = await this.guild.channels.create({
           name: 'verify-here',
+          parent: govCategory.id,
           topic: 'Verified $JEVBRAIN Token Holding Portal & Autonomous Access Gateway',
           reason: 'Automated verification channel setup'
         });
@@ -296,8 +320,108 @@ export class JevDiscordBot {
 
         await verifyChan.send({ embeds: [embed], components: [row] });
       }
+
+      // #rules-and-policy
+      let rulesChan = channels.find(c => c && (c.name === 'rules-and-policy' || c.name === 'server-rules'));
+      if (!rulesChan) {
+        console.log('[DiscordBot] Creating #rules-and-policy channel...');
+        rulesChan = await this.guild.channels.create({
+          name: 'rules-and-policy',
+          parent: govCategory.id,
+          topic: 'Official Discord Rules, Security Policies & Moderation Hierarchy',
+          reason: 'Automated rules channel setup'
+        });
+
+        const rulesEmbed = new EmbedBuilder()
+          .setTitle('🛡️ Jev Brain Official Rules & Security Policies')
+          .setDescription(
+            `**1. Rogue Moderator & Unauthorized Launch Shield (Zero Tolerance):**\n` +
+            `Any claim of "dev launching new token", stealth launch, unapproved contract address, or unauthorized pinned announcement will trigger **immediate role revocation** and an alert DM to the Server Owner.\n\n` +
+            `**2. Text-Only Communication:**\n` +
+            `Regular members cannot send images, media, stickers, or file uploads. Only text is permitted.\n\n` +
+            `**3. Anti-Link / Anti-Phishing:**\n` +
+            `External links, Discord invites, and Telegram links are blocked for regular members.\n\n` +
+            `**4. 12-Hour Scam / FUD Timeout:**\n` +
+            `Prohibited terms (*scam, fake, rug, honeypot, drainer*) trigger immediate deletion and an automatic **12-Hour Timeout**.\n\n` +
+            `**5. Moderation Roles:**\n` +
+            `• **👑 Neural Arbiter**: High-Court Executive Authority (Ban, Kick, Roles, Lockdown).\n` +
+            `• **🛡️ Agent Warden**: Field Security Guard (Kick, 12h Timeout, Message Moderation).\n\n` +
+            `Full Policy & Details: ${this.config.verifyUrl.replace('verify.html', 'rules.html')}`
+          )
+          .setColor(0x7C3AED)
+          .setFooter({ text: 'Jev Brain Autonomous Security • 24/7 Always Active' });
+
+        await rulesChan.send({ embeds: [rulesEmbed] });
+      }
+
+      // #official-contract
+      let caChan = channels.find(c => c && (c.name === 'official-contract' || c.name === 'token-info'));
+      if (!caChan) {
+        console.log('[DiscordBot] Creating #official-contract channel...');
+        caChan = await this.guild.channels.create({
+          name: 'official-contract',
+          parent: govCategory.id,
+          topic: 'Official Solana Contract Address for $JEVBRAIN',
+          reason: 'Automated contract channel setup'
+        });
+
+        const caEmbed = new EmbedBuilder()
+          .setTitle('✻ Official Token Contract Address')
+          .setDescription(
+            `**Token:** $JEVBRAIN\n` +
+            `**Blockchain:** Solana (SPL Token)\n` +
+            `**Contract Address:**\n` +
+            `\`\`\`\n${this.config.officialCA}\n\`\`\`\n` +
+            `*Always verify this exact contract address. Jev Brain will NEVER stealth-drop or launch secondary unannounced tokens.*`
+          )
+          .setColor(0x10B981)
+          .setFooter({ text: 'Verified Contract Security • Solana Mainnet' });
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('View on DexScreener ↗')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://dexscreener.com/solana/${this.config.officialCA}`)
+        );
+
+        await caChan.send({ embeds: [caEmbed], components: [row] });
+      }
+
+      // 2. CATEGORY: ✻ COMMUNITY & AGENTS
+      let commCategory = channels.find(c => c && c.type === ChannelType.GuildCategory && c.name.includes('COMMUNITY'));
+      if (!commCategory) {
+        commCategory = await this.guild.channels.create({
+          name: '✻ COMMUNITY & AGENTS',
+          type: ChannelType.GuildCategory,
+          reason: 'Jev Brain Automated Category Setup'
+        });
+      }
+
+      // #general-chat
+      let chatChan = channels.find(c => c && c.name === 'general-chat');
+      if (!chatChan) {
+        await this.guild.channels.create({
+          name: 'general-chat',
+          parent: commCategory.id,
+          topic: 'General community chat (Text-only enforced by Agent Warden)',
+          reason: 'Automated chat channel setup'
+        });
+      }
+
+      // #model-routing
+      let modelChan = channels.find(c => c && c.name === 'model-routing');
+      if (!modelChan) {
+        await this.guild.channels.create({
+          name: 'model-routing',
+          parent: commCategory.id,
+          topic: 'Discussions on the 513 AI models, latencies, and tier quotas',
+          reason: 'Automated model channel setup'
+        });
+      }
+
+      console.log('[DiscordBot] ✓ All server channels and categories verified and active.');
     } catch (err) {
-      console.error('[DiscordBot] Channel setup error:', err.message);
+      console.error('[DiscordBot] Channels setup error:', err.message);
     }
   }
 
