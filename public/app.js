@@ -850,11 +850,25 @@ async function handleSubmit() {
 
   if (activeGenerationController) {
     activeGenerationController.abort();
+    activeGenerationController = null;
+    if (elements.sendBtn) {
+      elements.sendBtn.title = 'Send (Enter)';
+      const sendIcon = elements.sendBtn.querySelector('.send-icon');
+      const stopIcon = elements.sendBtn.querySelector('.stop-icon');
+      if (sendIcon) sendIcon.style.display = 'block';
+      if (stopIcon) stopIcon.style.display = 'none';
+    }
     return;
   }
   const loadingRow = appendLoading();
   activeGenerationController = new AbortController();
-  if (elements.sendBtn) elements.sendBtn.title = 'Stop generation';
+  if (elements.sendBtn) {
+    elements.sendBtn.title = 'Stop generation';
+    const sendIcon = elements.sendBtn.querySelector('.send-icon');
+    const stopIcon = elements.sendBtn.querySelector('.stop-icon');
+    if (sendIcon) sendIcon.style.display = 'none';
+    if (stopIcon) stopIcon.style.display = 'block';
+  }
   elements.center.scrollTop = elements.center.scrollHeight;
 
   try {
@@ -930,7 +944,13 @@ async function handleSubmit() {
   }
 
   activeGenerationController = null;
-  if (elements.sendBtn) elements.sendBtn.title = 'Send';
+  if (elements.sendBtn) {
+    elements.sendBtn.title = 'Send (Enter)';
+    const sendIcon = elements.sendBtn.querySelector('.send-icon');
+    const stopIcon = elements.sendBtn.querySelector('.stop-icon');
+    if (sendIcon) sendIcon.style.display = 'block';
+    if (stopIcon) stopIcon.style.display = 'none';
+  }
 
   elements.center.scrollTop = elements.center.scrollHeight;
 }
@@ -1482,12 +1502,13 @@ function fallbackCopy() {
 function showCopiedFeedback() {
   const targets = [
     document.getElementById('copy-ca-btn'),
-    document.getElementById('hero-copy-ca')
+    document.getElementById('hero-copy-ca'),
+    document.getElementById('strip-copy-ca-btn')
   ];
   targets.forEach(btn => {
     if (btn) {
       const orig = btn.innerHTML;
-      btn.innerHTML = '✅ Copied!';
+      btn.innerHTML = 'Copied!';
       setTimeout(() => { btn.innerHTML = orig; }, 2000);
     }
   });
@@ -1593,10 +1614,19 @@ function renderTierModalTable(data) {
 function formatMarkdown(text) {
   if (!text) return '';
   let content = escapeHtml(text);
+  content = content.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langLabel = lang || 'code';
+    return `<div class="code-block-wrapper" style="margin:8px 0;background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border-subtle);font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);">
+        <span>${langLabel}</span>
+        <button onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('code').textContent).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1600)})" style="background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-size:10.5px;padding:2px 4px;">Copy</button>
+      </div>
+      <pre style="padding:8px 10px;margin:0;overflow-x:auto;font-family:var(--font-mono);font-size:12px;line-height:1.45;"><code>${code}</code></pre>
+    </div>`;
+  });
   content = content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
   content = content.replace(/\*(.*?)\*/g, '<i>$1</i>');
-  content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg-pill);padding:2px 5px;border-radius:4px;font-family:var(--font-mono);font-size:12px;">$1</code>');
-  content = content.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/g, '<pre style="background:var(--bg-pill);padding:10px;border-radius:6px;font-family:var(--font-mono);font-size:12px;overflow-x:auto;"><code>$2</code></pre>');
+  content = content.replace(/`([^`]+)`/g, '<code style="background:var(--bg-subtle);padding:2px 5px;border-radius:4px;font-family:var(--font-mono);font-size:12px;">$1</code>');
   content = content.replace(/\n/g, '<br>');
   return content;
 }
@@ -1792,18 +1822,57 @@ function bindEvents() {
     if (e.target.id === 'disconnect-btn') return;
     elements.tierModal.style.display = 'flex';
   });
-  elements.mcPill?.addEventListener('click', () => {
+
+  // Token Popover toggle on Topbar MC Pill
+  const tokenPopover = document.getElementById('token-popover');
+  elements.mcPill?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (tokenPopover) {
+      tokenPopover.style.display = tokenPopover.style.display === 'none' ? 'flex' : 'none';
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (tokenPopover && tokenPopover.style.display !== 'none') {
+      if (!tokenPopover.contains(e.target) && !elements.mcPill.contains(e.target)) {
+        tokenPopover.style.display = 'none';
+      }
+    }
+  });
+  document.getElementById('popover-tier-btn')?.addEventListener('click', () => {
+    if (tokenPopover) tokenPopover.style.display = 'none';
     elements.tierModal.style.display = 'flex';
   });
 
-  // Sidebar Collapse
+  // Sidebar Collapse & Mobile Drawer
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
   elements.collapseBtn?.addEventListener('click', () => {
     elements.sidebar.classList.add('collapsed');
     elements.reopenBtn?.classList.add('visible');
+    elements.sidebar.classList.remove('mobile-open');
+    sidebarBackdrop?.classList.remove('visible');
   });
   elements.reopenBtn?.addEventListener('click', () => {
-    elements.sidebar.classList.remove('collapsed');
-    elements.reopenBtn.classList.remove('visible');
+    if (window.innerWidth <= 768) {
+      elements.sidebar.classList.toggle('mobile-open');
+      sidebarBackdrop?.classList.toggle('visible', elements.sidebar.classList.contains('mobile-open'));
+    } else {
+      elements.sidebar.classList.remove('collapsed');
+      elements.reopenBtn.classList.remove('visible');
+    }
+  });
+  sidebarBackdrop?.addEventListener('click', () => {
+    elements.sidebar.classList.remove('mobile-open');
+    sidebarBackdrop.classList.remove('visible');
+  });
+
+  // Close mobile drawer on navigation click
+  document.querySelectorAll('.sidebar-nav .nav-link, .new-chat-pill').forEach(el => {
+    el.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        elements.sidebar.classList.remove('mobile-open');
+        sidebarBackdrop?.classList.remove('visible');
+      }
+    });
   });
 
   // Chat Input
@@ -1957,6 +2026,54 @@ function bindEvents() {
   document.getElementById('hero-copy-ca')?.addEventListener('click', (e) => {
     e.stopPropagation();
     copyCA();
+  });
+  document.getElementById('strip-copy-ca-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyCA();
+  });
+
+  // Starter Cards Action Handlers
+  document.querySelectorAll('.starter-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const starter = card.getAttribute('data-starter');
+      if (starter === 'conversation') {
+        if (elements.input) {
+          elements.input.value = 'Explain how Jev Brain multi-model routing optimizes latency and reduces inference costs.';
+          elements.input.focus();
+          elements.input.dispatchEvent(new Event('input'));
+        }
+      } else if (starter === 'code') {
+        if (elements.input) {
+          elements.input.value = 'Review the following code architecture for performance bottlenecks, concurrency issues, and safety risks:\n\n```js\n// Paste code here\n```';
+          elements.input.focus();
+          elements.input.dispatchEvent(new Event('input'));
+        }
+      } else if (starter === 'project') {
+        openProjectsModal();
+      } else if (starter === 'warden') {
+        openWardenModal();
+      }
+    });
+  });
+
+  // Sidebar Extra Action Triggers
+  document.getElementById('sidebar-search-btn')?.addEventListener('click', openSearchModal);
+  document.getElementById('sidebar-export-btn')?.addEventListener('click', () => exportCurrentChat('md'));
+  document.getElementById('sidebar-quick-verify')?.addEventListener('click', () => {
+    if (elements.tierModal) elements.tierModal.style.display = 'flex';
+  });
+
+  // Keyboard Shortcuts (Ctrl+N for new chat, Ctrl+B for sidebar toggle)
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      createNewChat();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      elements.sidebar.classList.toggle('collapsed');
+      elements.reopenBtn?.classList.toggle('visible', elements.sidebar.classList.contains('collapsed'));
+    }
   });
 
 }

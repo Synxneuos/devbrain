@@ -3,17 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jev Brain</title>
+  <title>Jev Brain — AI Workspace & Infrastructure</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Ethers.js for Web3 & MetaMask Cryptographic Verification -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
 </head>
 <body>
   <div class="claude-layout">
+    <!-- Mobile Drawer Backdrop -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
     <!-- Left Sidebar -->
     <aside class="claude-sidebar" id="sidebar">
       <div class="sidebar-top">
@@ -21,9 +24,10 @@
           <div class="brand-logo">
             <span class="asterisk">✻</span>
             <span class="brand-text">Jev Brain</span>
+            <span class="brand-tag">v1.0</span>
           </div>
-          <button class="icon-btn" id="collapse-sidebar-btn" title="Collapse sidebar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="icon-btn" id="collapse-sidebar-btn" title="Collapse sidebar (Ctrl+B)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="9" y1="3" x2="9" y2="21"></line>
             </svg>
@@ -31,9 +35,12 @@
         </div>
 
         <button class="new-chat-pill" id="new-chat-btn">
-          <span class="plus">+</span> New
+          <span class="plus">+</span>
+          <span>New chat</span>
+          <kbd class="kbd-shortcut">Ctrl+N</kbd>
         </button>
 
+        <div class="nav-section-label">WORKSPACE</div>
         <nav class="sidebar-nav">
           <a href="#" class="nav-link" id="nav-projects">
             <span class="nav-icon">📁</span>
@@ -45,18 +52,19 @@
             <span>Artifacts</span>
           </a>
           <a href="#" class="nav-link" id="nav-code">
-            <span class="nav-icon">&lt;/&gt;</span>
+            <span class="nav-icon">🛡</span>
             <span>Agent Warden</span>
             <span class="pill-upgrade">Active</span>
           </a>
           <a href="#" class="nav-link" id="nav-customize">
             <span class="nav-icon">⚙</span>
             <span>Model Router</span>
+            <span class="pill-upgrade" style="background:var(--bg-subtle);color:var(--text-secondary);">440+</span>
           </a>
           <a href="#" class="nav-link" id="nav-mobile">
             <span class="nav-icon">📱</span>
             <span>Mobile Runner</span>
-            <span class="pill-upgrade" style="background:rgba(16,185,129,0.15);color:#10b981;border-color:rgba(16,185,129,0.3);">Live</span>
+            <span class="pill-upgrade" style="background:rgba(16,185,129,0.12);color:#059669;">ADB</span>
           </a>
         </nav>
       </div>
@@ -64,10 +72,10 @@
       <div class="sidebar-middle">
         <div class="chats-header">
           <div class="chats-title-row">
-            <span>Chats and tasks</span>
+            <span>Recent Chats</span>
             <div class="chats-actions">
-              <span class="mini-icon">↗</span>
-              <span class="mini-icon">⇅</span>
+              <button class="mini-icon-btn" id="sidebar-search-btn" title="Search chats">🔍</button>
+              <button class="mini-icon-btn" id="sidebar-export-btn" title="Export transcripts">📥</button>
             </div>
           </div>
         </div>
@@ -88,8 +96,8 @@
             <div class="user-status" id="wallet-status-sub">Access Restricted</div>
           </div>
           <div class="user-actions">
-            <button class="icon-mini" title="Download logs">📥</button>
-            <button class="icon-mini" title="Search">🔍</button>
+            <span class="holder-badge" id="holder-status-text" style="display:none;"></span>
+            <button class="icon-mini" id="sidebar-quick-verify" title="Verify Status">⚙</button>
           </div>
         </div>
       </div>
@@ -100,104 +108,172 @@
       <!-- Top Bar -->
       <header class="claude-topbar">
         <div class="topbar-left">
-          <button class="sidebar-reopen-btn" id="sidebar-reopen-btn" title="Open sidebar" aria-label="Open sidebar">☰</button>
-          <div class="chat-dropdown">
-            <span id="topbar-title">Your first chat with Jev Brain</span>
-            <span class="chevron">⌄</span>
+          <button class="sidebar-reopen-btn" id="sidebar-reopen-btn" title="Open sidebar" aria-label="Open sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="topbar-breadcrumb">
+            <span class="topbar-app-name">Jev Brain</span>
+            <span class="breadcrumb-separator">/</span>
+            <div class="chat-dropdown" id="chat-dropdown-toggle">
+              <span id="topbar-title">Your first chat with Jev Brain</span>
+              <span class="chevron">⌄</span>
+            </div>
           </div>
         </div>
 
+        <!-- Center: Token Market Cap Pill with Dropdown Popover -->
+        <div class="topbar-center">
+          <div class="token-market-pill" id="mc-pill" title="Click to view live $JEVBRAIN market metrics & holding tiers">
+            <span class="live-dot" title="Live Polling"></span>
+            <span class="token-ticker">$JEVBRAIN</span>
+            <span class="token-mc-value" id="mc-display">$...</span>
+          </div>
+
+          <!-- Interactive Token Details Popover -->
+          <div class="token-popover" id="token-popover" style="display:none;">
+            <div class="popover-header">
+              <div class="popover-title">
+                <span class="token-ticker-bold">$JEVBRAIN</span>
+                <span class="live-status-chip">
+                  <span class="live-dot" style="width:5px;height:5px;"></span> Live DexScreener
+                </span>
+              </div>
+              <a id="ca-dex-link" href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="popover-chart-link">Chart ↗</a>
+            </div>
+
+            <div class="popover-stats-grid">
+              <div class="popover-stat-item">
+                <span class="stat-label">Market Cap</span>
+                <span class="stat-val" id="hero-mc">$...</span>
+              </div>
+              <div class="popover-stat-item">
+                <span class="stat-label">Price</span>
+                <span class="stat-val accent-val" id="hero-price">$...</span>
+              </div>
+              <div class="popover-stat-item">
+                <span class="stat-label">24h Vol</span>
+                <span class="stat-val" id="hero-vol">$...</span>
+              </div>
+              <div class="popover-stat-item">
+                <span class="stat-label">Liquidity</span>
+                <span class="stat-val green-val" id="hero-liq">$...</span>
+              </div>
+            </div>
+
+            <div class="popover-ca-row">
+              <div class="popover-ca-text">
+                <span>CA:</span>
+                <code id="hero-ca-full" title="Click to copy full CA">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>
+              </div>
+              <button id="hero-copy-ca" class="btn-copy-chip" title="Copy Contract Address">Copy</button>
+            </div>
+
+            <button class="popover-tier-btn" id="popover-tier-btn">
+              <span>View Holding Tiers & Multipliers</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Tier, Wallet & Actions -->
         <div class="topbar-right">
-          <div class="plan-pill ca-pill" id="ca-pill" title="Click to copy Contract Address (CA)">
-            <span>CA: <b id="ca-short" style="color:var(--text-primary);font-family:var(--font-mono);">AxwSUU...pump</b></span>
-            <button id="copy-ca-btn" class="icon-mini" title="Copy CA" style="border:none;background:transparent;cursor:pointer;padding:0 2px;font-size:11px;">📋</button>
-            <a id="ca-dex-link" href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" title="Open DexScreener Live Chart" style="text-decoration:none;font-size:11px;margin-left:3px;">📈</a>
+          <!-- Hidden fallback elements for app.js backwards-compat -->
+          <div id="ca-pill" style="display:none;"><span id="ca-short"></span><button id="copy-ca-btn"></button></div>
+          <button id="quick-verify-btn" style="display:none;"></button>
+
+          <!-- Holder Tier Pill -->
+          <div class="plan-pill" id="tier-pill" title="Current Token Holding Tier — Click to inspect requirements">
+            <span class="tier-label">Tier:</span>
+            <b id="tier-display">Dynasty Magnate (Unlocked)</b>
+            <span class="close-x" id="disconnect-btn" title="Disconnect Session">&times;</span>
           </div>
-          <div class="plan-pill" id="mc-pill" title="Live DexScreener Market Cap — Click to view Tiers" style="cursor:pointer;">
-            <span style="display:inline-flex;align-items:center;gap:5px;">
-              <span class="live-dot"></span>
-              MC: <b id="mc-display">$...</b>
-            </span>
-          </div>
-          <div class="plan-pill" id="tier-pill" title="Dynamic Token Holding Tier">
-            <span>Tier: <b id="tier-display">Dynasty Magnate (Unlocked)</b></span>
-            <span class="close-x" id="disconnect-btn" title="Disconnect">&times;</span>
-          </div>
-          <button class="rainbow-topbar-btn metamask-topbar-btn" id="topbar-connect-wallet-btn" title="MetaMask & Web3 Wallet">
-            <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none" style="vertical-align:middle;flex-shrink:0;">
-              <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+
+          <!-- Topbar Wallet Connect Pill -->
+          <button class="topbar-wallet-btn" id="topbar-connect-wallet-btn" title="Connect Phantom or MetaMask">
+            <span class="wallet-status-dot"></span>
             <span id="topbar-wallet-btn-text">Connect Wallet</span>
           </button>
-          <button class="share-btn" id="share-btn">Share</button>
+
+          <!-- Share / Settings Button -->
+          <button class="share-btn" id="share-btn" title="Export or share this chat session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span>Share</span>
+          </button>
         </div>
       </header>
 
       <!-- Center Chat Area -->
       <div class="claude-center" id="claude-center">
-        <!-- Hero Welcome Screen (Matches exact Claude screenshot) -->
+        <!-- Compact Production Workspace Hero (Zero Messages State) -->
         <div class="claude-hero" id="claude-hero">
-          <h1 class="hero-heading" id="hero-heading">Welcome! I’m Jev Brain.</h1>
-          <p class="hero-paragraph">
-            Bring me anything—a tough routing problem, a raw message stream, an agent tool call, or a complex prompt. We’ll figure it out together.
-          </p>
-          <p class="hero-question">Where do you want to start?</p>
-
-          <!-- Live DexScreener Token & CA Widget -->
-          <div class="hero-token-card" id="hero-token-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:16px;">⚡</span>
-                <strong style="font-size:13.5px;letter-spacing:0.02em;color:var(--text-primary);">Jev Brain (<span style="color:#00f2fe;">$jevbrain</span>)</strong>
-                <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#10b981;background:rgba(16,185,129,0.1);padding:2px 8px;border-radius:10px;border:1px solid rgba(16,185,129,0.25);">
-                  <span class="live-dot" style="width:5px;height:5px;"></span>
-                  Live DexScreener
-                </span>
-              </div>
-              <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="font-size:12px;color:#00f2fe;text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-weight:600;">
-                📈 Live Chart ↗
-              </a>
-            </div>
-
-            <div class="hero-stats-grid">
-              <div class="hero-stat-item">
-                <div>Market Cap</div>
-                <div id="hero-mc" style="color:#ffffff;">$...</div>
-              </div>
-              <div class="hero-stat-item">
-                <div>Price</div>
-                <div id="hero-price" style="color:#00f2fe;">$...</div>
-              </div>
-              <div class="hero-stat-item">
-                <div>24h Volume</div>
-                <div id="hero-vol" style="color:#ffffff;">$...</div>
-              </div>
-              <div class="hero-stat-item">
-                <div>Liquidity</div>
-                <div id="hero-liq" style="color:#10b981;">$...</div>
-              </div>
-            </div>
-
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;background:rgba(0,0,0,0.2);padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
-              <span style="color:var(--text-tertiary);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                CA: <span id="hero-ca-full" style="color:var(--text-primary);user-select:all;">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</span>
-              </span>
-              <button id="hero-copy-ca" class="btn-copy-mini" style="flex-shrink:0;">
-                📋 Copy CA
-              </button>
-            </div>
+          <div class="workspace-intro-box">
+            <div class="workspace-brand-glyph">✻</div>
+            <h1 class="hero-heading" id="hero-heading">Jev Brain</h1>
+            <p class="hero-paragraph">
+              Your AI workspace for models, autonomous agents, and verified token holders.
+            </p>
           </div>
 
-          <div class="hero-starburst">
-            <span class="starburst-glyph">✻</span>
+          <!-- Real Starter Actions Grid (Fully Interactive) -->
+          <div class="starter-actions-grid">
+            <button class="starter-card" data-starter="conversation">
+              <div class="starter-card-top">
+                <span class="starter-icon">💬</span>
+                <span class="starter-arrow">→</span>
+              </div>
+              <div class="starter-title">Start a conversation</div>
+              <div class="starter-desc">Ask a question or test multi-model routing</div>
+            </button>
+
+            <button class="starter-card" data-starter="code">
+              <div class="starter-card-top">
+                <span class="starter-icon">⚡</span>
+                <span class="starter-arrow">→</span>
+              </div>
+              <div class="starter-title">Analyze code</div>
+              <div class="starter-desc">Audit architecture, security & performance</div>
+            </button>
+
+            <button class="starter-card" data-starter="project">
+              <div class="starter-card-top">
+                <span class="starter-icon">📁</span>
+                <span class="starter-arrow">→</span>
+              </div>
+              <div class="starter-title">Build a project</div>
+              <div class="starter-desc">Organize pipelines, files & instructions</div>
+            </button>
+
+            <button class="starter-card" data-starter="warden">
+              <div class="starter-card-top">
+                <span class="starter-icon">🛡</span>
+                <span class="starter-arrow">→</span>
+              </div>
+              <div class="starter-title">Agent Warden</div>
+              <div class="starter-desc">Evaluate tool safety & destructive commands</div>
+            </button>
+          </div>
+
+          <!-- Compact Token Metadata Strip -->
+          <div class="hero-token-strip">
+            <div class="token-strip-meta">
+              <span class="token-strip-badge">SPL Token</span>
+              <span class="token-strip-ca">CA: <code id="hero-strip-ca">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code></span>
+            </div>
+            <div class="token-strip-actions">
+              <button class="btn-text-action" id="strip-copy-ca-btn">Copy CA</button>
+              <span class="strip-sep">•</span>
+              <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="btn-text-action">DexScreener ↗</a>
+            </div>
           </div>
         </div>
 
@@ -205,13 +281,13 @@
         <div class="messages-stream" id="messages-stream"></div>
       </div>
 
-      <!-- Bottom Floating Input Area (Matches exact Claude screenshot) -->
+      <!-- Bottom Floating Composer Bar -->
       <div class="claude-bottom-bar">
-        <!-- Announcement Pill -->
+        <!-- Compact Announcement & Savings Pill -->
         <div class="info-pill" id="info-pill">
           <div class="pill-text">
             <span class="info-icon">⚡</span>
-            <span>95.2% Token Reduction Engine &bull; <span id="total-saved-pill">Saved $0.0000 in unrouted LLM costs</span></span>
+            <span>95.2% Token Optimization Engine &bull; <span id="total-saved-pill">Saved $0.0000 in unrouted LLM costs</span></span>
           </div>
           <button class="pill-close" onclick="document.getElementById('info-pill').style.display='none'">&times;</button>
         </div>
@@ -219,26 +295,16 @@
         <!-- Token Gate Locked Overlay (Appears only if wallet not holding token) -->
         <div class="wallet-gate-overlay" id="wallet-gate-overlay" style="display:none;">
           <div class="gate-dialog">
-            <div class="gate-starburst">
-              <svg width="40" height="40" viewBox="0 0 318.6 318.6" fill="none" style="margin-bottom:4px;">
-                <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+            <div class="gate-icon-badge">
+              <span class="gate-glyph">🔒</span>
             </div>
-            <h3 style="font-size:20px; font-weight:700; margin:0 0 6px 0; font-family:var(--font-serif);">Connect Your Wallet</h3>
-            <p style="font-size:13px; color:var(--text-secondary); margin:0 0 16px 0; line-height:1.5;">
-              Connect your MetaMask or Web3 wallet to verify token holding, securely sign in, and unlock Jev Brain AI features.
+            <h3 class="gate-heading">Jev Brain Access</h3>
+            <p class="gate-desc">
+              Connect your wallet to verify <strong style="color:var(--text-primary);">$JEVBRAIN</strong> token holdings and unlock full AI workspace access.
             </p>
             
-            <div class="gate-btn-row" style="display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;">
-              <button class="btn-claude-dark solana-btn-style" id="connect-solana-btn" style="display:flex; align-items:center; gap:8px; padding:10px 18px; font-size:13.5px; font-weight:600; background:#512da8; color:#ffffff; border:1px solid #7e57c2; border-radius:6px; cursor:pointer; transition:all 0.2s;">
+            <div class="gate-btn-row">
+              <button class="btn-wallet-gate solana-gate-btn" id="connect-solana-btn">
                 <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
                   <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
                   <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
@@ -246,50 +312,41 @@
                 <span>Phantom (Solana)</span>
               </button>
 
-              <button class="btn-claude-dark metamask-btn-style" id="connect-wallet-btn" style="display:flex; align-items:center; gap:8px; padding:10px 18px; font-size:13.5px; font-weight:600;">
-                <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
-                  <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+              <button class="btn-wallet-gate metamask-gate-btn" id="connect-wallet-btn">
+                <span class="metamask-fox-icon">🦊</span>
                 <span>MetaMask (EVM)</span>
               </button>
             </div>
             
-            <p class="gate-note" style="margin-top:14px; font-size:11.5px; color:var(--text-muted);">
-              🟣 Solana (Phantom / Solflare) • 🦊 MetaMask • Token CA: <code style="color:var(--text-primary);">AxwSUU...pump</code>
+            <p class="gate-note">
+              Cryptographic signature is used solely to authenticate ownership and verify on-chain balance. No gas fees or transactions are triggered.
             </p>
           </div>
         </div>
 
-        <!-- Claude Style Input Container -->
+        <!-- Production AI Chat Composer Card -->
         <div class="input-card">
-          <button class="attach-btn" title="Add files or presets" id="attach-btn">+</button>
+          <button class="attach-btn" title="Add files (.txt, .md, .json, .py, .js)" id="attach-btn">+</button>
           <input type="file" id="attachment-input" hidden accept=".txt,.md,.json,.csv,.html,.css,.js,.ts,.py,.sql,.xml,.yaml,.yml" />
           <div class="attachment-chip" id="attachment-chip" hidden></div>
+          
           <textarea 
             id="prompt-input" 
             rows="1" 
-            placeholder="Tell Jev Brain what you’re working on" 
+            placeholder="Ask anything, route queries, or run agent tasks..." 
             autofocus></textarea>
 
           <div class="input-controls">
             <button class="control-btn" title="Voice dictation" id="voice-input-btn" aria-label="Voice dictation">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                 <line x1="12" y1="19" x2="12" y2="22"></line>
               </svg>
             </button>
 
-            <button class="control-btn" title="Record audio" id="audio-record-btn" aria-label="Record audio">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="control-btn" title="Record audio" id="audio-record-btn" aria-label="Record audio" style="display:none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 10v4"></path><path d="M6 7v10"></path><path d="M10 4v16"></path><path d="M14 7v10"></path><path d="M18 10v4"></path><path d="M22 12v0"></path>
               </svg>
             </button>
@@ -298,29 +355,32 @@
             <div class="model-picker-dropdown">
               <input id="model-inline-search" class="model-inline-search" type="search" placeholder="Search models" aria-label="Search models" autocomplete="off" />
               <select id="model-select">
-                <option value="auto" selected>Jev Router &bull; Auto (OpenRouter)</option>
-                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Frontier)</option>
+                <option value="auto" selected>Jev Router • Auto (OpenRouter)</option>
                 <option value="openai/gpt-4o">OpenAI GPT-4o (Frontier)</option>
-                <option value="openai/o1-preview">OpenAI o1 Preview (Reasoning)</option>
+                <option value="anthropic/claude-3-haiku">Claude 3 Haiku (Frontier)</option>
+                <option value="openai/gpt-4o-mini">GPT-4o Mini (Frontier)</option>
                 <option value="deepseek/deepseek-chat">DeepSeek V3 (Coding)</option>
+                <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (Pro)</option>
                 <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B (Pro)</option>
-                <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku (Fast)</option>
-                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B (Free)</option>
-                <option value="google/gemini-flash-1.5">Gemini 1.5 Flash (Free)</option>
+                <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B (Community)</option>
               </select>
             </div>
 
-            <button class="send-circle-btn" id="send-btn" title="Send">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <!-- Send / Stop Morphing Button -->
+            <button class="send-circle-btn" id="send-btn" title="Send (Enter)">
+              <svg class="send-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5"></line>
                 <polyline points="5 12 12 5 19 12"></polyline>
+              </svg>
+              <svg class="stop-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+                <rect x="4" y="4" width="16" height="16" rx="2"></rect>
               </svg>
             </button>
           </div>
         </div>
 
         <div class="claude-footer-disclaimer">
-          Jev Brain routes queries automatically. Token holding verified via Web3 wallet.
+          Jev Brain routes queries intelligently. Token holding verified on-chain via Web3 wallet.
         </div>
       </div>
     </main>
@@ -337,15 +397,15 @@
         <button class="tier-modal-close" id="tier-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">
-          Tiers adapt dynamically based on live Market Cap from DexScreener. Early/Low MC enables accessible dollar entry, while higher MC scales trust requirements and reduces required token counts.
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+          Tiers adapt dynamically based on live Market Cap from DexScreener. Early market entry enables accessible dollar thresholds, while scaling market cap scales trust requirements.
         </p>
-        <div style="margin-bottom:12px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--border-light);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11.5px;">
-          <span style="font-family:var(--font-mono);color:var(--text-secondary);">
+        <div class="modal-ca-bar">
+          <span style="font-family:var(--font-mono);color:var(--text-secondary);font-size:11.5px;">
             CA: <strong style="user-select:all;color:var(--text-primary);">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</strong>
           </span>
-          <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="color:#00f2fe;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
-            📈 Open on DexScreener ↗
+          <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="color:#0284c7;text-decoration:none;font-weight:600;font-size:11.5px;">
+            Live Chart ↗
           </a>
         </div>
         <div class="tier-stats-bar">
@@ -359,6 +419,7 @@
       </div>
     </div>
   </div>
+
   <!-- Projects Modal -->
   <div class="tier-modal-overlay" id="projects-modal" style="display:none;">
     <div class="tier-modal-card" style="max-width: 580px;">
@@ -370,18 +431,18 @@
         <button class="tier-modal-close" id="projects-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
           Organize your AI decision pipelines, agent tools, and custom instructions into dedicated project workspaces.
         </p>
         
         <!-- Create Project Input -->
         <div class="project-create-box">
-          <input type="text" id="new-project-name" placeholder="New project name (e.g. Robinhood Bot, Security Proxy)..." />
+          <input type="text" id="new-project-name" placeholder="Project name (e.g. Robinhood Bot, Security Proxy)..." />
           <input type="text" id="new-project-desc" placeholder="Brief description..." />
-          <button id="btn-create-project" class="btn-claude-dark" style="margin-top:6px;width:100%;padding:7px;font-size:12px;">+ Create Project</button>
+          <button id="btn-create-project" class="btn-claude-dark" style="margin-top:6px;width:100%;padding:9px;font-size:13px;">+ Create Project</button>
         </div>
 
-        <div style="margin-top:14px;font-size:11px;text-transform:uppercase;color:var(--text-tertiary);font-weight:700;letter-spacing:0.05em;">Active Workspaces</div>
+        <div style="margin-top:16px;font-size:11px;text-transform:uppercase;color:var(--text-tertiary);font-weight:700;letter-spacing:0.05em;">Active Workspaces</div>
         <div class="projects-list-container" id="projects-list-container" style="margin-top:8px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
           <!-- Populated dynamically -->
         </div>
@@ -391,31 +452,31 @@
 
   <!-- Artifacts Gallery Modal -->
   <div class="tier-modal-overlay" id="artifacts-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 680px;">
+    <div class="tier-modal-card" style="max-width: 720px;">
       <div class="tier-modal-head">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🗂️</span>
+          <span style="font-size:18px;">🗂</span>
           <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Artifacts Gallery</h3>
         </div>
         <button class="tier-modal-close" id="artifacts-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
           Generated code, safety rulesets, decision architectures, and exported session artifacts.
         </p>
-        <div class="artifacts-layout" style="display:grid;grid-template-columns:220px 1fr;gap:12px;min-height:280px;">
-          <div class="artifacts-sidebar-list" id="artifacts-sidebar-list" style="border-right:1px solid var(--border-light);padding-right:8px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:300px;">
+        <div class="artifacts-layout">
+          <div class="artifacts-sidebar-list" id="artifacts-sidebar-list">
             <!-- Populated dynamically -->
           </div>
-          <div class="artifact-preview-pane" id="artifact-preview-pane" style="display:flex;flex-direction:column;">
+          <div class="artifact-preview-pane" id="artifact-preview-pane">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <strong id="artifact-preview-title" style="font-size:13px;">Select an artifact</strong>
               <div style="display:flex;gap:6px;">
-                <button class="icon-mini" id="btn-copy-artifact" title="Copy code">📋 Copy</button>
-                <button class="icon-mini" id="btn-download-artifact" title="Download">💾 Save</button>
+                <button class="icon-mini-btn" id="btn-copy-artifact" title="Copy code">📋 Copy</button>
+                <button class="icon-mini-btn" id="btn-download-artifact" title="Download">💾 Save</button>
               </div>
             </div>
-            <pre style="background:var(--bg-pill);padding:10px;border-radius:6px;font-family:var(--font-mono);font-size:11.5px;overflow:auto;max-height:240px;flex:1;"><code id="artifact-preview-code">// Select an artifact from the list to preview</code></pre>
+            <pre class="artifact-pre"><code id="artifact-preview-code">// Select an artifact from the list to preview</code></pre>
           </div>
         </div>
       </div>
@@ -424,30 +485,30 @@
 
   <!-- Agent Warden Safety Suite Modal -->
   <div class="tier-modal-overlay" id="warden-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 640px;">
+    <div class="tier-modal-card" style="max-width: 660px;">
       <div class="tier-modal-head">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🛡️</span>
+          <span style="font-size:18px;">🛡</span>
           <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">Agent Warden Pre-Flight Firewall</h3>
-          <span style="background:rgba(16,185,129,0.15);color:#059669;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;">ACTIVE</span>
+          <span class="status-badge-active">ACTIVE</span>
         </div>
         <button class="tier-modal-close" id="warden-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-          4 Critical Questions before every tool call: 1. Right file? 2. Irreversible? 3. Looping? 4. Done?
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+          4 Critical pre-flight verification checks executed prior to autonomous agent tool calls: 1. Target file? 2. Irreversible? 3. Loop pattern? 4. Task completion?
         </p>
 
         <!-- Interactive Testbench -->
-        <div style="background:var(--bg-pill);padding:10px 12px;border-radius:8px;margin-bottom:12px;">
-          <label style="font-size:11px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Test Any Command or Action in Real Time:</label>
+        <div class="warden-testbench-card">
+          <label style="font-size:11px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Test Any Shell Command or Tool Payload:</label>
           <div style="display:flex;gap:6px;">
-            <input type="text" id="warden-test-input" placeholder="e.g. rm -rf / or cat .env or git push --force..." style="flex:1;padding:6px 10px;border:1px solid var(--border-card);border-radius:6px;font-family:var(--font-mono);font-size:12px;" />
-            <button id="btn-run-warden-test" class="btn-claude-dark" style="padding:6px 12px;font-size:12px;">Evaluate</button>
+            <input type="text" id="warden-test-input" placeholder="e.g. rm -rf / or cat .env or git push --force..." style="flex:1;padding:8px 10px;border:1px solid var(--border-medium);border-radius:6px;font-family:var(--font-mono);font-size:12px;" />
+            <button id="btn-run-warden-test" class="btn-claude-dark" style="padding:8px 14px;font-size:12px;">Evaluate</button>
           </div>
           <!-- Quick Preset Buttons -->
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-            <span style="font-size:10px;color:var(--text-muted);align-self:center;">Presets:</span>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:11px;color:var(--text-muted);">Presets:</span>
             <button class="warden-preset-btn" data-cmd="rm -rf /">rm -rf /</button>
             <button class="warden-preset-btn" data-cmd="cat .env">cat .env</button>
             <button class="warden-preset-btn" data-cmd="git push --force origin main">git push --force</button>
@@ -457,17 +518,17 @@
         </div>
 
         <!-- Live Verdict Output -->
-        <div id="warden-verdict-box" style="display:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;font-weight:700;">Safety Verdict</span>
+        <div id="warden-verdict-box" style="display:none;" class="warden-verdict-output">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Warden Verdict</span>
             <span id="warden-verdict-badge" style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;">--</span>
           </div>
-          <div id="warden-verdict-reason" style="font-size:12px;color:var(--text-primary);margin-bottom:6px;font-family:var(--font-mono);">--</div>
-          <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;font-size:10px;text-align:center;">
-            <div id="warden-chk-file" style="padding:4px;border-radius:4px;background:var(--bg-pill);">1. Target File: ?</div>
-            <div id="warden-chk-irrev" style="padding:4px;border-radius:4px;background:var(--bg-pill);">2. Irreversible: ?</div>
-            <div id="warden-chk-loop" style="padding:4px;border-radius:4px;background:var(--bg-pill);">3. Loop Check: ?</div>
-            <div id="warden-chk-done" style="padding:4px;border-radius:4px;background:var(--bg-pill);">4. Finished: ?</div>
+          <div id="warden-verdict-reason" style="font-size:12px;color:var(--text-primary);margin-bottom:8px;font-family:var(--font-mono);">--</div>
+          <div class="warden-chk-grid">
+            <div id="warden-chk-file">1. Target File: ?</div>
+            <div id="warden-chk-irrev">2. Irreversible: ?</div>
+            <div id="warden-chk-loop">3. Loop Check: ?</div>
+            <div id="warden-chk-done">4. Finished: ?</div>
           </div>
         </div>
       </div>
@@ -476,32 +537,32 @@
 
   <!-- Model Router Suite Modal -->
   <div class="tier-modal-overlay" id="router-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 680px;">
+    <div class="tier-modal-card" style="max-width: 700px;">
       <div class="tier-modal-head">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">⚙️</span>
-          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">OpenRouter Dynamic Model Router</h3>
+          <span style="font-size:18px;">⚙</span>
+          <h3 style="font-size:16px;font-weight:600;font-family:var(--font-serif);">OpenRouter Model Router</h3>
         </div>
         <button class="tier-modal-close" id="router-modal-close">&times;</button>
       </div>
       <div class="tier-modal-body">
-        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-          Don't Think. Route. Sub-millisecond complexity triage automatically routes cheap queries to Llama 8B/Flash and frontier reasoning to Sonnet/GPT-4o.
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.5;">
+          Sub-millisecond complexity triage automatically routes high-volume cheap queries to Llama 8B / Flash and deep architectural reasoning to GPT-4o / Claude.
         </p>
 
         <!-- Stats Bar -->
         <div class="tier-stats-bar">
-          <div><span>OpenRouter Models:</span> <strong id="router-model-count">500+</strong></div>
+          <div><span>OpenRouter Models:</span> <strong id="router-model-count">440+</strong></div>
           <div><span>Routing Latency:</span> <strong>&lt;1.2ms</strong></div>
           <div><span>Cost Reduction:</span> <strong>~95.2%</strong></div>
         </div>
 
         <!-- Model Search -->
-        <div style="margin-bottom:10px;">
-          <input type="text" id="router-model-search" placeholder="Search 500+ models (e.g. claude, gpt, deepseek, llama)..." style="width:100%;padding:7px 10px;border:1px solid var(--border-card);border-radius:6px;font-size:12px;" />
+        <div style="margin-bottom:12px;">
+          <input type="text" id="router-model-search" placeholder="Search 440+ models (e.g. gpt, claude, deepseek, llama, gemini)..." style="width:100%;padding:8px 12px;border:1px solid var(--border-medium);border-radius:6px;font-size:13px;" />
         </div>
 
-        <div id="router-models-grid" style="max-height:220px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div id="router-models-grid" class="router-models-grid">
           <!-- Populated dynamically -->
         </div>
       </div>
@@ -520,20 +581,20 @@
       </div>
       <div class="tier-modal-body">
         <div style="margin-bottom:12px;">
-          <input type="text" id="chat-search-input" placeholder="Search in chat history..." style="width:100%;padding:8px 10px;border:1px solid var(--border-card);border-radius:6px;font-size:12px;" />
+          <input type="text" id="chat-search-input" placeholder="Search in conversation history..." style="width:100%;padding:8px 12px;border:1px solid var(--border-medium);border-radius:6px;font-size:13px;" />
         </div>
-        <div id="chat-search-results" style="max-height:160px;overflow-y:auto;font-size:12px;margin-bottom:14px;color:var(--text-secondary);">
+        <div id="chat-search-results" style="max-height:160px;overflow-y:auto;font-size:12.5px;margin-bottom:14px;color:var(--text-secondary);">
           Type above to search messages across all sessions.
         </div>
-        <div style="border-top:1px solid var(--border-light);padding-top:12px;display:flex;gap:8px;">
-          <button id="btn-export-json" class="btn-claude-dark" style="flex:1;padding:7px;font-size:12px;">📥 Export as JSON</button>
-          <button id="btn-export-md" class="btn-claude-ghost" style="flex:1;padding:7px;font-size:12px;">📄 Export Markdown</button>
+        <div style="border-top:1px solid var(--border-subtle);padding-top:12px;display:flex;gap:8px;">
+          <button id="btn-export-json" class="btn-claude-dark" style="flex:1;padding:8px;font-size:12px;">📥 Export JSON</button>
+          <button id="btn-export-md" class="btn-claude-ghost" style="flex:1;padding:8px;font-size:12px;">📄 Export Markdown</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Jev Mobile Runner (Android Device Gateway) Modal -->
+  <!-- Jev Mobile Runner Modal -->
   <div class="tier-modal-overlay" id="mobile-modal" style="display:none;">
     <div class="tier-modal-card" style="max-width: 860px; max-height: 90vh;">
       <div class="tier-modal-head">
@@ -546,12 +607,12 @@
         </div>
         <button class="tier-modal-close" id="mobile-modal-close">&times;</button>
       </div>
-      <div class="tier-modal-body" style="display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start;">
-        <!-- Left: Interactive Android Device Screen Canvas -->
+      <div class="tier-modal-body mobile-modal-body">
+        <!-- Left: Android Device Screen Canvas -->
         <div style="display:flex;flex-direction:column;align-items:center;">
           <div class="mobile-empty-state" id="mobile-empty-state" style="display:none;">
             <strong>No Android device connected</strong>
-            <span>Install Android Platform Tools, enable USB debugging, then connect a device and refresh.</span>
+            <span>Connect a device with USB debugging enabled to synthesize touch coordinates.</span>
           </div>
           <div class="mobile-phone-frame" id="mobile-phone-frame">
             <div class="phone-notch">
@@ -570,7 +631,7 @@
                 </div>
                 <div class="phone-grid">
                   <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.settings">
-                    <span style="font-size:18px;">⚙️</span>
+                    <span style="font-size:18px;">⚙</span>
                     <span>Settings</span>
                   </div>
                   <div class="phone-icon-btn" data-action="launch" data-pkg="com.android.chrome">
@@ -596,16 +657,16 @@
             </div>
           </div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-top:8px;text-align:center;">
-            👆 Click anywhere on the screen to synthesize real ADB touch coordinates
+            Click anywhere on screen to synthesize real ADB touch coordinates
           </div>
         </div>
 
         <!-- Right: Device Controls & Real-Time Execution Logs -->
         <div style="display:flex;flex-direction:column;gap:12px;">
           <!-- Top Bar: Device Selector -->
-          <div style="display:flex;gap:8px;align-items:center;background:var(--bg-pill);padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);">
+          <div style="display:flex;gap:8px;align-items:center;background:var(--bg-subtle);padding:8px 12px;border-radius:8px;border:1px solid var(--border-subtle);">
             <div style="flex:1;">
-              <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Active Device</div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Active Device</div>
               <select id="mobile-device-select" style="background:transparent;border:none;font-weight:600;font-size:12px;color:var(--text-primary);cursor:pointer;width:100%;">
                 <option value="pixel-8-virtual">Pixel 8 Pro (Jev Virtual Device) • Android 14</option>
               </select>
@@ -617,10 +678,10 @@
           <div>
             <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Direct Agent Actions</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="warden-preset-btn" id="btn-mobile-open-chrome">🌐 Launch Chrome</button>
-              <button class="warden-preset-btn" id="btn-mobile-open-settings">⚙️ Settings</button>
-              <button class="warden-preset-btn" id="btn-mobile-type">⌨️ Type "Jev Brain"</button>
-              <button class="warden-preset-btn" id="btn-mobile-swipe-up">⬆ Swipe Up</button>
+              <button class="warden-preset-btn" id="btn-mobile-open-chrome">🌐 Chrome</button>
+              <button class="warden-preset-btn" id="btn-mobile-open-settings">⚙ Settings</button>
+              <button class="warden-preset-btn" id="btn-mobile-type">⌨ Type Text</button>
+              <button class="warden-preset-btn" id="btn-mobile-swipe-up">⬆ Swipe</button>
               <button class="warden-preset-btn" id="btn-mobile-inspect">🔍 Inspect UI</button>
             </div>
           </div>
@@ -628,83 +689,58 @@
           <!-- Real-Time Execution Logs -->
           <div style="flex:1;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Execution Stream & Warden Verdicts</span>
-              <span style="font-size:10px;color:#10b981;">● Live Protocol Active</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Execution Stream</span>
+              <span style="font-size:10px;color:#10b981;">● Bridge Active</span>
             </div>
-            <div id="mobile-logs-container" style="max-height: 220px; overflow-y: auto; display:flex; flex-direction:column; gap:6px; background:var(--bg-card); border:1px solid var(--border-card); border-radius:8px; padding:8px;">
-              <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or click actions above.</div>
+            <div id="mobile-logs-container" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:6px; background:var(--bg-card); border:1px solid var(--border-medium); border-radius:8px; padding:8px;">
+              <div style="font-size:11.5px;color:var(--text-muted);text-align:center;padding:12px;">No actions recorded yet. Tap on screen or select action above.</div>
             </div>
-          </div>
-
-          <!-- CLI Helper Snippet -->
-          <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border-card);border-radius:6px;padding:8px 10px;font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;align-items:center;">
-            <span>CLI: <strong style="color:var(--accent-terracotta);">node bin/brain.js mobile tap 540 1200</strong></span>
-            <span style="color:#10b981;">✔ ADB Ready</span>
           </div>
         </div>
       </div>
     </div>
-  <!-- Dedicated Web3 & MetaMask Wallet Modal -->
+  </div>
+
+  <!-- Dedicated Web3 & Wallet Modal -->
   <div class="tier-modal-overlay" id="rainbow-modal" style="display:none;">
-    <div class="tier-modal-card" style="max-width: 480px; text-align:center;">
-      <div class="tier-modal-head" style="justify-content: space-between;">
+    <div class="tier-modal-card" style="max-width: 440px;">
+      <div class="tier-modal-head">
         <div style="display:flex;align-items:center;gap:8px;">
-          <svg width="22" height="22" viewBox="0 0 318.6 318.6" fill="none">
-            <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <h3 style="font-size:16px;font-weight:700;margin:0;font-family:var(--font-serif);">Connect Your Wallet</h3>
+          <span style="font-size:18px;">🔐</span>
+          <h3 style="font-size:16px;font-weight:600;margin:0;font-family:var(--font-serif);">Connect Your Wallet</h3>
         </div>
         <button class="tier-modal-close" id="rainbow-modal-close">&times;</button>
       </div>
-      <div class="tier-modal-body" style="padding-top: 10px;">
-        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
-          Connect your MetaMask or Web3 wallet. You will receive a secure cryptographic signature request to verify token ownership and unlock Jev Brain.
+      <div class="tier-modal-body" style="padding-top: 12px;">
+        <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
+          Authenticate with your Web3 wallet. A cryptographic signature challenge will verify your token holding on-chain and unlock Jev Brain.
         </p>
 
         <!-- Live Connection Status Box -->
-        <div id="rainbow-modal-status-box" style="background: var(--bg-pill); border: 1px solid var(--border-light); border-radius: 10px; padding: 14px; margin-bottom: 16px; text-align: left;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Connection Status</span>
-            <span id="rainbow-modal-badge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(239,68,68,0.15); color: #ef4444;">Disconnected</span>
+        <div id="rainbow-modal-status-box" class="modal-status-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">Connection Status</span>
+            <span id="rainbow-modal-badge" class="status-pill-disconnected">Disconnected</span>
           </div>
-          <div style="font-size: 13px; font-weight: 600; font-family: var(--font-mono); word-break: break-all;" id="rainbow-modal-address">No wallet connected</div>
+          <div style="font-size: 12.5px; font-weight: 600; font-family: var(--font-mono); word-break: break-all;" id="rainbow-modal-address">No wallet connected</div>
           <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px;" id="rainbow-modal-tier-text">Requires token holding to access frontier AI models</div>
         </div>
 
         <!-- Action Buttons -->
         <div style="display: flex; flex-direction: column; gap: 8px;">
-          <button class="btn-claude-dark solana-btn-style" id="rainbow-modal-solana-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; background: #512da8; color: #ffffff; border: 1px solid #7e57c2; border-radius: 6px; cursor: pointer;">
+          <button class="btn-wallet-connect solana-action-btn" id="rainbow-modal-solana-btn">
             <svg width="18" height="18" viewBox="0 0 128 128" fill="none" style="flex-shrink:0;">
               <circle cx="64" cy="64" r="64" fill="#AB9FF2"/>
               <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
             </svg>
             <span>Connect with Phantom (Solana)</span>
           </button>
-          <button class="btn-claude-dark" id="rainbow-modal-connect-btn" style="padding: 11px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
-            <svg width="18" height="18" viewBox="0 0 318.6 318.6" fill="none">
-              <path d="M274.1 35.5l-99.5 73.9L193 65.8z" fill="#E2761B" stroke="#E2761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M44.4 35.5l98.7 74.6-18.4-44.3zM238.3 206.8l-29.7 40.9 50.9 14 14.7-54.2zM44.4 207.5l14.7 54.2 50.8-14-29.6-40.9z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M109.9 247.7l-47.3 13 42 30.6 5.3-43.6zM208.6 247.7l5.3 43.6 42-30.6-47.3-13z" fill="#D7C1B3" stroke="#D7C1B3" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M109.9 247.7l-5.3 43.6 54.7 27.3 54.7-27.3-5.3-43.6-49.4 14.8z" fill="#233447" stroke="#233447" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M193 65.8l-18.4 43.6 32.7 58.2 55.4-18.8 11.4-113.3zM44.4 35.5l11.4 113.3 55.4 18.8 32.7-58.2-18.4-43.6z" fill="#E4761B" stroke="#E4761B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M262.5 148.8l-55.4 18.8 31.2 39.2 14.7-54.2zM111.4 167.6L56 148.8l9.5 54.9 31.2-39.2z" fill="#F6851B" stroke="#F6851B" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M143.1 110.1l-32.7 58.2 48.9 26.6 48.9-26.6-32.7-58.2z" fill="#C0AD9E" stroke="#C0AD9E" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M159.3 194.9l-48.9-26.6-1.5 24.1 50.4 20.3 50.4-20.3-1.5-24.1z" fill="#161616" stroke="#161616" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M159.3 212.7l-50.4-20.3 1 55.3 49.4-14.8 49.4 14.8 1-55.3z" fill="#763D16" stroke="#763D16" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>Connect with MetaMask</span>
+          
+          <button class="btn-wallet-connect metamask-action-btn" id="rainbow-modal-connect-btn">
+            <span class="metamask-fox-icon">🦊</span>
+            <span>Connect with MetaMask (EVM)</span>
           </button>
-          <a href="https://metamask.io/download/" target="_blank" class="btn-claude-ghost" style="padding: 9px; font-size: 12px; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>🦊</span> <span>Install MetaMask from metamask.io</span> <span>↗</span>
-          </a>
+
           <button class="btn-claude-ghost" id="rainbow-modal-disconnect-btn" style="padding: 8px; font-size: 12px; color: #ef4444; display: none;">
             Disconnect Wallet
           </button>
@@ -712,44 +748,45 @@
       </div>
     </div>
   </div>
-  <!-- Claude AI Style User Onboarding Modal -->
+
+  <!-- User Onboarding Modal -->
   <div class="tier-modal-overlay" id="onboarding-modal" style="display:none; z-index: 9999;">
-    <div class="tier-modal-card" style="max-width: 440px; padding: 32px 28px; text-align: left; background: var(--bg-main, #FAF9F5); border: 1px solid var(--border-card, #E5E5DF); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15);">
+    <div class="tier-modal-card" style="max-width: 420px; padding: 28px 24px; text-align: left;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 26px; color: var(--accent-terracotta, #C96442);">✻</span>
-          <h2 style="font-family: var(--font-serif, serif); font-size: 22px; font-weight: 600; margin: 0; color: var(--text-primary);">Welcome to Jev Brain</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px; color: var(--accent-terracotta);">✻</span>
+          <h2 style="font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin: 0; color: var(--text-primary);">Welcome to Jev Brain</h2>
         </div>
-        <button class="tier-modal-close" id="onboarding-modal-close" style="font-size: 20px; line-height: 1; border: none; background: transparent; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        <button class="tier-modal-close" id="onboarding-modal-close">&times;</button>
       </div>
       
-      <p style="font-size: 13.5px; color: var(--text-secondary); margin: 0 0 20px 0; line-height: 1.5;">
-        Your wallet is authenticated. Please enter your name and email to set up your profile and enter the platform.
+      <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 18px 0; line-height: 1.5;">
+        Your wallet is verified on-chain. Enter your name and email to initialize your workspace profile.
       </p>
 
       <form id="onboarding-form">
+        <div style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">Display Name</label>
+          <input type="text" id="onboarding-name-input" placeholder="e.g. Developer" required 
+            style="width: 100%; box-sizing: border-box; padding: 9px 12px; font-size: 13.5px; border: 1px solid var(--border-medium); border-radius: 6px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+        </div>
+
         <div style="margin-bottom: 16px;">
-          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Your Name</label>
-          <input type="text" id="onboarding-name-input" placeholder="e.g. Naquib Mirza" required 
-            style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">Email Address</label>
+          <input type="email" id="onboarding-email-input" placeholder="dev@domain.com" required 
+            style="width: 100%; box-sizing: border-box; padding: 9px 12px; font-size: 13.5px; border: 1px solid var(--border-medium); border-radius: 6px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
         </div>
 
-        <div style="margin-bottom: 18px;">
-          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Email Address</label>
-          <input type="email" id="onboarding-email-input" placeholder="name@example.com" required 
-            style="width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; background: #fff; color: var(--text-primary); outline: none; font-family: inherit;" />
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(0,0,0,0.03); border: 1px solid var(--border-light, #DDDCD5); border-radius: 8px; margin-bottom: 22px;">
-          <span style="font-size: 14px;">🦊</span>
-          <div style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono, monospace); word-break: break-all;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: 6px; margin-bottom: 18px;">
+          <span style="font-size: 13px;">🔑</span>
+          <div style="font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono); word-break: break-all;">
             <span style="color: var(--text-secondary); font-weight: 600;">Wallet:</span> <span id="onboarding-wallet-addr">0x...</span>
           </div>
         </div>
 
         <button type="submit" class="btn-claude-dark" id="onboarding-confirm-btn" 
-          style="width: 100%; padding: 12px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--text-primary); color: #fff;">
-          <span>Confirm &amp; Enter Jev Brain</span>
+          style="width: 100%; padding: 10px; font-size: 13.5px; font-weight: 600; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>Enter Workspace</span>
           <span>→</span>
         </button>
       </form>
