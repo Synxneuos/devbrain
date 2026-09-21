@@ -1338,3 +1338,88 @@ button:has(svg[viewBox="0 0 318.6 318.6"])::before {
 .gate-starburst:has(svg[viewBox="0 0 318.6 318.6"])::before { width: 40px; height: 40px; display: block; content: ""; }
 .gate-starburst:has(svg[viewBox="0 0 318.6 318.6"])::before,
 .gate-dialog button:has(svg[viewBox="0 0 318.6 318.6"])::before { background-size: contain; }
+
+/* DexScreener Live Ticker & CA Pill */
+.ca-pill {
+  cursor: pointer;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-light);
+  transition: all 0.2s ease;
+}
+.ca-pill:hover {
+  border-color: #00f2fe;
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.15);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  box-shadow: 0 0 8px #10b981;
+  animation: livePulse 2s infinite ease-in-out;
+}
+
+@keyframes livePulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 12px #10b981; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.hero-token-card {
+  margin: 18px auto 10px;
+  max-width: 580px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s ease;
+}
+.hero-token-card:hover {
+  border-color: rgba(0, 242, 254, 0.25);
+}
+
+.hero-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.hero-stat-item div:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.hero-stat-item div:last-child {
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.btn-copy-mini {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.btn-copy-mini:hover {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: #00f2fe;
+  color: #00f2fe;
+}
+

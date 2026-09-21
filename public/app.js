@@ -1348,17 +1348,88 @@ function exportCurrentChat(format = 'json') {
 // ============================================
 // DYNAMIC TIER MODAL (DEXSCREENER SYNCED)
 // ============================================
+const TOKEN_CA = 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump';
+
+function copyCA() {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(TOKEN_CA).then(showCopiedFeedback).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
+}
+
+function fallbackCopy() {
+  try {
+    const tempInput = document.createElement('input');
+    tempInput.value = TOKEN_CA;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempInput);
+    showCopiedFeedback();
+  } catch (e) {
+    prompt('Copy Token Contract Address (CA):', TOKEN_CA);
+  }
+}
+
+function showCopiedFeedback() {
+  const targets = [
+    document.getElementById('copy-ca-btn'),
+    document.getElementById('hero-copy-ca')
+  ];
+  targets.forEach(btn => {
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '✅ Copied!';
+      setTimeout(() => { btn.innerHTML = orig; }, 2000);
+    }
+  });
+}
+
 async function loadMarketInfo() {
   try {
     const res = await fetch('/api/market-info');
     if (res.ok) {
       const data = await res.json();
-      const mc = data.marketData?.marketCap || 100000;
-      const formatted = mc >= 1000000 ? `$${(mc / 1000000).toFixed(2)}M` : `$${(mc / 1000).toFixed(1)}K`;
-      if (elements.mc) elements.mc.textContent = formatted;
+      const m = data.marketData || {};
+      const mc = m.marketCap || 100000;
+      const price = m.priceUsd || 0.0001;
+      const vol = m.volume24h || 0;
+      const liq = m.liquidityUsd || 0;
+
+      const formatUsd = (num) => {
+        if (!num || isNaN(num)) return '$0';
+        if (num >= 1000000) return `$${(num / 1000000).toFixed(2)}M`;
+        if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
+        return `$${Number(num).toFixed(2)}`;
+      };
+
+      const formatPrice = (p) => {
+        if (!p || isNaN(p)) return '$0.00';
+        if (p < 0.0001) return `$${Number(p).toFixed(7)}`;
+        if (p < 0.01) return `$${Number(p).toFixed(5)}`;
+        return `$${Number(p).toFixed(4)}`;
+      };
+
+      // Topbar MC display
+      if (elements.mc) elements.mc.textContent = formatUsd(mc);
+
+      // Hero Token Widget updates
+      const heroMc = document.getElementById('hero-mc');
+      const heroPrice = document.getElementById('hero-price');
+      const heroVol = document.getElementById('hero-vol');
+      const heroLiq = document.getElementById('hero-liq');
+
+      if (heroMc) heroMc.textContent = formatUsd(mc);
+      if (heroPrice) heroPrice.textContent = formatPrice(price);
+      if (heroVol) heroVol.textContent = formatUsd(vol);
+      if (heroLiq) heroLiq.textContent = formatUsd(liq);
+
       renderTierModalTable(data);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Market info fetch failed:', e);
+  }
 }
 
 function renderTierModalTable(data) {
@@ -1766,6 +1837,19 @@ function bindEvents() {
   document.getElementById('btn-mobile-swipe-up')?.addEventListener('click', () => executeMobileAction({ type: 'swipe', x1: 540, y1: 1800, x2: 540, y2: 600, duration: 250 }));
   document.getElementById('btn-mobile-inspect')?.addEventListener('click', refreshMobileScreen);
 
+  // Contract Address (CA) One-Click Copy
+  document.getElementById('copy-ca-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyCA();
+  });
+  document.getElementById('ca-pill')?.addEventListener('click', () => {
+    copyCA();
+  });
+  document.getElementById('hero-copy-ca')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyCA();
+  });
+
 }
 
 // ============================================
@@ -1778,7 +1862,7 @@ async function init() {
   initChats();
   await loadMarketInfo();
   await loadOpenRouterModels();
-  setInterval(loadMarketInfo, 30000);
+  setInterval(loadMarketInfo, 15000); // 15s Live DexScreener Polling
 
   // Check persisted wallet, but never trust the locally cached tier blindly:
   // the saved session token must validate against the server first.

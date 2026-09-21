@@ -5,7 +5,7 @@
 
 let cachedMarketData = null;
 let lastFetchTime = 0;
-const CACHE_TTL_MS = 30000; // Cache 30 seconds
+const CACHE_TTL_MS = 10000; // Cache 10 seconds for live responsive updates
 
 /**
  * Fetch live market data from DexScreener
@@ -24,14 +24,17 @@ export async function fetchLiveMarketData(contractAddress = '', chain = 'solana'
     // Simulated initial launch phase (e.g. 100k MC base) until CA is provided
     cachedMarketData = {
       live: false,
-      contractAddress: 'PENDING_LAUNCH_CA',
+      contractAddress: 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump',
+      symbol: 'jevbrain',
+      name: 'Jev Brain',
       chain,
       priceUsd: 0.0001,
       marketCap: 100000, // 100k base
       fdv: 100000,
       liquidityUsd: 25000,
       volume24h: 45000,
-      source: 'Default 100k MC Baseline (Add CA in .env to activate live DexScreener)'
+      priceChange24h: 0,
+      source: 'Default 100k MC Baseline'
     };
     lastFetchTime = now;
     return cachedMarketData;
@@ -54,6 +57,8 @@ export async function fetchLiveMarketData(contractAddress = '', chain = 'solana'
       cachedMarketData = {
         live: true,
         contractAddress: ca,
+        symbol: bestPair.baseToken?.symbol || 'jevbrain',
+        name: bestPair.baseToken?.name || 'Jev Brain',
         chain: bestPair.chainId || chain,
         dexId: bestPair.dexId,
         pairAddress: bestPair.pairAddress,
@@ -62,7 +67,10 @@ export async function fetchLiveMarketData(contractAddress = '', chain = 'solana'
         fdv: bestPair.fdv || 100000,
         liquidityUsd: bestPair.liquidity?.usd || 0,
         volume24h: bestPair.volume?.h24 || 0,
-        url: bestPair.url,
+        priceChange24h: bestPair.priceChange?.h24 || 0,
+        priceChange1h: bestPair.priceChange?.h1 || 0,
+        priceChange5m: bestPair.priceChange?.m5 || 0,
+        url: bestPair.url || `https://dexscreener.com/solana/${ca}`,
         source: 'DexScreener Live Feed'
       };
       lastFetchTime = now;

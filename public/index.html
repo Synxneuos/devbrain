@@ -108,8 +108,16 @@
         </div>
 
         <div class="topbar-right">
-          <div class="plan-pill" id="mc-pill" title="Live DexScreener Market Cap">
-            <span>MC: <b id="mc-display">$100.0K</b></span>
+          <div class="plan-pill ca-pill" id="ca-pill" title="Click to copy Contract Address (CA)">
+            <span>CA: <b id="ca-short" style="color:var(--text-primary);font-family:var(--font-mono);">AxwSUU...pump</b></span>
+            <button id="copy-ca-btn" class="icon-mini" title="Copy CA" style="border:none;background:transparent;cursor:pointer;padding:0 2px;font-size:11px;">📋</button>
+            <a id="ca-dex-link" href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" title="Open DexScreener Live Chart" style="text-decoration:none;font-size:11px;margin-left:3px;">📈</a>
+          </div>
+          <div class="plan-pill" id="mc-pill" title="Live DexScreener Market Cap — Click to view Tiers" style="cursor:pointer;">
+            <span style="display:inline-flex;align-items:center;gap:5px;">
+              <span class="live-dot"></span>
+              MC: <b id="mc-display">$...</b>
+            </span>
           </div>
           <div class="plan-pill" id="tier-pill" title="Dynamic Token Holding Tier">
             <span>Tier: <b id="tier-display">Dynasty Magnate (Unlocked)</b></span>
@@ -142,6 +150,51 @@
             Bring me anything—a tough routing problem, a raw message stream, an agent tool call, or a complex prompt. We’ll figure it out together.
           </p>
           <p class="hero-question">Where do you want to start?</p>
+
+          <!-- Live DexScreener Token & CA Widget -->
+          <div class="hero-token-card" id="hero-token-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:16px;">⚡</span>
+                <strong style="font-size:13.5px;letter-spacing:0.02em;color:var(--text-primary);">Jev Brain (<span style="color:#00f2fe;">$jevbrain</span>)</strong>
+                <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#10b981;background:rgba(16,185,129,0.1);padding:2px 8px;border-radius:10px;border:1px solid rgba(16,185,129,0.25);">
+                  <span class="live-dot" style="width:5px;height:5px;"></span>
+                  Live DexScreener
+                </span>
+              </div>
+              <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="font-size:12px;color:#00f2fe;text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-weight:600;">
+                📈 Live Chart ↗
+              </a>
+            </div>
+
+            <div class="hero-stats-grid">
+              <div class="hero-stat-item">
+                <div>Market Cap</div>
+                <div id="hero-mc" style="color:#ffffff;">$...</div>
+              </div>
+              <div class="hero-stat-item">
+                <div>Price</div>
+                <div id="hero-price" style="color:#00f2fe;">$...</div>
+              </div>
+              <div class="hero-stat-item">
+                <div>24h Volume</div>
+                <div id="hero-vol" style="color:#ffffff;">$...</div>
+              </div>
+              <div class="hero-stat-item">
+                <div>Liquidity</div>
+                <div id="hero-liq" style="color:#10b981;">$...</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;background:rgba(0,0,0,0.2);padding:7px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);">
+              <span style="color:var(--text-tertiary);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                CA: <span id="hero-ca-full" style="color:var(--text-primary);user-select:all;">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</span>
+              </span>
+              <button id="hero-copy-ca" class="btn-copy-mini" style="flex-shrink:0;">
+                📋 Copy CA
+              </button>
+            </div>
+          </div>
 
           <div class="hero-starburst">
             <span class="starburst-glyph">✻</span>
@@ -279,6 +332,14 @@
         <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.4;">
           Tiers adapt dynamically based on live Market Cap from DexScreener. Early/Low MC enables accessible dollar entry, while higher MC scales trust requirements and reduces required token counts.
         </p>
+        <div style="margin-bottom:12px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--border-light);border-radius:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:11.5px;">
+          <span style="font-family:var(--font-mono);color:var(--text-secondary);">
+            CA: <strong style="user-select:all;color:var(--text-primary);">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</strong>
+          </span>
+          <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" style="color:#00f2fe;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+            📈 Open on DexScreener ↗
+          </a>
+        </div>
         <div class="tier-stats-bar">
           <div><span>Live MC:</span> <strong id="modal-mc">$100.0K</strong></div>
           <div><span>Token Price:</span> <strong id="modal-price">$0.000100</strong></div>
