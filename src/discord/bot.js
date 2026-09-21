@@ -274,16 +274,57 @@ export class JevDiscordBot {
   async setupServerChannels() {
     if (!this.guild) return;
     try {
+      const roles = await this.guild.roles.fetch();
+      const everyoneRole = this.guild.roles.everyone;
+      const verifiedRole = roles.find(r => r.name.toLowerCase() === 'verified token holder');
+      const arbiterRole = roles.find(r => r.name.toLowerCase() === 'neural arbiter');
+      const wardenRole = roles.find(r => r.name.toLowerCase() === 'agent warden');
+      const tierRoles = roles.filter(r => [
+        'dynasty magnate',
+        'syndicate director',
+        'principal partner',
+        'charter associate',
+        'reserve initiate'
+      ].includes(r.name.toLowerCase()));
+
       const channels = await this.guild.channels.fetch();
 
-      // 1. CATEGORY: 🛡️ VERIFICATION & GOVERNANCE
+      // Clean up any unconstrained default channels
+      for (const [, chan] of channels) {
+        if (!chan) continue;
+        if (chan.name.toLowerCase() === 'general' && chan.type === ChannelType.GuildText) {
+          await chan.delete('Remove unconstrained default #general channel').catch(() => {});
+        }
+        if (chan.name.toLowerCase() === 'text channels' && chan.type === ChannelType.GuildCategory) {
+          await chan.delete('Remove unconstrained Text Channels category').catch(() => {});
+        }
+      }
+
+      // 1. CATEGORY: 🛡️ VERIFICATION & GOVERNANCE (Visible to everyone, READ-ONLY)
       let govCategory = channels.find(c => c && c.type === ChannelType.GuildCategory && c.name.includes('VERIFICATION'));
+      const govOverwrites = [
+        {
+          id: everyoneRole.id,
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.ReadMessageHistory],
+          deny: [
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.SendMessagesInThreads,
+            PermissionsBitField.Flags.CreatePublicThreads,
+            PermissionsBitField.Flags.CreatePrivateThreads,
+            PermissionsBitField.Flags.AddReactions
+          ]
+        }
+      ];
+
       if (!govCategory) {
         govCategory = await this.guild.channels.create({
           name: '🛡️ VERIFICATION & GOVERNANCE',
           type: ChannelType.GuildCategory,
+          permissionOverwrites: govOverwrites,
           reason: 'Jev Brain Automated Category Setup'
         });
+      } else {
+        await govCategory.permissionOverwrites.set(govOverwrites).catch(() => {});
       }
 
       // #verify-here
@@ -385,14 +426,69 @@ export class JevDiscordBot {
         await caChan.send({ embeds: [caEmbed], components: [row] });
       }
 
-      // 2. CATEGORY: ✻ COMMUNITY & AGENTS
+      // 2. CATEGORY: ✻ COMMUNITY & AGENTS (COMPLETELY HIDDEN FOR @everyone; ONLY VERIFIED CAN VIEW & SEND)
       let commCategory = channels.find(c => c && c.type === ChannelType.GuildCategory && c.name.includes('COMMUNITY'));
+      const commOverwrites = [
+        {
+          id: everyoneRole.id,
+          deny: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        }
+      ];
+
+      if (verifiedRole) {
+        commOverwrites.push({
+          id: verifiedRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        });
+      }
+      if (arbiterRole) {
+        commOverwrites.push({
+          id: arbiterRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        });
+      }
+      if (wardenRole) {
+        commOverwrites.push({
+          id: wardenRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        });
+      }
+      for (const [, tierRole] of tierRoles) {
+        commOverwrites.push({
+          id: tierRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        });
+      }
+
       if (!commCategory) {
         commCategory = await this.guild.channels.create({
           name: '✻ COMMUNITY & AGENTS',
           type: ChannelType.GuildCategory,
+          permissionOverwrites: commOverwrites,
           reason: 'Jev Brain Automated Category Setup'
         });
+      } else {
+        await commCategory.permissionOverwrites.set(commOverwrites).catch(() => {});
       }
 
       // #general-chat
@@ -401,7 +497,7 @@ export class JevDiscordBot {
         await this.guild.channels.create({
           name: 'general-chat',
           parent: commCategory.id,
-          topic: 'General community chat (Text-only enforced by Agent Warden)',
+          topic: 'General community chat (Verified token holders only)',
           reason: 'Automated chat channel setup'
         });
       }
@@ -415,6 +511,15 @@ export class JevDiscordBot {
           topic: 'Discussions on the 513 AI models, latencies, and tier quotas',
           reason: 'Automated model channel setup'
         });
+      }
+
+      // Sync permissions across children
+      const refreshed = await this.guild.channels.fetch();
+      for (const [, chan] of refreshed) {
+        if (!chan) continue;
+        if (chan.parentId === commCategory?.id || chan.parentId === govCategory?.id) {
+          await chan.lockPermissions().catch(() => {});
+        }
       }
 
       console.log('[DiscordBot] ✓ All server channels and categories verified and active.');
@@ -438,6 +543,29 @@ export class JevDiscordBot {
       member.permissions.has(PermissionsBitField.Flags.Administrator) ||
       member.roles.cache.some(r => r.name === 'Neural Arbiter' || r.name === 'Agent Warden')
     );
+
+    // ================================================================
+    // RULE 0: UNVERIFIED USERS CANNOT SEND ANY MESSAGES ANYWHERE
+    // ================================================================
+    const isVerified = member && member.roles.cache.some(r => [
+      'verified token holder',
+      'dynasty magnate',
+      'syndicate director',
+      'principal partner',
+      'charter associate',
+      'reserve initiate'
+    ].includes(r.name.toLowerCase()));
+
+    if (!isVerified && !isOwner && !isMod) {
+      try {
+        await message.delete();
+        const warn = await message.channel.send(`🔒 <@${message.author.id}>, token verification is strictly required to chat. Please verify your $JEVBRAIN holdings in the **#verify-here** portal.`);
+        setTimeout(() => warn.delete().catch(() => {}), 4000);
+        return;
+      } catch (err) {
+        console.error('[DiscordBot] Error deleting unverified message:', err.message);
+      }
+    }
 
     // ================================================================
     // RULE 1: ROGUE MOD / UNAUTHORIZED TOKEN LAUNCH SHIELD
