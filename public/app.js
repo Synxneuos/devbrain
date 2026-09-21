@@ -1270,8 +1270,23 @@ async function runWardenCheck(commandToTest) {
 }
 
 // ============================================
-// MODEL ROUTER MODAL
+// MODEL ROUTER & TIER HOLDING FIREWALL
 // ============================================
+let currentRouterTierFilter = 'all';
+
+function isModelUnlockedForClient(model) {
+  if (!isTokenHolder || !currentWallet || !userTier) {
+    return false; // Requires connected wallet with on-chain token holding
+  }
+  const allowed = userTier.allowedModels || [];
+  if (allowed.includes('all')) return true; // Dynasty Magnate / Whale
+  if (allowed.some(rule => rule === model.id || model.id.startsWith(rule))) return true;
+
+  const userLevel = Number(userTier.tierId) || (userTier.tierName === 'Wallet Member' ? 1 : 0);
+  const modelReqTier = Number(model.tierId) || 1;
+  return userLevel >= modelReqTier;
+}
+
 async function openRouterModal() {
   elements.routerModal.style.display = 'flex';
 
@@ -1279,68 +1294,154 @@ async function openRouterModal() {
     const res = await fetch('/api/models');
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Unable to load OpenRouter models');
-    renderModelRouterGrid(data.models || []);
+    allOpenRouterModels = data.models || [];
+    renderModelRouterGrid(allOpenRouterModels);
   } catch (e) {
     elements.routerModelsGrid.innerHTML = `<div style="grid-column:1/-1;color:#b91c1c;font-size:12px;padding:12px;">${escapeHtml(e.message)}</div>`;
   }
 }
 
-function renderModelRouterGrid(modelsMap) {
+function renderModelRouterGrid(modelsList) {
+  if (!elements.routerModelsGrid) return;
   elements.routerModelsGrid.innerHTML = '';
-  const entries = Array.isArray(modelsMap)
-    ? modelsMap.map(model => [model.id, {
-      name: model.name || model.id,
-      tier: model.architecture?.modality === 'text->text' ? 'TEXT' : 'MULTIMODAL',
-      cost: Number(model.pricing?.prompt || 0) * 1000000
-    }])
-    : Object.entries(modelsMap);
-  elements.routerModelCount.textContent = `${entries.length}+ Models`;
+  const models = Array.isArray(modelsList) ? modelsList : [];
 
-  entries.forEach(([id, m]) => {
+  const countEl = document.getElementById('router-model-count');
+  if (countEl) countEl.textContent = `${models.length}+`;
+
+  // Update user tier holding status bar
+  const userTierNameEl = document.getElementById('router-user-tier-name');
+  const unlockedCountEl = document.getElementById('router-unlocked-count');
+
+  let unlockedCount = 0;
+  models.forEach(m => {
+    if (isModelUnlockedForClient(m)) unlockedCount++;
+  });
+
+  if (userTierNameEl) {
+    if (isTokenHolder && userTier) {
+      userTierNameEl.textContent = `${userTier.tierName || 'Dynasty Magnate'} (Tier ${userTier.tierId || 1})`;
+      userTierNameEl.style.color = '#059669';
+    } else {
+      userTierNameEl.textContent = 'Guest / Disconnected (0 $JEVBRAIN)';
+      userTierNameEl.style.color = 'var(--status-error)';
+    }
+  }
+
+  if (unlockedCountEl) {
+    if (isTokenHolder && userTier) {
+      unlockedCountEl.textContent = `${unlockedCount} of ${models.length} Unlocked`;
+      unlockedCountEl.style.color = '#059669';
+    } else {
+      unlockedCountEl.textContent = 'All Locked (Hold $JEVBRAIN to Unlock)';
+      unlockedCountEl.style.color = 'var(--status-error)';
+    }
+  }
+
+  models.forEach(m => {
+    const isUnlocked = isModelUnlockedForClient(m);
     const card = document.createElement('div');
-    card.className = 'router-model-card';
+    card.className = `router-model-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+    card.setAttribute('data-tier', String(m.tierId || 1));
+    card.setAttribute('data-unlocked', isUnlocked ? 'true' : 'false');
+    card.setAttribute('data-id', m.id);
+
+    const tierBadgeClass = `badge-tier-${m.tierId || 1}`;
+    const costPer1M = (Number(m.pricing?.prompt || 0) * 1000000).toFixed(2);
+
     card.innerHTML = `
-      <div style="font-weight:600;display:flex;justify-content:space-between;">
-        <span>${escapeHtml(m.name)}</span>
-        <span style="color:var(--accent-terracotta);font-size:10px;">${m.tier?.toUpperCase()}</span>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:2px;">
+          <strong style="font-size:11.5px;color:var(--text-primary);line-height:1.3;">${escapeHtml(m.name || m.id)}</strong>
+          <span class="card-tier-badge ${tierBadgeClass}">${escapeHtml(m.tierName || 'Tier ' + (m.tierId || 1))}</span>
+        </div>
+        <div style="font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);word-break:break-all;">${escapeHtml(m.id)}</div>
+        <div style="font-size:9.5px;color:var(--text-tertiary);margin-top:3px;line-height:1.3;">
+          ${escapeHtml(m.description || (m.architecture?.modality === 'multimodal' ? 'Multimodal Vision & Text' : 'High-Speed Reasoning Engine'))}
+        </div>
       </div>
-      <div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);">${id}</div>
-      <div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Est: $${m.cost}/1M tokens</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:4px;border-top:1px solid var(--border-subtle);">
+        <span style="font-size:9.5px;color:var(--text-muted);font-family:var(--font-mono);">$${costPer1M}/1M</span>
+        <span class="card-status-pill ${isUnlocked ? 'unlocked' : 'locked'}">
+          ${isUnlocked ? '✓ Unlocked' : '🔒 Locked'}
+        </span>
+      </div>
     `;
+
     card.addEventListener('click', () => {
-      if (![...elements.modelSelect.options].some(option => option.value === id)) {
-        elements.modelSelect.add(new Option(m.name, id));
+      if (!isUnlocked) {
+        alert(`Access Restricted:\n\nModel '${m.name}' requires [${m.tierName || 'Tier ' + m.tierId}] ($JEVBRAIN holding required).\n\nYour current holding tier: [${userTier?.tierName || 'Guest'}].\n\nPlease acquire $JEVBRAIN tokens on Solana or select an unlocked model.`);
+        return;
       }
-      elements.modelSelect.value = id;
-      elements.routerModal.style.display = 'none';
+
+      if (![...elements.modelSelect.options].some(opt => opt.value === m.id)) {
+        elements.modelSelect.add(new Option(m.name || m.id, m.id));
+      }
+      elements.modelSelect.value = m.id;
+      if (elements.routerModal) elements.routerModal.style.display = 'none';
     });
+
     elements.routerModelsGrid.appendChild(card);
   });
+
+  filterRouterModels();
 }
 
 function filterRouterModels() {
-  const q = elements.routerModelSearch.value.toLowerCase();
+  if (!elements.routerModelsGrid) return;
+  const q = (elements.routerModelSearch?.value || '').trim().toLowerCase();
+  const activeTab = currentRouterTierFilter || 'all';
+
   const cards = elements.routerModelsGrid.querySelectorAll('.router-model-card');
+  let visibleCount = 0;
+
   cards.forEach(card => {
-    card.style.display = card.textContent.toLowerCase().includes(q) ? 'block' : 'none';
+    const text = card.textContent.toLowerCase();
+    const cardTier = card.getAttribute('data-tier');
+    const isUnlocked = card.getAttribute('data-unlocked') === 'true';
+
+    const matchesQuery = !q || text.includes(q);
+    let matchesTier = true;
+    if (activeTab === 'unlocked') {
+      matchesTier = isUnlocked;
+    } else if (activeTab !== 'all') {
+      matchesTier = cardTier === activeTab;
+    }
+
+    const show = matchesQuery && matchesTier;
+    card.style.display = show ? 'flex' : 'none';
+    if (show) visibleCount++;
   });
 }
 
 function refreshInlineModelOptions(query = '') {
   if (!elements.modelSelect || !allOpenRouterModels.length) return;
   const selected = elements.modelSelect.value;
-  const allowed = userTier?.allowedModels || [];
-  const canUseAll = allowed.includes('all') || !currentWallet;
   const needle = query.trim().toLowerCase();
-  const models = allOpenRouterModels.filter(model => {
-    const haystack = `${model.id} ${model.name || ''}`.toLowerCase();
-    const matchesSearch = !needle || haystack.includes(needle);
-    const allowedForTier = canUseAll || allowed.some(rule => model.id === rule || model.id.startsWith(rule));
-    return matchesSearch && allowedForTier;
-  }).slice(0, 80);
-  elements.modelSelect.innerHTML = '<option value="auto">Jev Router • Auto (OpenRouter)</option>';
-  models.forEach(model => elements.modelSelect.add(new Option(model.name || model.id, model.id)));
-  if ([...elements.modelSelect.options].some(option => option.value === selected)) elements.modelSelect.value = selected;
+
+  const filtered = allOpenRouterModels.filter(model => {
+    const haystack = `${model.id} ${model.name || ''} ${model.tierName || ''}`.toLowerCase();
+    return !needle || haystack.includes(needle);
+  }).slice(0, 120);
+
+  elements.modelSelect.innerHTML = '<option value="auto">Jev Router • Auto (Dynamic Triage)</option>';
+
+  filtered.forEach(model => {
+    const unlocked = isModelUnlockedForClient(model);
+    const opt = document.createElement('option');
+    opt.value = model.id;
+    if (unlocked) {
+      opt.textContent = `[Tier ${model.tierId || 1}] ${model.name || model.id}`;
+    } else {
+      opt.textContent = `[🔒 Locked · ${model.tierName || 'Tier ' + model.tierId}] ${model.name || model.id}`;
+      opt.disabled = true; // Prevents choosing locked models
+    }
+    elements.modelSelect.appendChild(opt);
+  });
+
+  if ([...elements.modelSelect.options].some(opt => opt.value === selected && !opt.disabled)) {
+    elements.modelSelect.value = selected;
+  }
 }
 
 async function loadOpenRouterModels() {
@@ -1865,8 +1966,16 @@ function bindEvents() {
     });
   });
 
-  // Router Search
+  // Router Search & Tier Filter Tabs
   elements.routerModelSearch?.addEventListener('input', filterRouterModels);
+  document.querySelectorAll('#router-tier-tabs .tier-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#router-tier-tabs .tier-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRouterTierFilter = btn.getAttribute('data-tier') || 'all';
+      filterRouterModels();
+    });
+  });
 
   // Profile Bottom Actions
   elements.btnProfileDownload?.addEventListener('click', () => exportCurrentChat('md'));

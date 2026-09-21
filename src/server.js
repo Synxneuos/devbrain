@@ -8,6 +8,7 @@ import { AgentWarden } from './core/warden.js';
 import { OpenRouterClient, OPENROUTER_MODELS } from './core/openrouter.js';
 import { fetchLiveMarketData, calculateDynamicTier } from './core/dexscreener.js';
 import { MobileRunner } from './core/mobile.js';
+import { EXTENDED_MODELS, getModelTier } from './core/extended-models.js';
 import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -324,12 +325,95 @@ function getContentType(filePath) {
 
 // ── Tier-Based Model Allowlist ─────────────────────────────────────
 // Enforced server-side on every AI chat request: a session may only use
-// models included in its holding tier's allowedModels (or 'all').
+// models included in its holding tier's allowedModels (or 'all' / tier level).
 function isModelAllowedForTier(model, userTier) {
   if (!model || model === 'auto') return true; // Jev auto-router picks a tier-safe model itself
+  if (!userTier) return false;
+
   const allowed = userTier?.allowedModels || [];
-  if (!allowed.length) return false;
-  return allowed.some(rule => rule === 'all' || rule === model || model.startsWith(rule));
+  if (allowed.includes('all')) return true; // Whale / Dynasty Magnate has unrestricted access to all models
+
+  // Check explicit allowlist rules first
+  if (allowed.some(rule => rule === model || model.startsWith(rule))) {
+    return true;
+  }
+
+  // Resolve model required tier
+  const modelTier = getModelTier(model);
+  const userTierLevel = Number(userTier.tierId) || (userTier.tierName === 'Wallet Member' ? 1 : 0);
+
+  // If user holding tier is >= model's required tier, allowed
+  if (userTierLevel > 0 && userTierLevel >= modelTier.tierId) {
+    return true;
+  }
+
+  return false;
+}
+
+// ── 500+ Model Catalog Aggregator (OpenRouter + Extended Models) ──
+let cachedMergedModels = null;
+let lastModelFetch = 0;
+const MODEL_CACHE_TTL_MS = 60000; // 1 minute cache
+
+async function getAllMergedModels() {
+  const now = Date.now();
+  if (cachedMergedModels && (now - lastModelFetch < MODEL_CACHE_TTL_MS)) {
+    return cachedMergedModels;
+  }
+
+  let openRouterList = [];
+  try {
+    const modelRes = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (modelRes.ok) {
+      const modelData = await modelRes.json();
+      openRouterList = modelData.data || [];
+    }
+  } catch (err) {
+    console.warn('OpenRouter models fetch warning:', err.message);
+  }
+
+  const map = new Map();
+  // 1. Add OpenRouter models with tier classification
+  openRouterList.forEach(m => {
+    const t = getModelTier(m);
+    map.set(m.id.toLowerCase(), {
+      id: m.id,
+      name: m.name || m.id,
+      description: m.description || '',
+      context_length: m.context_length || 8192,
+      pricing: m.pricing || { prompt: '0.000001', completion: '0.000002' },
+      architecture: m.architecture || { modality: 'text->text' },
+      tierId: t.tierId,
+      tierName: t.tierName,
+      category: t.category
+    });
+  });
+
+  // 2. Merge extended catalog (guarantees 500+ models)
+  EXTENDED_MODELS.forEach(m => {
+    const key = m.id.toLowerCase();
+    if (!map.has(key)) {
+      const t = getModelTier(m);
+      map.set(key, {
+        ...m,
+        tierId: t.tierId,
+        tierName: t.tierName,
+        category: t.category
+      });
+    }
+  });
+
+  const merged = Array.from(map.values()).sort((a, b) => {
+    if (b.tierId !== a.tierId) return b.tierId - a.tierId;
+    return a.name.localeCompare(b.name);
+  });
+
+  cachedMergedModels = merged;
+  lastModelFetch = now;
+  return merged;
 }
 
 function parseJsonBody(req) {
@@ -376,20 +460,13 @@ export async function handleRequest(req, res) {
     }
 
     if (url.pathname === '/api/models' && req.method === 'GET') {
-      // Proxy to OpenRouter to get all 500+ models
       try {
-        const modelRes = await fetch('https://openrouter.ai/api/v1/models', {
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        if (modelRes.ok) {
-          const modelData = await modelRes.json();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ models: modelData.data || [] }));
-        } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Failed to fetch models' }));
-        }
+        const models = await getAllMergedModels();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          count: models.length,
+          models
+        }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));

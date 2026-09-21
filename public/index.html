@@ -92,7 +92,7 @@
               <line x1="1" y1="14" x2="4" y2="14"></line>
             </svg>
             <span>Model Router</span>
-            <span class="nav-status-pill">440+</span>
+            <span class="nav-status-pill">510+</span>
           </a>
           <a href="#" class="nav-link" id="nav-mobile">
             <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -435,7 +435,7 @@
 
             <!-- Model Selection Dropdown -->
             <div class="composer-model-picker">
-              <input id="model-inline-search" class="model-filter-input" type="search" placeholder="Search..." aria-label="Filter models" autocomplete="off" />
+              <input id="model-inline-search" class="model-filter-input" type="search" placeholder="Search 510+ models..." aria-label="Filter models" autocomplete="off" />
               <select id="model-select">
                 <option value="auto" selected>Jev Router • Auto (OpenRouter)</option>
                 <option value="openai/gpt-4o">OpenAI GPT-4o (Frontier)</option>
@@ -639,17 +639,38 @@
       </div>
       <div class="tier-modal-body">
         <p class="modal-subtext">
-          Sub-millisecond complexity triage automatically routes high-volume queries to Llama 8B / Flash and deep architectural reasoning to GPT-4o / Claude.
+          Access 500+ AI models on OpenRouter with on-chain token holding verification. Models are token-gated by tier to ensure sustainable compute economics.
         </p>
 
         <div class="tier-stats-bar">
-          <div><span>Available Models:</span> <strong id="router-model-count">440+</strong></div>
+          <div><span>Available Models:</span> <strong id="router-model-count">510+</strong></div>
           <div><span>Routing Latency:</span> <strong>&lt;1.2ms</strong></div>
-          <div><span>Cost Reduction:</span> <strong>~95.2%</strong></div>
+          <div><span>Token Optimization:</span> <strong>~95.2%</strong></div>
         </div>
 
-        <div style="margin-bottom:12px;">
-          <input type="text" id="router-model-search" class="clean-search-input" placeholder="Search 440+ models (e.g. gpt, claude, deepseek, llama, gemini)..." />
+        <div class="router-user-tier-bar" id="router-user-tier-bar">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Verified Holding Tier: <strong id="router-user-tier-name">Guest (Connect Wallet)</strong></span>
+          </div>
+          <span id="router-unlocked-count" class="router-unlocked-pill">Connect Wallet</span>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <input type="text" id="router-model-search" class="clean-search-input" placeholder="Search 510+ models (e.g. gpt-4o, claude-3.5, deepseek-r1, llama-3.3, gemini)..." />
+        </div>
+
+        <div class="router-tier-tabs" id="router-tier-tabs">
+          <button type="button" class="tier-tab-btn active" data-tier="all">All (510+)</button>
+          <button type="button" class="tier-tab-btn" data-tier="unlocked">My Unlocked</button>
+          <button type="button" class="tier-tab-btn" data-tier="5">Tier 5 (Dynasty)</button>
+          <button type="button" class="tier-tab-btn" data-tier="4">Tier 4 (Syndicate)</button>
+          <button type="button" class="tier-tab-btn" data-tier="3">Tier 3 (Principal)</button>
+          <button type="button" class="tier-tab-btn" data-tier="2">Tier 2 (Charter)</button>
+          <button type="button" class="tier-tab-btn" data-tier="1">Tier 1 (Reserve)</button>
         </div>
 
         <div id="router-models-grid" class="router-models-grid">
