@@ -26,7 +26,11 @@ test('Discord Integration: GET /api/discord/info returns official CA and roles',
 
   assert.strictEqual(data.officialCA, 'AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump');
   assert.ok(Array.isArray(data.roles));
-  assert.strictEqual(data.roles.length, 8);
+  assert.strictEqual(data.roles.length, 9);
+
+  const memberRole = data.roles.find(r => r.name === 'Verified Member');
+  assert.ok(memberRole, 'Verified Member role must exist');
+  assert.strictEqual(memberRole.color, 0x10B981);
 
   const arbiter = data.roles.find(r => r.name === 'Neural Arbiter');
   assert.ok(arbiter, 'Neural Arbiter role must exist');
@@ -113,6 +117,17 @@ test('Discord Verification: POST /api/discord/verify rejects missing credentials
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ discordUserId: '123' })
+  });
+  assert.strictEqual(res.status, 400);
+  const data = await res.json();
+  assert.strictEqual(data.success, false);
+});
+
+test('Discord Human Verification: POST /api/discord/verify-human rejects missing discordUserId', async () => {
+  const res = await fetch(`${baseUrl}/api/discord/verify-human`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
   });
   assert.strictEqual(res.status, 400);
   const data = await res.json();

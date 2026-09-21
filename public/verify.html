@@ -338,14 +338,14 @@
       <div class="verify-header">
         <div class="verify-badge">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-          24/7 Autonomous Verification Gate
+          Instant Human Verification Gate
         </div>
-        <h1 class="verify-title">Discord Server Token Verification</h1>
+        <h1 class="verify-title">Discord Human Verification</h1>
         <p class="verify-desc">
-          Connect your Discord account and verify your <strong>$JEVBRAIN</strong> Solana token balance to unlock exclusive channels, autonomous agent models, and Discord tier roles.
+          Authenticate your Discord identity and complete 1-click human verification to unlock <strong>#general-chat</strong> and community discussions immediately. No crypto wallet or token purchase required.
         </p>
         <div class="ca-box">
-          <span>CA: AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</span>
+          <span>Official Token CA: AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</span>
           <button class="ca-copy-btn" id="copy-ca-btn" title="Copy CA">Copy</button>
         </div>
       </div>
@@ -364,7 +364,7 @@
             <span class="step-status-tag" id="step-1-tag">Pending</span>
           </div>
           <div class="step-content">
-            Authorize your Discord account so Agent Warden can locate your member profile and automatically assign your verified holder roles.
+            Authorize your Discord account or enter your Discord User ID so the bot can grant you the <strong>Verified Member</strong> role.
           </div>
           <div class="action-row" id="step-1-actions">
             <button class="primary-verify-btn" id="connect-discord-btn">
@@ -387,27 +387,26 @@
           <div id="connected-discord-badge" style="display:none; margin-top:14px;"></div>
         </div>
 
-        <!-- STEP 2: Connect Phantom & Sign -->
+        <!-- STEP 2: Human Verification -->
         <div class="step-box" id="step-2-box">
           <div class="step-head">
             <div class="step-num-title">
               <span class="step-index" id="step-2-index">2</span>
-              <span>Verify Solana Token Holding</span>
+              <span>1-Click Human Verification</span>
             </div>
             <span class="step-status-tag" id="step-2-tag">Locked</span>
           </div>
           <div class="step-content">
-            Connect your Phantom or Solana wallet to sign an authentication challenge message. No gas fees or blockchain transaction will occur.
+            Click the button below to confirm you are human. This will instantly grant the <strong>Verified Member</strong> role on Discord and unlock <strong>#general-chat</strong> and <strong>#model-routing</strong>.
           </div>
           <div class="action-row" id="step-2-actions" style="display:none;">
-            <button class="primary-verify-btn" id="sign-phantom-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <button class="primary-verify-btn" id="verify-human-btn" style="background:#10b981; color:#09090b; font-weight:600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span>Connect Phantom & Sign Challenge</span>
+              <span>✅ Verify as Human</span>
             </button>
-            <span id="solana-status-hint" style="font-size:12px; color:#71717a;">Phantom, Solflare or Backpack</span>
+            <span style="font-size:12px; color:#71717a;">Instant • No wallet or tokens required</span>
           </div>
         </div>
       </div>
@@ -416,7 +415,7 @@
       <div class="receipt-panel" id="receipt-panel">
         <div class="receipt-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          Verification Successful & Roles Granted!
+          Human Verification Successful — Channels Unlocked!
         </div>
         <div class="receipt-grid">
           <div class="receipt-item">
@@ -424,30 +423,46 @@
             <div class="receipt-val" id="receipt-discord-name">-</div>
           </div>
           <div class="receipt-item">
-            <div class="receipt-label">Solana Wallet</div>
-            <div class="receipt-val" id="receipt-wallet-addr">-</div>
+            <div class="receipt-label">Verification Type</div>
+            <div class="receipt-val" style="color:#10b981;">Human Verified (1-Click)</div>
           </div>
           <div class="receipt-item">
-            <div class="receipt-label">$JEVBRAIN Holdings</div>
-            <div class="receipt-val" id="receipt-tokens-held">-</div>
+            <div class="receipt-label">Chat Access</div>
+            <div class="receipt-val" style="color:#10b981;">#general-chat Unlocked</div>
           </div>
           <div class="receipt-item">
-            <div class="receipt-label">Assigned Roles</div>
-            <div class="receipt-val" id="receipt-roles-assigned" style="color:#10b981;">-</div>
+            <div class="receipt-label">Assigned Role</div>
+            <div class="receipt-val" id="receipt-roles-assigned" style="color:#10b981;">Verified Member</div>
           </div>
         </div>
         <div style="margin-top:20px; display:flex; gap:12px; align-items:center;">
-          <a href="https://discord.com/channels/1551685785432883332" target="_blank" rel="noopener" class="primary-verify-btn">
-            Open Discord Channels →
+          <a href="https://discord.com/channels/1551685785432883332" target="_blank" rel="noopener" class="primary-verify-btn" style="background:#10b981; color:#09090b;">
+            Open Discord General Chat →
           </a>
           <a href="/" class="secondary-verify-btn">Return to AI Workspace</a>
         </div>
       </div>
 
+      <!-- Optional VIP Token Holder Section -->
+      <div style="margin-top:28px; border-top:1px solid rgba(255,255,255,0.08); padding-top:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;" id="toggle-vip-btn">
+          <span style="font-size:13px; font-weight:600; color:#a1a1aa;">Optional: Claim VIP $JEVBRAIN Token Holder Tier Badges ▾</span>
+          <span style="font-size:11px; font-family:monospace; color:#71717a;">VIP ROLES</span>
+        </div>
+        <div id="vip-holder-section" style="display:none; margin-top:16px;">
+          <p style="font-size:12px; color:#71717a; margin:0 0 12px;">
+            If you hold $JEVBRAIN tokens on Solana, you can optionally connect your Phantom wallet to claim executive tier badges (Dynasty Magnate, Syndicate Director, etc.).
+          </p>
+          <button class="secondary-verify-btn" id="sign-phantom-btn">
+            Connect Phantom for VIP Tier Badges
+          </button>
+        </div>
+      </div>
+
       <!-- Security Notice -->
       <div class="security-notice">
-        <strong>Autonomous Security Architecture:</strong>
-        This verification gateway connects directly to the Solana Mainnet JSON-RPC to inspect token balances for <code>AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>. Roles are synchronized continuously by Agent Warden. If token balance falls below the tier threshold, access is automatically refreshed.
+        <strong>Community Protection Sentinel:</strong>
+        Human Verification ensures that only legitimate human users gain access to community discussions, completely stopping automated raid bots and spam scrapers.
       </div>
     </div>
   </main>
@@ -538,99 +553,145 @@
       document.getElementById('step-2-actions').style.display = 'flex';
     }
 
-    // Step 2: Phantom Sign Challenge
-    document.getElementById('sign-phantom-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('sign-phantom-btn');
-      try {
-        btn.disabled = true;
-        btn.innerHTML = 'Connecting Phantom...';
+    // Step 2: 1-Click Human Verification
+    const verifyHumanBtn = document.getElementById('verify-human-btn');
+    if (verifyHumanBtn) {
+      verifyHumanBtn.addEventListener('click', async () => {
+        try {
+          verifyHumanBtn.disabled = true;
+          verifyHumanBtn.innerHTML = 'Verifying as Human...';
 
-        const provider = window.solana || window.phantom?.solana;
-        if (!provider) {
-          showError('Phantom Solana wallet not detected! Please install Phantom from https://phantom.app');
-          btn.disabled = false;
-          btn.innerHTML = 'Connect Phantom & Sign Challenge';
-          return;
-        }
+          const res = await fetch('/api/discord/verify-human', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              discordUserId: currentDiscordUser.id
+            })
+          });
 
-        const resp = await provider.connect();
-        const address = resp.publicKey.toString();
-        currentSolanaAddress = address;
-
-        btn.innerHTML = 'Fetching Nonce Challenge...';
-        const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
-        const nonceData = await nonceRes.json();
-        if (!nonceRes.ok || !nonceData.message) {
-          throw new Error(nonceData.error || 'Failed to generate nonce challenge');
-        }
-
-        btn.innerHTML = 'Awaiting Signature in Phantom...';
-        const encodedMsg = new TextEncoder().encode(nonceData.message);
-        const signed = await provider.signMessage(encodedMsg, 'utf8');
-        
-        // Base58 encode signature
-        const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        function encodeBase58(buffer) {
-          const digits = [];
-          for (let i = 0; i < buffer.length; i++) {
-            let carry = buffer[i];
-            for (let j = 0; j < digits.length; j++) {
-              carry += digits[j] << 8;
-              digits[j] = carry % 58;
-              carry = (carry / 58) | 0;
-            }
-            while (carry > 0) {
-              digits.push(carry % 58);
-              carry = (carry / 58) | 0;
-            }
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Human verification failed on server.');
           }
-          let str = '';
-          for (let i = 0; i < buffer.length && buffer[i] === 0; i++) str += '1';
-          for (let i = digits.length - 1; i >= 0; i--) str += BASE58[digits[i]];
-          return str;
+
+          // Complete Step 2
+          const box2 = document.getElementById('step-2-box');
+          box2.classList.remove('active');
+          box2.classList.add('completed');
+          document.getElementById('step-2-tag').textContent = 'VERIFIED';
+          document.getElementById('step-2-actions').style.display = 'none';
+
+          // Render Receipt
+          document.getElementById('receipt-panel').style.display = 'block';
+          document.getElementById('receipt-discord-name').textContent = currentDiscordUser.username;
+          document.getElementById('receipt-roles-assigned').textContent = data.roleAssigned || 'Verified Member';
+
+        } catch (err) {
+          console.error(err);
+          showError(err.message || 'Human verification could not complete. Please make sure you have joined the Discord server.');
+          verifyHumanBtn.disabled = false;
+          verifyHumanBtn.innerHTML = '✅ Verify as Human';
         }
+      });
+    }
 
-        const signatureBase58 = encodeBase58(signed.signature);
+    // Toggle VIP Holder Section
+    const toggleVipBtn = document.getElementById('toggle-vip-btn');
+    if (toggleVipBtn) {
+      toggleVipBtn.addEventListener('click', () => {
+        const sec = document.getElementById('vip-holder-section');
+        sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+      });
+    }
 
-        btn.innerHTML = 'Verifying On-Chain Balance...';
+    // Optional Step: Phantom Sign Challenge for VIP Tiers
+    const signPhantomBtn = document.getElementById('sign-phantom-btn');
+    if (signPhantomBtn) {
+      signPhantomBtn.addEventListener('click', async () => {
+        try {
+          if (!currentDiscordUser) {
+            showError('Please connect your Discord identity in Step 1 first.');
+            return;
+          }
+          signPhantomBtn.disabled = true;
+          signPhantomBtn.innerHTML = 'Connecting Phantom...';
 
-        const verifyRes = await fetch('/api/discord/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            discordUserId: currentDiscordUser.id,
-            address: address,
-            message: nonceData.message,
-            signature: signatureBase58
-          })
-        });
+          const provider = window.solana || window.phantom?.solana;
+          if (!provider) {
+            showError('Phantom Solana wallet not detected! Please install Phantom from https://phantom.app');
+            signPhantomBtn.disabled = false;
+            signPhantomBtn.innerHTML = 'Connect Phantom for VIP Tier Badges';
+            return;
+          }
 
-        const verifyData = await verifyRes.json();
-        if (!verifyRes.ok || !verifyData.success) {
-          throw new Error(verifyData.error || 'Verification failed on server.');
+          const resp = await provider.connect();
+          const address = resp.publicKey.toString();
+          currentSolanaAddress = address;
+
+          signPhantomBtn.innerHTML = 'Fetching Nonce Challenge...';
+          const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
+          const nonceData = await nonceRes.json();
+          if (!nonceRes.ok || !nonceData.message) {
+            throw new Error(nonceData.error || 'Failed to generate nonce challenge');
+          }
+
+          signPhantomBtn.innerHTML = 'Awaiting Signature in Phantom...';
+          const encodedMsg = new TextEncoder().encode(nonceData.message);
+          const signed = await provider.signMessage(encodedMsg, 'utf8');
+          
+          // Base58 encode signature
+          const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+          function encodeBase58(buffer) {
+            const digits = [];
+            for (let i = 0; i < buffer.length; i++) {
+              let carry = buffer[i];
+              for (let j = 0; j < digits.length; j++) {
+                carry += digits[j] << 8;
+                digits[j] = carry % 58;
+                carry = (carry / 58) | 0;
+              }
+              while (carry > 0) {
+                digits.push(carry % 58);
+                carry = (carry / 58) | 0;
+              }
+            }
+            let str = '';
+            for (let i = 0; i < buffer.length && buffer[i] === 0; i++) str += '1';
+            for (let i = digits.length - 1; i >= 0; i--) str += BASE58[digits[i]];
+            return str;
+          }
+
+          const signatureBase58 = encodeBase58(signed.signature);
+          signPhantomBtn.innerHTML = 'Verifying On-Chain Balance...';
+
+          const verifyRes = await fetch('/api/discord/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              discordUserId: currentDiscordUser.id,
+              address: address,
+              message: nonceData.message,
+              signature: signatureBase58
+            })
+          });
+
+          const verifyData = await verifyRes.json();
+          if (!verifyRes.ok || !verifyData.success) {
+            throw new Error(verifyData.error || 'VIP Tier verification failed.');
+          }
+
+          document.getElementById('receipt-panel').style.display = 'block';
+          document.getElementById('receipt-discord-name').textContent = currentDiscordUser.username;
+          document.getElementById('receipt-roles-assigned').textContent = (verifyData.rolesAssigned || ['Verified Token Holder']).join(' • ');
+          signPhantomBtn.innerHTML = '✓ VIP Roles Granted!';
+        } catch (err) {
+          console.error(err);
+          showError(err.message || 'VIP verification failed.');
+          signPhantomBtn.disabled = false;
+          signPhantomBtn.innerHTML = 'Connect Phantom for VIP Tier Badges';
         }
-
-        // Complete Step 2
-        const box2 = document.getElementById('step-2-box');
-        box2.classList.remove('active');
-        box2.classList.add('completed');
-        document.getElementById('step-2-tag').textContent = 'VERIFIED';
-        document.getElementById('step-2-actions').style.display = 'none';
-
-        // Render Receipt
-        document.getElementById('receipt-panel').style.display = 'block';
-        document.getElementById('receipt-discord-name').textContent = currentDiscordUser.username;
-        document.getElementById('receipt-wallet-addr').textContent = `${address.slice(0, 6)}...${address.slice(-6)}`;
-        document.getElementById('receipt-tokens-held').textContent = Number(verifyData.tokensHeld || 0).toLocaleString();
-        document.getElementById('receipt-roles-assigned').textContent = (verifyData.rolesAssigned || ['Verified Token Holder']).join(' • ');
-
-      } catch (err) {
-        console.error(err);
-        showError(err.message || 'Verification failed. Make sure you hold $JEVBRAIN tokens on Solana.');
-        btn.disabled = false;
-        btn.innerHTML = 'Connect Phantom & Sign Challenge';
-      }
-    });
+      });
+    }
 
     // Check for OAuth2 code on page load
     window.addEventListener('DOMContentLoaded', async () => {

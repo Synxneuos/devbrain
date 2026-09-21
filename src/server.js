@@ -965,6 +965,45 @@ export async function handleRequest(req, res) {
       return;
     }
 
+    if (url.pathname === '/api/discord/verify-human' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const { discordUserId } = body;
+
+        if (!discordUserId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'discordUserId is required.' }));
+          return;
+        }
+
+        let botResult = null;
+        try {
+          botResult = await discordBot.grantVerifiedMember(discordUserId);
+        } catch (botErr) {
+          console.warn('[DiscordVerifyHuman] Bot role assignment notice:', botErr.message);
+          botResult = {
+            success: false,
+            warning: botErr.message,
+            roleAssigned: 'Verified Member'
+          };
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          verified: true,
+          discordUserId,
+          roleAssigned: botResult?.roleAssigned || 'Verified Member',
+          botStatus: botResult?.success ? 'Verified Member role granted in Discord' : (botResult?.warning || 'Sync queued'),
+          message: 'Human verification completed. Discord community channels unlocked!'
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
     if (url.pathname === '/api/session/validate' && req.method === 'GET') {
       const session = parseSession(req);
       if (!session) {

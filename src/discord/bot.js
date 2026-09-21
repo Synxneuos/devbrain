@@ -121,6 +121,13 @@ export const SERVER_ROLES = [
     color: 0x059669, // Forest Green
     hoist: false,
     permissions: []
+  },
+  // Human Verified Role (Unlocks general community chat)
+  {
+    name: 'Verified Member',
+    color: 0x10B981, // Emerald Green
+    hoist: false,
+    permissions: []
   }
 ];
 
@@ -217,6 +224,47 @@ export class JevDiscordBot {
     // Pinned announcement guardian
     this.client.on('channelPinsUpdate', async (channel) => {
       await this.handlePinUpdate(channel);
+    });
+
+    // Instant 1-Click Human Verification Button Handler
+    this.client.on('interactionCreate', async (interaction) => {
+      if (!interaction.isButton()) return;
+      if (interaction.customId === 'verify_human_btn') {
+        try {
+          const member = interaction.member;
+          if (!member) {
+            await interaction.reply({ content: '❌ Could not find your member profile. Please try again.', ephemeral: true });
+            return;
+          }
+
+          const roles = await interaction.guild.roles.fetch();
+          const verifiedRole = roles.find(r => r.name.toLowerCase() === 'verified member')
+            || roles.find(r => r.name.toLowerCase() === 'verified token holder');
+
+          if (!verifiedRole) {
+            await interaction.reply({ content: '❌ Verification role is initializing. Please try again in 5 seconds.', ephemeral: true });
+            return;
+          }
+
+          if (member.roles.cache.has(verifiedRole.id)) {
+            await interaction.reply({
+              content: '✔ **You are already verified!** You have full access to `#general-chat` and community discussions.',
+              ephemeral: true
+            });
+            return;
+          }
+
+          await member.roles.add(verifiedRole, 'Jev Brain: 1-Click Human Verification Gate Passed');
+          await interaction.reply({
+            content: '🎉 **Human Verification Successful!**\n\nWelcome to **Jev Brain Official Discord**! All community discussion channels (`#general-chat`, `#model-routing`) are now unlocked for you. Enjoy chatting!',
+            ephemeral: true
+          });
+          console.log(`[DiscordBot] ✓ Human verified & role granted to: ${interaction.user.tag} (${interaction.user.id})`);
+        } catch (err) {
+          console.error('[DiscordBot] Human verify button error:', err.message);
+          await interaction.reply({ content: `❌ Verification error: ${err.message}`, ephemeral: true }).catch(() => {});
+        }
+      }
     });
   }
 
@@ -334,27 +382,50 @@ export class JevDiscordBot {
         verifyChan = await this.guild.channels.create({
           name: 'verify-here',
           parent: govCategory.id,
-          topic: 'Verified $JEVBRAIN Token Holding Portal & Autonomous Access Gateway',
+          topic: '1-Click Human Verification Gateway — Click to Unlock Community Channels',
           reason: 'Automated verification channel setup'
         });
+      }
 
+      // Ensure fresh Human Verification card is active
+      let needsPost = true;
+      try {
+        const msgs = await verifyChan.messages.fetch({ limit: 10 });
+        for (const msg of msgs.values()) {
+          if (msg.author.id === this.client.user.id) {
+            const hasHumanBtn = msg.components?.some(row => 
+              row.components?.some(b => b.customId === 'verify_human_btn')
+            );
+            if (hasHumanBtn) {
+              needsPost = false;
+            } else {
+              await msg.delete().catch(() => {});
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (needsPost) {
         const embed = new EmbedBuilder()
-          .setTitle('✻ Jev Brain — Autonomous Token Verification')
+          .setTitle('✻ Jev Brain — Human Verification')
           .setDescription(
             `Welcome to **Jev Brain Official Discord**.\n\n` +
-            `This server is protected by **Agent Warden Sentinel**. Only verified token holders gain access to Frontier AI channels, projects, and autonomous agent testbeds.\n\n` +
-            `**Official Contract Address (Solana):**\n` +
-            `\`${this.config.officialCA}\`\n\n` +
-            `Click the button below to connect your Phantom wallet and claim your tier role.`
+            `To protect our community against automated spam and raid bots, **Human Verification is required** before accessing community discussion channels.\n\n` +
+            `**How to Verify:**\n` +
+            `Click the green **"Verify as Human"** button below. Verification is instant and unlocks **#general-chat** immediately!`
           )
-          .setColor(0x09090B)
-          .setFooter({ text: 'Jev Brain Autonomous Security • 24/7 Always Active' });
+          .setColor(0x10B981)
+          .setFooter({ text: 'Jev Brain Security Sentinel • Instant 1-Click Verification' });
 
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setLabel('Verify Token Holding →')
+            .setCustomId('verify_human_btn')
+            .setLabel('✅ Verify as Human')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setLabel('Server Rules & Policy ↗')
             .setStyle(ButtonStyle.Link)
-            .setURL(this.config.verifyUrl)
+            .setURL(this.config.verifyUrl.replace('verify.html', 'rules.html'))
         );
 
         await verifyChan.send({ embeds: [embed], components: [row] });
@@ -439,9 +510,22 @@ export class JevDiscordBot {
         }
       ];
 
-      if (verifiedRole) {
+      const verifiedMemberRole = roles.find(r => r.name.toLowerCase() === 'verified member');
+      const verifiedHolderRole = roles.find(r => r.name.toLowerCase() === 'verified token holder');
+
+      if (verifiedMemberRole) {
         commOverwrites.push({
-          id: verifiedRole.id,
+          id: verifiedMemberRole.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        });
+      }
+      if (verifiedHolderRole) {
+        commOverwrites.push({
+          id: verifiedHolderRole.id,
           allow: [
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
@@ -497,7 +581,7 @@ export class JevDiscordBot {
         await this.guild.channels.create({
           name: 'general-chat',
           parent: commCategory.id,
-          topic: 'General community chat (Verified token holders only)',
+          topic: 'General community chat (Human verified members)',
           reason: 'Automated chat channel setup'
         });
       }
@@ -548,6 +632,7 @@ export class JevDiscordBot {
     // RULE 0: UNVERIFIED USERS CANNOT SEND ANY MESSAGES ANYWHERE
     // ================================================================
     const isVerified = member && member.roles.cache.some(r => [
+      'verified member',
       'verified token holder',
       'dynasty magnate',
       'syndicate director',
@@ -559,7 +644,7 @@ export class JevDiscordBot {
     if (!isVerified && !isOwner && !isMod) {
       try {
         await message.delete();
-        const warn = await message.channel.send(`🔒 <@${message.author.id}>, token verification is strictly required to chat. Please verify your $JEVBRAIN holdings in the **#verify-here** portal.`);
+        const warn = await message.channel.send(`🔒 <@${message.author.id}>, human verification is strictly required to chat. Please click the verify button in the **#verify-here** channel.`);
         setTimeout(() => warn.delete().catch(() => {}), 4000);
         return;
       } catch (err) {
@@ -750,6 +835,35 @@ export class JevDiscordBot {
       success: true,
       user: member.user.tag,
       rolesAssigned: toAdd.map(r => r.name)
+    };
+  }
+
+  /**
+   * Assign Verified Member role upon 1-click Human Verification
+   */
+  async grantVerifiedMember(discordUserId) {
+    this.ensureClient();
+    if (!this.guild) {
+      this.guild = await this.client.guilds.fetch(this.config.guildId).catch(() => null);
+    }
+    if (!this.guild) throw new Error('Guild not available');
+
+    const member = await this.guild.members.fetch(discordUserId).catch(() => null);
+    if (!member) throw new Error('Discord member not found in server. Please join the Discord server first.');
+
+    const roles = await this.guild.roles.fetch();
+    const verifiedRole = roles.find(r => r.name.toLowerCase() === 'verified member')
+      || roles.find(r => r.name.toLowerCase() === 'verified token holder');
+
+    if (!verifiedRole) throw new Error('Verification role not found');
+
+    await member.roles.add(verifiedRole, 'Jev Brain: 1-Click Human Verification Gateway Passed');
+    console.log(`[DiscordBot] ✓ Assigned Verified Member to ${member.user.tag}`);
+
+    return {
+      success: true,
+      user: member.user.tag,
+      roleAssigned: verifiedRole.name
     };
   }
 }
