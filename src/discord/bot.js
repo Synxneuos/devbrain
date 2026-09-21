@@ -203,12 +203,10 @@ export class JevDiscordBot {
 
     // Automatically initialize when invited to target guild in real time
     this.client.on('guildCreate', async (guild) => {
-      if (guild.id === this.config.guildId) {
-        console.log(`[DiscordBot] ✓ Joined target guild: "${guild.name}" (${guild.id})! Initializing roles and verification channels...`);
-        this.guild = guild;
-        await this.ensureRolesExist();
-        await this.ensureVerifyChannel();
-      }
+      console.log(`[DiscordBot] ✓ Joined guild: "${guild.name}" (${guild.id})! Initializing roles and verification channels...`);
+      this.guild = guild;
+      await this.ensureRolesExist();
+      await this.setupServerChannels();
     });
 
     // Real-time message interceptor (Firewall)
@@ -423,6 +421,10 @@ export class JevDiscordBot {
     } catch (err) {
       console.error('[DiscordBot] Channels setup error:', err.message);
     }
+  }
+
+  async ensureVerifyChannel() {
+    return this.setupServerChannels();
   }
 
   async handleMessage(message) {
