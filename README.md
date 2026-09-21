@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./assets/jev-brain.jpg" alt="Jev Brain Neural Core" width="480" style="border-radius: 12px; margin-bottom: 16px;" />
+
 # ⚡ JEV BRAIN
 ### Universal Pre-Execution AI Firewall & Sub-Millisecond Decision Daemon
 
@@ -13,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178c6.svg?logo=typescript&logoColor=white)]()
 [![Dependencies](https://img.shields.io/badge/Dependencies-ethers-informational.svg)]()
 
-[Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks)
+[Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics](#-token-utility--ecosystem-access)
 
 </div>
 
@@ -228,6 +230,18 @@ Open **`http://localhost:3333`** to access:
 - `POST /api/batch` — Batch process stream items
 - `POST /api/chat` — Authenticated AI streaming with session token protection
 - `GET  /api/stats` — Real-time latency, throughput, and dollars saved
+
+---
+
+## 💎 Token Utility & Ecosystem Access
+
+- **Tiered Multi-Agent Access**: Holding verified Jev Brain tokens unlocks advanced model routing, higher autonomous throughput limits, and enterprise-grade Agent Warden rule filters.
+- **Holder Rewards Protocol**: A dedicated on-chain reward and protocol revenue-sharing mechanism is architected into the ecosystem. The reward distribution engine will be activated in an upcoming phase for all verified holding wallets.
+- **Official Treasury & Developer EVM Address**:
+  ```text
+  0xYourEVMWalletAddressHere
+  ```
+  *(Early seed contributions directly support decentralized firewall research, CI compute, and initial liquidity)*
 
 ---
 
