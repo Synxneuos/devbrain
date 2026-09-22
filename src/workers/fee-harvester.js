@@ -8,8 +8,26 @@
  * 4. Updates authoritative database state with on-chain transaction signatures.
  */
 
-import { Connection, Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
 import { dbAdapter } from '../core/db-adapter.js';
+
+// PumpSwap AMM program — handles creator fee claims for migrated pump.fun coins
+export const PUMP_AMM_PROGRAM_ID = new PublicKey('pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA');
+export const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+export const WSOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+
+/**
+ * Derive the SPL associated token account for (mint, owner) without the
+ * @solana/spl-token dependency.
+ */
+function getAssociatedTokenAddress(mint, owner) {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  )[0];
+}
 
 // Base58 Decoder
 const B58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -122,18 +140,124 @@ export class FeeHarvesterWorker {
   }
 
   /**
-   * Pre-seed existing signatures on initial startup so historical claims
-   * are never re-processed.
+   * Pre-seed OLD existing signatures on initial startup so historical claims
+   * are never re-processed. IMPORTANT: only signatures older than 24 hours are
+   * pre-seeded — a fresh claim made just before a restart/redeploy must remain
+   * detectable so its 95% sweep still happens.
    */
   async seedExistingSignatures(claimerPubkey) {
     try {
       const sigInfos = await this.connection.getSignaturesForAddress(claimerPubkey, { limit: 25 });
+      const cutoff = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
       for (const info of sigInfos) {
-        if (!dbAdapter.isClaimSignatureProcessed(info.signature)) {
+        if (dbAdapter.isClaimSignatureProcessed(info.signature)) continue;
+        if (info.blockTime && info.blockTime < cutoff) {
           dbAdapter.recordProcessedClaimSignature(info.signature, 0n, 0n, 'pre_seeded_history');
         }
       }
     } catch {}
+  }
+
+  /**
+   * Automatically claim accumulated pump.fun creator fees on-chain using the
+   * exact 2-instruction flow the pump.fun portal itself executes (verified
+   * from a real mainnet claim transaction):
+   *
+   *   ix#1  pump_amm.TransferCreatorFeesToPump
+   *         (sweeps WSOL from the pool's creator fee vault to the pump fee vault)
+   *   ix#2  pump.DistributeCreatorFees
+   *         (distributes SOL from the pump fee vault to the claimer wallet)
+   *
+   * The per-coin vault/config accounts below are static PDAs observed from the
+   * coin's pool. They can be overridden via env if a different coin is used.
+   * Returns { claimed: boolean, reason?, signature? }.
+   */
+  async claimCreatorFees(claimerPubkey) {
+    const coinMintStr = (process.env.TOKEN_CONTRACT_ADDRESS || '').trim();
+    if (!coinMintStr) {
+      return { claimed: false, reason: 'TOKEN_CONTRACT_ADDRESS not configured — cannot claim pump.fun fees.' };
+    }
+    let coinMint;
+    try { coinMint = new PublicKey(coinMintStr); } catch (err) {
+      return { claimed: false, reason: `Invalid TOKEN_CONTRACT_ADDRESS: ${err.message}` };
+    }
+
+    const pool = new PublicKey((process.env.PUMPSWAP_POOL_ADDRESS || '4WY8R8fyPyqn7ShU5siJFUMJJfFZVEyF4xRRqtFUrMnA').trim());
+    const pumpFeeVault = new PublicKey((process.env.PUMP_FEE_VAULT_ADDRESS || 'E6oxJxUhH4ee5PbxVsuFXNi8ebPamt3uA6NcMxs3AVdh').trim());
+    const pumpFeeConfig = new PublicKey((process.env.PUMP_FEE_CONFIG_ADDRESS || 'GS4CU59F31iL7aR2Q8zVS8DRrcRnXX1yjQ66TqNVQnaR').trim());
+    const pumpCreatorFeeConfig = new PublicKey((process.env.PUMP_CREATOR_FEE_CONFIG_ADDRESS || 'uoJhCfqdLxAx4cNqnoUrCYuBKcRTJdMmFxGa8HqrzYj').trim());
+    const pumpEventAuthority = new PublicKey('Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1');
+
+    // Creator fee vault (pool-side WSOL ATA held under the creator_vault PDA)
+    const [creatorVault] = PublicKey.findProgramAddressSync(
+      [Buffer.from('creator_vault'), pool.toBuffer()], PUMP_AMM_PROGRAM_ID
+    );
+    const vaultWsolAta = getAssociatedTokenAddress(WSOL_MINT, creatorVault);
+
+    // Skip early if there is nothing to claim
+    const vaultLamports = await this.connection.getTokenAccountBalance(vaultWsolAta).catch(() => null);
+    if (!vaultLamports || !vaultLamports.value || vaultLamports.value.uiAmount === 0) {
+      // Also check raw account (WSOL ATA holds SOL as lamports)
+      const rawInfo = await this.connection.getAccountInfo(vaultWsolAta).catch(() => null);
+      if (!rawInfo || rawInfo.lamports <= 20440) { // rent-exempt minimum for a token account
+        return { claimed: false, reason: 'Creator fee vault is empty — no accumulated fees to claim yet.' };
+      }
+    }
+
+    // ix#1: pump_amm TransferCreatorFeesToPump (discriminator 8b348655e4e56cf1)
+    const transferCreatorFeesIx = new TransactionInstruction({
+      programId: PUMP_AMM_PROGRAM_ID,
+      keys: [
+        { pubkey: WSOL_MINT, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: pool, isSigner: false, isWritable: true },
+        { pubkey: creatorVault, isSigner: false, isWritable: true },
+        { pubkey: vaultWsolAta, isSigner: false, isWritable: true },
+        { pubkey: pumpFeeVault, isSigner: false, isWritable: true },
+        { pubkey: pumpFeeConfig, isSigner: false, isWritable: true },
+        { pubkey: PUMP_AMM_PROGRAM_ID, isSigner: false, isWritable: false }
+      ],
+      data: Buffer.from('8b348655e4e56cf1', 'hex')
+    });
+
+    // ix#2: pump DistributeCreatorFees (discriminator a572670079cef751)
+    const distributeCreatorFeesIx = new TransactionInstruction({
+      programId: PUMP_PROGRAM_ID,
+      keys: [
+        { pubkey: coinMint, isSigner: false, isWritable: false },
+        { pubkey: pumpCreatorFeeConfig, isSigner: false, isWritable: true },
+        { pubkey: pool, isSigner: false, isWritable: true },
+        { pubkey: pumpFeeVault, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: pumpEventAuthority, isSigner: false, isWritable: false },
+        { pubkey: PUMP_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: claimerPubkey, isSigner: true, isWritable: true }
+      ],
+      data: Buffer.from('a572670079cef751', 'hex')
+    });
+
+    // Dry-run first so an account mismatch never costs real gas
+    const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+    const dryRunTx = new Transaction().add(transferCreatorFeesIx).add(distributeCreatorFeesIx);
+    dryRunTx.recentBlockhash = blockhash;
+    dryRunTx.feePayer = claimerPubkey;
+    const simulation = await this.connection.simulateTransaction(dryRunTx, [this.claimerKeypair]);
+    if (simulation.value.err) {
+      const logs = (simulation.value.logs || []).join(' | ');
+      throw new Error(`Claim simulation failed: ${JSON.stringify(simulation.value.err)}. Logs: ${logs}`);
+    }
+
+    const transaction = new Transaction().add(transferCreatorFeesIx).add(distributeCreatorFeesIx);
+    const signature = await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [this.claimerKeypair],
+      { commitment: 'confirmed' }
+    );
+    console.log(`[FeeHarvester] ✓ Creator fees claimed on-chain: ${signature} (vault had ${vaultLamports?.value?.uiAmount ?? 'n/a'} WSOL)`);
+    return { claimed: true, signature, vaultUiAmount: vaultLamports?.value?.uiAmount };
   }
 
   /**
@@ -191,14 +315,41 @@ export class FeeHarvesterWorker {
         newFeesLamports = currentLamports - totalReservedInWallet;
         claimTxSignature = `test_claim_${Date.now()}`;
       } else {
-        // STRICT PRODUCTION INVARIANT: Only proceed if a genuine claim transaction landed!
-        const detectedClaim = await this.detectNewClaim(claimerPubkey);
+        // STRICT PRODUCTION INVARIANT: claim FIRST, then sweep 95% of the claim.
+        let detectedClaim = await this.detectNewClaim(claimerPubkey);
+
+        // No pending claim found — try to trigger one ourselves on-chain
+        // (PumpSwap claim_creator_fee), then re-detect the resulting tx.
+        if (!detectedClaim) {
+          try {
+            const claimResult = await this.claimCreatorFees(claimerPubkey);
+            if (claimResult.claimed) {
+              detectedClaim = await this.detectNewClaim(claimerPubkey);
+              if (!detectedClaim) {
+                // Claim landed but produced no SOL delta in the claimer wallet
+                // (e.g. fees paid in the coin token rather than SOL).
+                console.warn('[FeeHarvester] Claim executed but no SOL delta detected in claimer wallet. Fee proceeds may be in token form — manual conversion to SOL may be required before the 95% sweep.');
+                dbAdapter.failHarvestInterval(intervalId, 'CLAIMED_NO_SOL_DELTA');
+                return {
+                  status: 'CLAIMED_NO_SOL_DELTA',
+                  reason: 'Fees were claimed on-chain but no SOL landed in the claimer wallet. Convert claimed tokens to SOL, then the next cycle will sweep 95%.',
+                  claimSignature: claimResult.signature
+                };
+              }
+            } else {
+              console.log(`[FeeHarvester] Auto-claim skipped: ${claimResult.reason}`);
+            }
+          } catch (claimErr) {
+            console.error('[FeeHarvester] Auto-claim failed:', claimErr.message);
+          }
+        }
+
         if (!detectedClaim) {
           this.lastHarvestTime = new Date().toISOString();
           dbAdapter.failHarvestInterval(intervalId, 'NO_NEW_CLAIM');
           return {
             status: 'NO_NEW_CLAIM',
-            reason: 'No new fee claim transaction detected on-chain. Waiting for claim before sending 95%.'
+            reason: 'No claimable fees or new claim transaction detected on-chain. Waiting for claim before sending 95%.'
           };
         }
 
@@ -213,7 +364,7 @@ export class FeeHarvesterWorker {
 
       // Ensure wallet has enough balance to send treasuryLamports + gas
       const currentLamports = BigInt(await this.connection.getBalance(claimerPubkey));
-      const minKeepGas = 2_000_000n; // 0.002 SOL for future gas
+      const minKeepGas = GAS_RESERVE_LAMPORTS; // 0.02 SOL kept back as gas backup
       const maxSendable = currentLamports > minKeepGas ? currentLamports - minKeepGas : 0n;
       const actualTreasuryLamports = treasuryLamports > maxSendable ? maxSendable : treasuryLamports;
 
@@ -307,9 +458,10 @@ export class FeeHarvesterWorker {
   }
 
   /**
-   * Start recurring background harvest daemon (checks for new on-chain claims)
+   * Start recurring background harvest daemon (checks for new on-chain claims).
+   * Default cycle: every 15 minutes.
    */
-  start(intervalMs = 60 * 1000) {
+  start(intervalMs = 15 * 60 * 1000) {
     if (this.intervalId) return;
     console.log(`[FeeHarvester] Starting automated fee harvester (interval: ${intervalMs / 1000}s, mode: claim-first)`);
 

@@ -476,21 +476,71 @@ async function connectSolanaWallet() {
 
     // Step 1: Request authentication challenge nonce from server
     const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(pubkey)}`);
-    if (!nonceRes.ok) {
-      throw new Error('Failed to generate challenge nonce from server.');
+    const nonceText = await nonceRes.text();
+    let nonceData;
+    try {
+      nonceData = JSON.parse(nonceText);
+    } catch (parseErr) {
+      throw new Error('The verification server returned an invalid response. It may be waking up — please try again in a few seconds.');
     }
-    const { nonce, message } = await nonceRes.json();
+    if (!nonceRes.ok || !nonceData.message) {
+      throw new Error(nonceData.error || 'Failed to generate challenge nonce from server.');
+    }
+    const { nonce, message } = nonceData;
 
     // Step 2: Sign message using Solana Ed25519 standard
     const encoded = new TextEncoder().encode(message);
+    const isUserRejection = (e) => e && (e.code === 4001 || e?.data?.code === 4001);
+    const extractErrMsg = (e) => {
+      if (!e) return '';
+      if (typeof e === 'string') return e;
+      return e.message || e?.data?.message || (e.code ? `Wallet error code ${e.code}` : '');
+    };
+
+    // Phantom's legacy signMessage() wrapper is known to throw generic
+    // "Unexpected error" in several extension versions. The standard wallet
+    // request API is the reliable path, with legacy + delayed retry fallbacks.
+    const requestSignature = async () =>
+      solana.request({ method: 'signMessage', params: { message: encoded, display: 'utf8' } });
+
     let signResult;
+    const errorsSeen = [];
     try {
-      signResult = await solana.signMessage(encoded, 'utf8');
-    } catch (_signErr) {
-      signResult = await solana.signMessage(encoded);
+      signResult = await requestSignature();
+    } catch (reqErr) {
+      if (isUserRejection(reqErr)) throw reqErr;
+      errorsSeen.push(reqErr);
+      try {
+        signResult = await solana.signMessage(encoded, 'utf8');
+      } catch (signErr) {
+        if (isUserRejection(signErr)) throw signErr;
+        errorsSeen.push(signErr);
+        // One delayed retry — transient extension popup hiccups often resolve
+        await new Promise(r => setTimeout(r, 600));
+        try {
+          signResult = await requestSignature();
+        } catch (retryErr) {
+          if (isUserRejection(retryErr)) throw retryErr;
+          errorsSeen.push(retryErr);
+          const detail = errorsSeen.map(extractErrMsg).find(Boolean) || '';
+          if (/unexpected error/i.test(detail)) {
+            throw new Error('Phantom could not complete the signature request. Make sure the Phantom extension is unlocked, that no popup was blocked, then try again. If it persists, restart the Phantom extension or update it from phantom.app.');
+          }
+          throw new Error(detail ? `Phantom could not sign the message: ${detail}` : 'Phantom could not sign the message. Make sure your wallet is unlocked and try again.');
+        }
+      }
     }
-    const rawSig = signResult.signature || signResult;
-    const sigHex = Array.from(new Uint8Array(rawSig))
+    const rawSig = signResult?.signature || signResult;
+    let sigBytes;
+    try {
+      sigBytes = new Uint8Array(rawSig);
+    } catch (convErr) {
+      throw new Error('Phantom returned an invalid signature format. Please update your Phantom extension and try again.');
+    }
+    if (!sigBytes || sigBytes.length === 0) {
+      throw new Error('Phantom returned an empty signature. Please unlock your wallet and try again.');
+    }
+    const sigHex = Array.from(sigBytes)
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
@@ -509,7 +559,15 @@ async function connectSolanaWallet() {
       })
     });
 
-    const verifyData = await verifyRes.json();
+    const verifyText = await verifyRes.text();
+    let verifyData;
+    try {
+      verifyData = JSON.parse(verifyText);
+    } catch (parseErr) {
+      throw new Error(verifyRes.ok
+        ? 'The server returned an invalid verification response. Please try again.'
+        : `Token verification failed (HTTP ${verifyRes.status}). The server may be waking up — please retry in a few seconds.`);
+    }
     if (!verifyRes.ok || !verifyData.success) {
       throw new Error(verifyData.error || 'Token verification failed. Only holders can unlock AI features.');
     }
@@ -525,10 +583,13 @@ async function connectSolanaWallet() {
 
   } catch (err) {
     console.error('Solana wallet authentication error:', err);
-    if (err.code === 4001) {
+    const errCode = err?.code ?? err?.data?.code;
+    if (errCode === 4001) {
       showNotification('Phantom request was cancelled by user.', 'info');
     } else {
-      showNotification('Solana Verification: ' + (err.message || err), 'error');
+      const detail = (typeof err === 'string' ? err : err?.message || err?.data?.message || '')
+        || 'An unexpected wallet error occurred. Check the browser console for details.';
+      showNotification('Solana Verification: ' + detail, 'error');
     }
   } finally {
     if (btn) {
@@ -2834,10 +2895,77 @@ function bindEvents() {
 }
 
 // ============================================
+// THEME SWITCHER (DEFAULT: BLACK/DARK, TOGGLEABLE TO LIGHT)
+// ============================================
+function initThemeToggle() {
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const themeLabel = document.getElementById('theme-label');
+  const themeIcon = document.getElementById('theme-icon');
+
+  function applyTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.classList.remove('dark-theme');
+      document.body.classList.add('light-theme');
+      if (themeLabel) themeLabel.textContent = 'Dark';
+      if (themeIcon) {
+        themeIcon.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        `;
+      }
+      if (themeToggleBtn) themeToggleBtn.title = 'Switch to Dark (Black) Mode';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.body.classList.remove('light-theme');
+      document.body.classList.add('dark-theme');
+      if (themeLabel) themeLabel.textContent = 'Light';
+      if (themeIcon) {
+        themeIcon.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        `;
+      }
+      if (themeToggleBtn) themeToggleBtn.title = 'Switch to Light Mode';
+    }
+  }
+
+  // Default is dark (black) unless explicitly saved as 'light'
+  let savedTheme = 'dark';
+  try {
+    savedTheme = localStorage.getItem('jev_theme') === 'light' ? 'light' : 'dark';
+  } catch {}
+  applyTheme(savedTheme);
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('jev_theme', nextTheme);
+      } catch {}
+      applyTheme(nextTheme);
+      showNotification(`Theme set to ${nextTheme === 'dark' ? 'Black (Dark Mode)' : 'White (Light Mode)'}`, 'info');
+    });
+  }
+}
+
+// ============================================
 // APP INITIALIZATION
 // ============================================
 async function init() {
   console.log('⚡ Jev Brain — Initializing Legit Web3 AI Platform');
+  initThemeToggle();
   bindEvents();
   registerWalletProviderListeners();
   initChats();

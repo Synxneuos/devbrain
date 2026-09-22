@@ -8,6 +8,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('jev_theme');
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <style>
     .verify-page-layout {
       min-height: 100vh;
@@ -642,11 +656,43 @@
 
           signPhantomBtn.innerHTML = 'Awaiting Signature in Phantom...';
           const encodedMsg = new TextEncoder().encode(nonceData.message);
+          const isUserRejection = (e) => e && (e.code === 4001 || e?.data?.code === 4001);
+          const extractErrMsg = (e) => {
+            if (!e) return '';
+            if (typeof e === 'string') return e;
+            return e.message || e?.data?.message || (e.code ? `Wallet error code ${e.code}` : '');
+          };
+
+          // Phantom's legacy signMessage() wrapper can throw a generic
+          // "Unexpected error" — prefer the standard request() API first.
+          const requestSignature = () =>
+            provider.request({ method: 'signMessage', params: { message: encodedMsg, display: 'utf8' } });
+
           let signed;
+          const errorsSeen = [];
           try {
-            signed = await provider.signMessage(encodedMsg, 'utf8');
-          } catch (_signErr) {
-            signed = await provider.signMessage(encodedMsg);
+            signed = await requestSignature();
+          } catch (reqErr) {
+            if (isUserRejection(reqErr)) throw reqErr;
+            errorsSeen.push(reqErr);
+            try {
+              signed = await provider.signMessage(encodedMsg, 'utf8');
+            } catch (signErr) {
+              if (isUserRejection(signErr)) throw signErr;
+              errorsSeen.push(signErr);
+              await new Promise(r => setTimeout(r, 600));
+              try {
+                signed = await requestSignature();
+              } catch (retryErr) {
+                if (isUserRejection(retryErr)) throw retryErr;
+                errorsSeen.push(retryErr);
+                const detail = errorsSeen.map(extractErrMsg).find(Boolean) || '';
+                if (/unexpected error/i.test(detail)) {
+                  throw new Error('Phantom could not complete the signature request. Make sure the Phantom extension is unlocked, that no popup was blocked, then try again.');
+                }
+                throw new Error(detail ? `Phantom could not sign the message: ${detail}` : 'Phantom could not sign the message. Make sure your wallet is unlocked and try again.');
+              }
+            }
           }
           
           // Base58 encode signature

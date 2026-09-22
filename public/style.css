@@ -1,5 +1,48 @@
 :root {
-  /* Surface & Background (High-End Zinc / Neutral Stack) */
+  /* Surface & Background (High-End Dark / True Black Cyberpunk Stack - DEFAULT) */
+  --bg-canvas: #09090B;
+  --bg-main: #09090B;
+  --bg-surface: #121215;
+  --bg-card: #141418;
+  --bg-sidebar: #0D0D10;
+  --bg-sidebar-hover: #1A1A20;
+  --bg-subtle: #18181C;
+  --bg-pill: #1F1F24;
+  --bg-topbar: rgba(13, 13, 16, 0.92);
+  --bg-overlay: rgba(9, 9, 11, 0.92);
+  
+  /* Hairline Borders */
+  --border-subtle: #27272A;
+  --border-light: #27272A;
+  --border-medium: #3F3F46;
+  --border-card: #27272A;
+  --border-focus: #A1A1AA;
+  
+  /* Precision Typography */
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #52525B;
+
+  /* Restrained Functional Status Accents */
+  --status-success: #10B981;
+  --status-error: #EF4444;
+  --status-warning: #F59E0B;
+  --accent-cyan: #38BDF8;
+  --accent-purple: #A855F7;
+  --accent-brand: #F4F4F5;
+  --accent-terracotta: #FB923C;
+
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"],
+body.light-theme {
+  /* Surface & Background (High-End Zinc / Neutral Stack - LIGHT MODE) */
   --bg-canvas: #FAFAFA;
   --bg-main: #FAFAFA;
   --bg-surface: #FFFFFF;
@@ -8,6 +51,8 @@
   --bg-sidebar-hover: #ECECEF;
   --bg-subtle: #F1F1F4;
   --bg-pill: #F1F1F4;
+  --bg-topbar: rgba(250, 250, 250, 0.92);
+  --bg-overlay: rgba(250, 250, 250, 0.94);
   
   /* Hairline Borders */
   --border-subtle: #E4E4E8;
@@ -31,9 +76,12 @@
   --accent-brand: #09090B;
   --accent-terracotta: #C96442;
 
-  /* Font Families */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color-scheme: light;
+}
+
+select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 * {
@@ -413,10 +461,31 @@ body {
   justify-content: space-between;
   padding: 0 16px;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(250, 250, 250, 0.92);
+  background: var(--bg-topbar);
   backdrop-filter: blur(8px);
   z-index: 50;
   flex-shrink: 0;
+}
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
 }
 
 .topbar-left {
@@ -1294,8 +1363,8 @@ body {
 .wallet-gate-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(250, 250, 250, 0.94);
-  backdrop-filter: blur(3px);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -1312,7 +1381,7 @@ body {
   border-radius: 10px;
   padding: 20px 18px;
   text-align: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1367,18 +1436,19 @@ body {
 }
 
 .gate-solana-btn {
-  background: #18181B;
+  background: #7C3AED;
   color: #FFFFFF;
-  border-color: #18181B;
+  border-color: #7C3AED;
 }
 
 .gate-solana-btn:hover {
-  background: #27272A;
+  background: #6D28D9;
+  border-color: #6D28D9;
 }
 
 .gate-metamask-btn {
-  background: #FFFFFF;
-  color: #18181B;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   border-color: var(--border-medium);
 }
 
@@ -2031,8 +2101,8 @@ body {
 }
 
 .metamask-wallet-choice {
-  background: #FFFFFF;
-  color: #18181B;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   border-color: var(--border-medium);
 }
 
