@@ -1761,6 +1761,20 @@ export async function handleRequest(req, res) {
 
     // ── 5% POOL, DYNAMIC MC QUOTE & CREDIT BURN ROUTES ─────────────────────
 
+    if (url.pathname === '/api/harvester/trigger' && (req.method === 'GET' || req.method === 'POST')) {
+      try {
+        if (checkServerlessFinancialGuard(res)) return;
+        const result = await feeHarvester.executeHarvestCycle();
+        sendJson(res, 200, {
+          success: true,
+          harvest: result
+        });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
+      return;
+    }
+
     if (url.pathname === '/api/reconciler/status' && req.method === 'GET') {
       sendJson(res, 200, {
         success: true,

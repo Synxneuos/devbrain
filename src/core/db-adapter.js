@@ -226,6 +226,16 @@ export class DatabaseAdapter {
       );
       CREATE INDEX IF NOT EXISTS idx_fee_harvest_created ON fee_harvest_history(created_at);
 
+      -- 12b. PROCESSED CLAIM SIGNATURES (Strict Claim-First Invariant)
+      CREATE TABLE IF NOT EXISTS processed_claim_signatures (
+        signature TEXT PRIMARY KEY,
+        claimed_lamports TEXT NOT NULL,
+        treasury_sent_lamports TEXT NOT NULL,
+        sweep_tx_signature TEXT,
+        processed_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_processed_claims_sig ON processed_claim_signatures(signature);
+
       -- 13. REWARD POOL STATE (Dynamic 5% Pool Tracker)
       CREATE TABLE IF NOT EXISTS reward_pool_state (
         pool_id TEXT PRIMARY KEY,
@@ -783,6 +793,25 @@ export class DatabaseAdapter {
       ORDER BY created_at DESC
       LIMIT ?
     `).all(limit);
+  }
+
+  isClaimSignatureProcessed(signature) {
+    if (!signature) return false;
+    const db = this.getDb();
+    const row = db.prepare('SELECT signature FROM processed_claim_signatures WHERE signature = ?').get(signature);
+    if (row) return true;
+    const hist = db.prepare('SELECT id FROM fee_harvest_history WHERE tx_signature = ?').get(signature);
+    return !!hist;
+  }
+
+  recordProcessedClaimSignature(signature, claimedLamports, treasurySentLamports, sweepTxSignature) {
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT OR REPLACE INTO processed_claim_signatures (
+        signature, claimed_lamports, treasury_sent_lamports, sweep_tx_signature, processed_at
+      ) VALUES (?, ?, ?, ?, ?)
+    `).run(signature, claimedLamports.toString(), treasurySentLamports.toString(), sweepTxSignature || null, now);
   }
 
   // ── FEE HARVEST INTERVAL LOCKS (Exactly-Once Execution) ───────────────────
