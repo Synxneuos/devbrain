@@ -831,6 +831,14 @@ export class DatabaseAdapter {
         if (existing.status === 'CONFIRMED') {
           return { acquired: false, reason: 'ALREADY_CONFIRMED', interval: existing };
         }
+        if (existing.status === 'FAILED') {
+          db.prepare(`
+            UPDATE fee_harvest_intervals
+            SET status = 'IN_PROGRESS', created_at = ?, updated_at = ?
+            WHERE interval_id = ?
+          `).run(now, now, intervalId);
+          return { acquired: true, intervalId, retried: true };
+        }
         // If stuck in IN_PROGRESS for > 10 minutes (crashed instance), allow take-over.
         // Conditional UPDATE: only the instance whose UPDATE actually flips the row wins.
         const ageMs = Date.now() - new Date(existing.created_at).getTime();
