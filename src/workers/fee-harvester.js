@@ -126,6 +126,18 @@ export class FeeHarvesterWorker {
                         logs.includes('claim');
 
         if (isClaim && diff > 0n) {
+          const sweepCheck = await this.isClaimAlreadySweptOnChain(claimerPubkey, info.blockTime, sig, sigInfos);
+          if (sweepCheck.swept) {
+            console.log(`[FeeHarvester] Claim ${sig} (+${Number(diff)/1e9} SOL) was already swept on-chain (${sweepCheck.sweepSignature}). Marking processed.`);
+            dbAdapter.recordProcessedClaimSignature(
+              sig,
+              diff,
+              sweepCheck.treasurySentLamports || 0n,
+              sweepCheck.sweepSignature || 'on_chain_verified_swept'
+            );
+            continue;
+          }
+
           return {
             signature: sig,
             claimedLamports: diff,
@@ -140,22 +152,73 @@ export class FeeHarvesterWorker {
   }
 
   /**
-   * Pre-seed OLD existing signatures on initial startup so historical claims
-   * are never re-processed. IMPORTANT: only signatures older than 24 hours are
-   * pre-seeded — a fresh claim made just before a restart/redeploy must remain
-   * detectable so its 95% sweep still happens.
+   * ON-CHAIN DOUBLE-SWEEP GUARD:
+   * Verify on-chain whether an outbound transfer to Treasury has already been confirmed
+   * for this claim transaction. This ensures that even across container restarts or database
+   * resets, a claim is never swept twice and the 5% reward pool is never drained.
    */
-  async seedExistingSignatures(claimerPubkey) {
+  async isClaimAlreadySweptOnChain(claimerPubkey, claimBlockTime, claimSig, cachedSigInfos = null) {
+    if (process.env.NODE_ENV === 'test' || !this.treasuryPubkey || !claimBlockTime) return { swept: false };
     try {
-      const sigInfos = await this.connection.getSignaturesForAddress(claimerPubkey, { limit: 25 });
-      const cutoff = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
+      const sigInfos = cachedSigInfos || await this.connection.getSignaturesForAddress(claimerPubkey, { limit: 25 });
       for (const info of sigInfos) {
-        if (dbAdapter.isClaimSignatureProcessed(info.signature)) continue;
-        if (info.blockTime && info.blockTime < cutoff) {
-          dbAdapter.recordProcessedClaimSignature(info.signature, 0n, 0n, 'pre_seeded_history');
+        if (info.signature === claimSig || info.err) continue;
+        if (info.blockTime && info.blockTime >= claimBlockTime) {
+          const tx = await this.connection.getTransaction(info.signature, { maxSupportedTransactionVersion: 0 });
+          if (!tx || !tx.meta) continue;
+
+          const allKeys = tx.transaction.message.getAccountKeys({
+            accountKeysFromLookups: tx.meta.loadedAddresses
+          }).keySegments().flat().map(k => k.toBase58());
+
+          const tIdx = allKeys.indexOf(this.treasuryPubkey.toBase58());
+          const cIdx = allKeys.indexOf(claimerPubkey.toBase58());
+
+          if (tIdx !== -1 && cIdx !== -1) {
+            const tDiff = tx.meta.postBalances[tIdx] - tx.meta.preBalances[tIdx];
+            const cDiff = tx.meta.postBalances[cIdx] - tx.meta.preBalances[cIdx];
+            if (tDiff > 5_000_000 && cDiff < 0) {
+              return {
+                swept: true,
+                sweepSignature: info.signature,
+                treasurySentLamports: BigInt(tDiff)
+              };
+            }
+          }
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[FeeHarvester] Warning checking on-chain sweep status:', err.message);
+    }
+    return { swept: false };
+  }
+
+  /**
+   * Pre-seed OLD existing signatures on initial startup so historical claims
+   * are never re-processed. Checks on-chain Treasury transfers to pair claims
+   * reliably even if container restarts.
+   */
+  async seedExistingSignatures(claimerPubkey) {
+    if (process.env.NODE_ENV === 'test') return;
+    try {
+      const sigInfos = await this.connection.getSignaturesForAddress(claimerPubkey, { limit: 25 });
+      for (const info of sigInfos) {
+        if (dbAdapter.isClaimSignatureProcessed(info.signature)) continue;
+        if (info.blockTime) {
+          const sweepCheck = await this.isClaimAlreadySweptOnChain(claimerPubkey, info.blockTime, info.signature, sigInfos);
+          if (sweepCheck.swept) {
+            dbAdapter.recordProcessedClaimSignature(
+              info.signature,
+              0n,
+              sweepCheck.treasurySentLamports || 0n,
+              sweepCheck.sweepSignature || 'pre_seeded_swept'
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[FeeHarvester] Error in seedExistingSignatures:', err.message);
+    }
   }
 
   /**
@@ -366,11 +429,18 @@ export class FeeHarvesterWorker {
       const currentLamports = BigInt(await this.connection.getBalance(claimerPubkey));
       const minKeepGas = GAS_RESERVE_LAMPORTS; // 0.02 SOL kept back as gas backup
       const maxSendable = currentLamports > minKeepGas ? currentLamports - minKeepGas : 0n;
+      
+      // STRICT POOL PROTECTION GUARD:
+      // Sweep to Treasury must never exceed exact 95% of the claimed amount, and must leave
+      // the 0.02 SOL gas reserve untouched.
+      if (maxSendable < treasuryLamports) {
+        console.warn(`[FeeHarvester] Available balance (${maxSendable}) is less than expected 95% sweep (${treasuryLamports}). Clamping to protect remaining pool.`);
+      }
       const actualTreasuryLamports = treasuryLamports > maxSendable ? maxSendable : treasuryLamports;
 
-      if (actualTreasuryLamports <= 0n) {
+      if (actualTreasuryLamports < MIN_HARVEST_THRESHOLD_LAMPORTS) {
         dbAdapter.failHarvestInterval(intervalId, 'INSUFFICIENT_FUNDS');
-        return { status: 'INSUFFICIENT_FUNDS_FOR_SWEEP', reason: 'Claimer balance insufficient to cover sweep.' };
+        return { status: 'INSUFFICIENT_FUNDS_FOR_SWEEP', reason: 'Claimer balance insufficient to cover sweep while protecting gas reserve.' };
       }
 
       let txSignature = null;
