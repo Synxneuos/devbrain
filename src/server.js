@@ -11,6 +11,7 @@ import { MobileRunner } from './core/mobile.js';
 import { EXTENDED_MODELS, getModelTier } from './core/extended-models.js';
 import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
 import { discordBot, DISCORD_CONFIG, OFFICIAL_TOKEN_CA, SERVER_ROLES } from './discord/bot.js';
+import { getBenchmarkMatrix, runBenchmarkPipeline, analyzePromptComplexity, calculateCostAndSavings, evaluateSLAFallback } from './core/benchmark-matrix.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1308,6 +1309,25 @@ export async function handleRequest(req, res) {
       const logs = mobileRunner.getLogs(50);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ logs }));
+      return;
+    }
+
+    if (url.pathname === '/api/benchmark/matrix' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getBenchmarkMatrix()));
+      return;
+    }
+
+    if (url.pathname === '/api/benchmark/run' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const result = runBenchmarkPipeline(body.prompt || '', body);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
 

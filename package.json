@@ -30,7 +30,7 @@
   "scripts": {
     "start": "node bin/brain.js serve",
     "dev": "node bin/brain.js serve --port 3333",
-    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js && node test/sdk.test.js && node test/discord.test.js",
+    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js && node test/sdk.test.js && node test/discord.test.js && node test/benchmark.test.js",
     "classify": "node bin/brain.js classify",
     "warden": "node bin/brain.js warden",
     "audit": "node bin/brain.js audit"
@@ -47,7 +47,7 @@
     "github-action",
     "jev-brain"
   ],
-  "author": "Synxneuos <codexbt1@gmail.com>",
+  "author": "Synxneuos",
   "license": "MIT",
   "dependencies": {
     "discord.js": "^14.27.0",

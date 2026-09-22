@@ -256,9 +256,10 @@ Open **`http://localhost:3333`** to access:
 
 ---
 
-## 👥 Authors & Maintainers
+## 👥 Core Contributors & Maintainers
 
-Maintained and developed by **Synxneuos** (<codexbt1@gmail.com>).
+- **Synxneuos** ([@Synxneuos](https://github.com/Synxneuos)) — Lead Maintainer & Architecture
+- **Claude** ([@claude](https://github.com/claude)) — Autonomous Core Engine & Benchmark Systems
 
 Contributions, feature requests, and security suggestions are warmly welcomed via GitHub Issues and Pull Requests.
 
