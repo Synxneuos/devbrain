@@ -12,6 +12,22 @@ import { EXTENDED_MODELS, getModelTier } from './core/extended-models.js';
 import { verifyMessage, JsonRpcProvider, Contract, isAddress } from 'ethers';
 import { discordBot, DISCORD_CONFIG, OFFICIAL_TOKEN_CA, SERVER_ROLES } from './discord/bot.js';
 import { getBenchmarkMatrix, runBenchmarkPipeline, analyzePromptComplexity, calculateCostAndSavings, evaluateSLAFallback } from './core/benchmark-matrix.js';
+import { getHolderEligibility, isValidSolanaAddress, OFFICIAL_SOLANA_MINT, HOLDER_TIERS } from './core/holder-eligibility.js';
+import { rewardsStore, INFRASTRUCTURE_WALLET_PUBLIC_KEY, OPERATOR_WALLET_PUBLIC_KEY, LAMPORTS_PER_SOL } from './core/rewards-store.js';
+import { accrueCreditsForHolder, deductCreditsForLLM, transferCredits, reserveCreditsForLLM, settleCreditReservation, releaseCreditReservation, estimateLlmCreditCost, LAMPORTS_PER_CREDIT, MIN_REDEMPTION_CREDITS } from './core/credit-engine.js';
+import { getPendingTransfers, getAllClaimsHistory } from './core/operator-service.js';
+import { burnEngine } from './core/burn-engine.js';
+import { feeHarvester } from './workers/fee-harvester.js';
+import { paymentReconciler } from './workers/payment-reconciler.js';
+import { dbAdapter } from './core/db-adapter.js';
+
+export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
+
+// Start automated background daemons on persistent runtimes (VPS / container)
+if (process.env.NODE_ENV !== 'test' && !isServerless) {
+  feeHarvester.start(15 * 60 * 1000);
+  paymentReconciler.start(20 * 1000);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,7 +44,11 @@ try {
       if (eqIdx > 0) {
         const key = line.slice(0, eqIdx).trim();
         const val = line.slice(eqIdx + 1).trim();
-        if (!process.env[key]) {
+        if (process.env.NODE_ENV === 'test' || process.env.DATABASE_PATH?.includes('test')) {
+          if (process.env[key] === undefined) {
+            process.env[key] = val;
+          }
+        } else {
           process.env[key] = val;
         }
       }
@@ -37,7 +57,6 @@ try {
 } catch {}
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
 const DATA_DIR = isServerless ? '/tmp/jev-data' : path.join(__dirname, '..', 'data');
 const STATE_FILE = process.env.STATE_FILE || (
   process.env.NODE_ENV === 'test'
@@ -62,22 +81,37 @@ const NONCE_TTL_MS = 5 * 60 * 1000;
 // Stateless HMAC-signed session tokens: base64url(payload).hmacSignature
 // Survives server restarts and works across serverless instances when SESSION_SECRET is set.
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24-hour session TTL
-const SESSION_SECRET = process.env.SESSION_SECRET || (
-  process.env.NODE_ENV === 'test'
-    ? (() => {
-        console.warn('[security] SESSION_SECRET is not set — session tokens will not survive restarts. Set SESSION_SECRET in production.');
-        return crypto.randomBytes(32).toString('hex');
-      })()
-    : 'jevbrain_production_secret_session_hmac_key_2026_fallbacksafety'
-);
-
-function signSessionPayload(payloadB64) {
-  return crypto.createHmac('sha256', SESSION_SECRET).update(payloadB64).digest('hex');
+let _sessionSecret = null;
+function getSessionSecret() {
+  if (_sessionSecret) return _sessionSecret;
+  if (process.env.SESSION_SECRET) {
+    _sessionSecret = process.env.SESSION_SECRET;
+    return _sessionSecret;
+  }
+  if (process.env.NODE_ENV === 'test') {
+    _sessionSecret = crypto.randomBytes(32).toString('hex');
+    console.warn('[security] SESSION_SECRET not set — using ephemeral key (test mode only).');
+    return _sessionSecret;
+  }
+  // FAIL-CLOSED: production MUST have SESSION_SECRET set — no hardcoded fallback.
+  throw new Error(
+    '[FATAL] SESSION_SECRET environment variable is NOT set. ' +
+    'Refusing to start in production without a secure session secret. ' +
+    'Set SESSION_SECRET to a cryptographically random 64+ character hex string.'
+  );
 }
 
-// session payload: { a: address, th: server-verified tokensHeld, dc: tokenCheckDisabled, exp: expiry }
+function signSessionPayload(payloadB64) {
+  return crypto.createHmac('sha256', getSessionSecret()).update(payloadB64).digest('hex');
+}
+
+// B-8 FIX: Session token version for revocation support
+const SESSION_TOKEN_VERSION = 1;
+
+// session payload: { v: version, a: address, th: server-verified tokensHeld, dc: tokenCheckDisabled, exp: expiry }
 function issueSessionToken(session) {
-  const payloadB64 = Buffer.from(JSON.stringify(session)).toString('base64url');
+  const payload = { v: SESSION_TOKEN_VERSION, ...session };
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${payloadB64}.${signSessionPayload(payloadB64)}`;
 }
 
@@ -94,6 +128,8 @@ function verifySessionToken(token) {
   try {
     const session = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (!session || !session.a || !session.exp || Date.now() > session.exp) return null;
+    // B-8 FIX: Reject tokens without version or with wrong version
+    if (session.v !== SESSION_TOKEN_VERSION) return null;
     return session;
   } catch {
     return null;
@@ -122,6 +158,28 @@ async function resolveUserTier(tokensHeld, tokenCheckDisabled, marketData) {
     };
   }
   return calculateDynamicTier(tokensHeld, market);
+}
+
+// B-10 FIX: Re-verify the holding tier LIVE on every privileged request.
+// The session token freezes `th` (tokensHeld) at sign-in for 24h — without this
+// a user could dump all tokens and keep premium model access all day. Falls back
+// to the session snapshot only when on-chain verification is momentarily down.
+async function resolveLiveUserTier(session) {
+  if (!session) return null;
+  if (session.dc) return resolveUserTier(session.th, true, null);
+
+  const address = session.a;
+  if (isValidSolanaAddress(address)) {
+    try {
+      const elig = await getHolderEligibility(address);
+      if (!elig.error) {
+        const market = await fetchLiveMarketData();
+        const tier = calculateDynamicTier(elig.balanceUi || 0, market);
+        return { ...tier, tokensHeld: elig.balanceUi || 0 };
+      }
+    } catch { /* RPC failover already handled inside getHolderEligibility */ }
+  }
+  return resolveUserTier(session.th, false, null);
 }
 
 // Server-side ERC-20 balance verification. Never trusts client-supplied amounts.
@@ -447,11 +505,72 @@ function parseJsonBody(req) {
   });
 }
 
+export function safeJsonStringify(data, space) {
+  return JSON.stringify(data, (key, val) => typeof val === 'bigint' ? val.toString() : val, space);
+}
+
+// B-6 FIX: Timing-safe operator key comparison
+let _operatorKeyWarned = false;
+function isOperatorKeyValid(providedKey) {
+  const expectedKey = process.env.OPERATOR_ADMIN_KEY;
+  if (!expectedKey) {
+    if (!_operatorKeyWarned && process.env.NODE_ENV !== 'test') {
+      console.warn('[security] WARNING: OPERATOR_ADMIN_KEY is not set. Operator endpoints will require session-based auth from the operator wallet only.');
+      _operatorKeyWarned = true;
+    }
+    return false;
+  }
+  if (!providedKey) return false;
+  const expected = Buffer.from(expectedKey, 'utf8');
+  const provided = Buffer.from(String(providedKey), 'utf8');
+  if (expected.length !== provided.length) return false;
+  return crypto.timingSafeEqual(expected, provided);
+}
+
+const rateLimitMap = new Map();
+function checkRateLimit(key, limit = 60, windowMs = 60000) {
+  if (process.env.NODE_ENV === 'test') return true;
+  const now = Date.now();
+  let entry = rateLimitMap.get(key);
+  if (!entry || now - entry.windowStart > windowMs) {
+    entry = { windowStart: now, count: 0 };
+    rateLimitMap.set(key, entry);
+  }
+  entry.count++;
+  return entry.count <= limit;
+}
+
+function sendJson(res, statusCode, data) {
+  try {
+    const json = safeJsonStringify(data);
+    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    res.end(json);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  }
+}
+
+// BLOCKER 4: Serverless Runtime Fail-Closed Financial Guard
+export function checkServerlessFinancialGuard(res) {
+  if (isServerless) {
+    sendJson(res, 503, {
+      error: 'Financial settlement unavailable in serverless environment.',
+      message: 'On-chain financial payouts require a persistent runtime with active reconciliation workers (VPS / Container). Serverless fail-closed architecture engaged.',
+      code: 'SERVERLESS_FINANCIAL_GUARD_FAIL_CLOSED'
+    });
+    return true;
+  }
+  return false;
+}
+
 export async function handleRequest(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-Token, X-Operator-Key');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -471,13 +590,18 @@ export async function handleRequest(req, res) {
     }
 
     if (url.pathname === '/api/models' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        count: 0,
-        status: 'maintenance',
-        message: 'No models found. Backend infrastructure upgrade is currently undergoing maintenance.',
-        models: []
-      }));
+      try {
+        const models = await getAllMergedModels();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          count: models.length,
+          status: 'active',
+          models
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to retrieve models', details: err.message }));
+      }
       return;
     }
 
@@ -612,9 +736,15 @@ export async function handleRequest(req, res) {
         }
 
         const walletAddress = session.a;
-        // Resolve tier fresh on every request from the server-verified balance
-        // bound into the session at signature-verification time.
-        const userTier = await resolveUserTier(session.th, session.dc, null);
+        // B-10 FIX: Resolve tier from the LIVE on-chain balance on every request
+        // (session-snapshot fallback only when RPC verification is momentarily down).
+        const userTier = await resolveLiveUserTier(session);
+        if (!userTier || userTier.tierId <= 0) {
+          sendJson(res, 403, {
+            error: 'Your wallet no longer holds the minimum $jevbrain balance required for AI access. Re-acquire tokens and retry — tier access follows your live holding.'
+          });
+          return;
+        }
 
         if (!prompt.trim()) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -631,12 +761,100 @@ export async function handleRequest(req, res) {
           return;
         }
 
+        // Accrue any pending holder credits for Solana wallets
+        if (isValidSolanaAddress(walletAddress)) {
+          try {
+            await accrueCreditsForHolder(walletAddress);
+          } catch (e) {}
+        }
+
+        // BLOCKER 6 FIX: Two-Phase AI Credit Reservation Protocol
+        // 1. Atomically reserve estimated credits BEFORE LLM inference.
+        // This drops available balance immediately, preventing concurrent SOL burn double-spend.
+        let reservationId = null;
+        if (isValidSolanaAddress(walletAddress)) {
+          const routedModel = openRouterClient.selectOptimalModel(prompt, { tierId: userTier.tierId }, model);
+          const estimatedCost = estimateLlmCreditCost({ model: routedModel, prompt });
+          const preSummary = rewardsStore.getAccountSummary(walletAddress);
+          const availCredits = Number(preSummary.available || 0);
+          if (availCredits <= 0) {
+            sendJson(res, 402, {
+              error: 'Insufficient credits. You have 0 credits available. Earn credits by holding JEV tokens or receive a credit transfer.',
+              available: 0,
+              required: estimatedCost
+            });
+            return;
+          }
+          if (availCredits < estimatedCost) {
+            sendJson(res, 402, {
+              error: `Insufficient credits for this request. Estimated cost is ${estimatedCost} credits (${routedModel}), you have ${availCredits}. Shorten your prompt, choose a cheaper model, or earn more credits.`,
+              available: availCredits,
+              required: estimatedCost
+            });
+            return;
+          }
+
+          try {
+            const reservation = reserveCreditsForLLM({
+              walletAddress,
+              estimatedCredits: BigInt(estimatedCost),
+              model: routedModel
+            });
+            reservationId = reservation.reservationId;
+          } catch (resErr) {
+            sendJson(res, 402, { error: resErr.message });
+            return;
+          }
+        }
+
         const recordStats = (r) => {
           stats.totalProcessed++;
           stats.totalLatencyMs += r.latencyMs || 0;
           stats.estimatedCostSavedUsd += r.dollarsSaved || 0;
           if (r.tier === 'frontier') stats.reviewCount++;
           else stats.autoActCount++;
+        };
+
+        const executeCreditDeduction = (r) => {
+          if (!isValidSolanaAddress(walletAddress)) return null;
+          // Never charge user credits if request failed, under maintenance, or was a 100% free cache hit
+          if (!r || !r.isSuccess || r.isMaintenance || r.isCacheHit) {
+            if (reservationId) {
+              releaseCreditReservation({ reservationId, reason: r?.isCacheHit ? 'cache_hit' : 'request_failed' });
+              reservationId = null;
+            }
+            return null;
+          }
+          const promptToks = r.usage?.prompt_tokens ?? Math.max(1, Math.ceil(prompt.length / 4));
+          const compToks = r.usage?.completion_tokens ?? Math.max(1, Math.ceil((r.response || '').length / 4));
+          const billedModel = (typeof r.model === 'string' && r.model && r.model !== 'auto') ? r.model : model;
+          try {
+            if (reservationId) {
+              const settlement = settleCreditReservation({
+                reservationId,
+                promptTokens: promptToks,
+                completionTokens: compToks,
+                model: billedModel
+              });
+              reservationId = null;
+              return settlement;
+            } else {
+              return deductCreditsForLLM({
+                walletAddress,
+                promptTokens: promptToks,
+                completionTokens: compToks,
+                model: billedModel,
+                partialAllowed: true
+              });
+            }
+          } catch (dedErr) {
+            console.warn('[Chat] Credit deduction settlement failed:', dedErr.message);
+            if (reservationId) {
+              releaseCreditReservation({ reservationId, reason: 'settlement_error' });
+              reservationId = null;
+            }
+            return { error: 'Credit deduction failed', detail: dedErr.message };
+          }
         };
 
         if (url.pathname === '/api/chat/stream') {
@@ -655,39 +873,41 @@ export async function handleRequest(req, res) {
           if (useLiveStream) {
             try {
               result = await openRouterClient.streamChat(prompt, userTier, model, async (token) => {
-                res.write(`data: ${JSON.stringify({ token })}\n\n`);
-              });
+                res.write(`data: ${safeJsonStringify({ token })}\n\n`);
+              }, walletAddress);
             } catch (streamErr) {
-              // Upstream failed (bad key/quota): degrade gracefully to the
-              // local router engine notice, matching the non-stream behavior.
               result = null;
             }
           }
           if (!result) {
-            result = await openRouterClient.executeChat(prompt, userTier, model);
-            res.write(`data: ${JSON.stringify({ token: result.response })}\n\n`);
+            result = await openRouterClient.executeChat(prompt, userTier, model, walletAddress);
+            res.write(`data: ${safeJsonStringify({ token: result.response })}\n\n`);
           }
           recordStats(result);
-          res.write(`data: ${JSON.stringify({ done: true, ...result, walletAddress, userTier })}\n\n`);
+          const creditDeduction = executeCreditDeduction(result);
+          res.write(`data: ${safeJsonStringify({ done: true, ...result, walletAddress, userTier, creditDeduction })}\n\n`);
           res.end();
         } else {
-          const result = await openRouterClient.executeChat(prompt, userTier, model);
+          const result = await openRouterClient.executeChat(prompt, userTier, model, walletAddress);
           recordStats(result);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
+          const creditDeduction = executeCreditDeduction(result);
+          sendJson(res, 200, {
             ...result,
             walletAddress,
             userTier,
+            creditDeduction,
             totalSavedUsd: Math.round(stats.estimatedCostSavedUsd * 1000) / 1000
-          }));
+          });
         }
       } catch (err) {
+        if (reservationId) {
+          try { releaseCreditReservation({ reservationId, reason: 'unhandled_exception' }); } catch {}
+        }
         if (res.headersSent) {
-          res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+          res.write(`data: ${safeJsonStringify({ error: err.message })}\n\n`);
           res.end();
         } else {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
+          sendJson(res, 500, { error: err.message });
         }
       }
       return;
@@ -810,7 +1030,15 @@ export async function handleRequest(req, res) {
           return;
         }
 
-        // 3. Issue stateless HMAC session token bound to the verified address and
+        // 3. Auto-accrue initial credits and issue credit account for Solana holders
+        if (isSol) {
+          try {
+            await accrueCreditsForHolder(verifiedAddress);
+          } catch (e) {}
+        }
+        const creditAccount = isSol ? rewardsStore.getAccountSummary(verifiedAddress) : null;
+
+        // 4. Issue stateless HMAC session token bound to the verified address and
         //    server-verified holdings. Survives restarts when SESSION_SECRET is set.
         const sessionToken = issueSessionToken({
           a: verifiedAddress,
@@ -829,8 +1057,9 @@ export async function handleRequest(req, res) {
           tokensHeld,
           userTier,
           marketData,
-          walletProvider: 'MetaMask (Web3 Cryptographically Signed)',
-          message: `MetaMask signature verified! Assigned to [${userTier.tierName}]`
+          credits: creditAccount,
+          walletProvider: isSol ? 'Phantom / Solana (Ed25519 Cryptographically Signed)' : 'MetaMask (Web3 Cryptographically Signed)',
+          message: isSol ? `Solana signature verified! Assigned to [${userTier.tierName}]` : `MetaMask signature verified! Assigned to [${userTier.tierName}]`
         }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1328,6 +1557,379 @@ export async function handleRequest(req, res) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
+      return;
+    }
+
+    // ── Holder Rewards, Credit Accounting & Solana Settlement Endpoints ──
+
+    if (url.pathname === '/api/holder/eligibility' && req.method === 'GET') {
+      try {
+        const session = parseSession(req);
+        // B-7 FIX: Require session auth — no unauthenticated balance oracle
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
+          return;
+        }
+        const address = session.a; // STRICT: Only return eligibility for the authenticated wallet
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`elig_${address}`, 30) || !checkRateLimit(`elig_ip_${clientIp}`, 60)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded.' });
+          return;
+        }
+        const reqMockBalance = (process.env.NODE_ENV === 'test' && (url.searchParams.get('mockBalance') || req.headers['x-mock-balance']))
+          ? Number(url.searchParams.get('mockBalance') || req.headers['x-mock-balance'])
+          : undefined;
+        const eligibility = await getHolderEligibility(address, {
+          mockBalance: reqMockBalance
+        });
+        sendJson(res, 200, eligibility);
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/balance' && req.method === 'GET') {
+      try {
+        const session = parseSession(req);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
+          return;
+        }
+        const address = session.a; // STRICT: Identity strictly derived from authenticated session token
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`bal_${address}`, 60) || !checkRateLimit(`bal_ip_${clientIp}`, 120)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded. Please wait a moment.' });
+          return;
+        }
+
+        const reqMockBalance = (process.env.NODE_ENV === 'test' && (url.searchParams.get('mockBalance') || req.headers['x-mock-balance']))
+          ? Number(url.searchParams.get('mockBalance') || req.headers['x-mock-balance'])
+          : undefined;
+
+        if (isValidSolanaAddress(address)) {
+          try {
+            await accrueCreditsForHolder(address, {
+              mockBalance: reqMockBalance
+            });
+          } catch (e) {}
+        }
+        const summary = rewardsStore.getAccountSummary(address);
+        const eligibility = isValidSolanaAddress(address) ? await getHolderEligibility(address, {
+          mockBalance: reqMockBalance
+        }) : null;
+        sendJson(res, 200, {
+          success: true,
+          ...summary,
+          available: summary.available,
+          availableCredits: Number(summary.available || 0),
+          earnedCredits: Number(summary.earned || 0),
+          usedCredits: Number(summary.used || 0),
+          transferredCredits: Number(summary.transferred || 0),
+          redeemedCredits: Number(summary.redeemed || 0),
+          eligibility
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/history' && req.method === 'GET') {
+      try {
+        const session = parseSession(req);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
+          return;
+        }
+        const address = session.a; // STRICT: Only session owner can view their ledger history
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`hist_${address}`, 60) || !checkRateLimit(`hist_ip_${clientIp}`, 120)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded. Please wait a moment.' });
+          return;
+        }
+
+        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+        const history = rewardsStore.getLedgerHistory(address, limit);
+        sendJson(res, 200, {
+          success: true,
+          walletAddress: address,
+          count: history.length,
+          history,
+          ledger: history
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/accrue' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
+          return;
+        }
+        const address = session.a; // STRICT: Session-bound accrual only
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`acc_${address}`, 30) || !checkRateLimit(`acc_ip_${clientIp}`, 60)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded for credit accrual.' });
+          return;
+        }
+
+        const allowForce = process.env.NODE_ENV === 'test' && body.forceAmount !== undefined;
+        const result = await accrueCreditsForHolder(address, {
+          forceAmount: allowForce ? body.forceAmount : undefined,
+          mockBalance: (process.env.NODE_ENV === 'test' && body.mockBalance !== undefined)
+            ? Number(body.mockBalance)
+            : undefined
+        });
+        sendJson(res, 200, {
+          success: true,
+          ...result,
+          availableCredits: result.account ? Number(result.account.available) : 0,
+          accruedAmount: Number(result.accrued || 0)
+        });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/transfer' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Sender wallet must be authenticated.' });
+          return;
+        }
+        const sender = session.a; // STRICT: Sender is exclusively session.a. Never body.senderWallet!
+        const recipient = (body.recipientWallet || body.toAddress || '').trim();
+        const amount = body.amount;
+
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`xfer_${sender}`, 20) || !checkRateLimit(`xfer_ip_${clientIp}`, 40)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded for credit transfers.' });
+          return;
+        }
+
+        const result = transferCredits(sender, recipient, amount);
+        sendJson(res, 200, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/rewards/redeem' && req.method === 'POST') {
+      try {
+        if (checkServerlessFinancialGuard(res)) return;
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Wallet session required for redemption.' });
+          return;
+        }
+        const address = session.a; // STRICT: Claimant is exclusively session.a. Never body.walletAddress!
+        const credits = Number(body.credits !== undefined ? body.credits : (body.amount !== undefined ? body.amount : 0));
+        const idempotencyKey = (body.idempotencyKey || `idemp_${address}_${Date.now()}`).trim();
+
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`red_${address}`, 10) || !checkRateLimit(`red_ip_${clientIp}`, 30)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded for redemptions.' });
+          return;
+        }
+
+        // F-2 FIX: Unify legacy redeem path with canonical on-chain burn engine.
+        // All holder SOL rewards are strictly drawn from the verified 5% reward pool.
+        const result = await burnEngine.executeBurn({
+          walletAddress: address,
+          creditsToBurn: credits,
+          destinationWallet: address, // F-7 FIX: strictly session.a
+          idempotencyKey
+        });
+
+        sendJson(res, result.duplicate ? 200 : 201, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    // ── 5% POOL, DYNAMIC MC QUOTE & CREDIT BURN ROUTES ─────────────────────
+
+    if (url.pathname === '/api/reconciler/status' && req.method === 'GET') {
+      sendJson(res, 200, {
+        success: true,
+        isServerless,
+        reconciler: paymentReconciler.getStatus()
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/pool/status' && req.method === 'GET') {
+      try {
+        const metrics = await burnEngine.getLivePoolMetrics();
+        const harvesterStatus = feeHarvester.getStatus();
+        sendJson(res, 200, {
+          success: true,
+          tokenSymbol: 'jevbrain',
+          tokenName: 'Jev Brain',
+          marketCapUsd: metrics.marketCapUsd,
+          tokenPriceUsd: metrics.tokenPriceUsd,
+          rewardPool: {
+            claimerWallet: metrics.claimerPublicKey,
+            treasuryWallet: harvesterStatus.treasuryPublicKey,
+            totalClaimerBalanceSol: metrics.totalClaimerBalanceSol,
+            distributablePoolSol: metrics.distributablePoolSol,
+            distributableLamports: metrics.distributableLamports.toString(),
+            totalCreditsBurnedAllTime: metrics.totalCreditsBurnedAllTime,
+            epochCreditsBurned: metrics.epochCreditsBurned,
+            gasReserveSol: Number(metrics.gasReserveLamports) / 1e9
+          },
+          harvester: harvesterStatus
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/burn-quote' && req.method === 'GET') {
+      try {
+        const credits = Number(url.searchParams.get('credits') || 100);
+        const quote = await burnEngine.calculateBurnQuote(credits);
+        sendJson(res, 200, {
+          success: true,
+          ...quote
+        });
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/credits/burn' && req.method === 'POST') {
+      try {
+        if (checkServerlessFinancialGuard(res)) return;
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Wallet session required to burn credits.' });
+          return;
+        }
+
+        const address = session.a; // STRICT: Identity from session
+        const credits = Number(body.credits || body.amount || 0);
+        // F-7 FIX: Validate destinationWallet format if supplied, and reject diversion attacks
+        if (body.destinationWallet) {
+          if (!isValidSolanaAddress(body.destinationWallet)) {
+            sendJson(res, 400, { error: 'Invalid Solana destination address format.' });
+            return;
+          }
+          if (body.destinationWallet !== address) {
+            sendJson(res, 400, { error: 'Rewards may only be claimed directly to the authenticated holder wallet.' });
+            return;
+          }
+        }
+        const destinationWallet = address;
+        // B-12 FIX: honor client idempotency key (retried request returns the
+        // original burn instead of paying twice).
+        const idempotencyKey = (body.idempotencyKey || '').trim() || null;
+
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`burn_${address}`, 10) || !checkRateLimit(`burn_ip_${clientIp}`, 30)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded for credit burning.' });
+          return;
+        }
+
+        // B-12 FIX: double-click guard — reject a second burn within 5s of the
+        // wallet's last burn (a fresh idempotency key cannot dedupe double submits).
+        if (process.env.NODE_ENV !== 'test') {
+          const lastBurn = dbAdapter.getLatestCreditBurn(address);
+          if (lastBurn && Date.now() - new Date(lastBurn.created_at).getTime() < 5000) {
+            sendJson(res, 409, {
+              error: 'Duplicate burn request detected — a burn was just processed. Please wait a few seconds before retrying.',
+              lastBurnId: lastBurn.id,
+              lastBurnStatus: lastBurn.status
+            });
+            return;
+          }
+        }
+
+        const result = await burnEngine.executeBurn({
+          walletAddress: address,
+          creditsToBurn: credits,
+          destinationWallet,
+          idempotencyKey
+        });
+
+        sendJson(res, 200, result);
+      } catch (err) {
+        sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/operator/harvest' && req.method === 'POST') {
+      try {
+        if (checkServerlessFinancialGuard(res)) return;
+        const session = parseSession(req);
+        const operatorKey = req.headers['x-operator-key'];
+        const keyValid = isOperatorKeyValid(operatorKey);
+        const isOperatorSession = session && session.a && session.a === OPERATOR_WALLET_PUBLIC_KEY;
+        const isAuthorized = keyValid || isOperatorSession || (process.env.NODE_ENV === 'test' && !process.env.OPERATOR_ADMIN_KEY);
+
+        if (!isAuthorized) {
+          sendJson(res, 403, { error: 'Access denied: Operator authorization required.' });
+          return;
+        }
+
+        const harvestResult = await feeHarvester.executeHarvestCycle();
+        sendJson(res, 200, { success: true, harvest: harvestResult });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/operator/claims' && req.method === 'GET') {
+      try {
+        const session = parseSession(req);
+        const operatorKey = req.headers['x-operator-key'];
+        // B-6 FIX: Use timing-safe comparison for operator key
+        const keyValid = isOperatorKeyValid(operatorKey);
+        const isOperatorSession = session && session.a && session.a === OPERATOR_WALLET_PUBLIC_KEY;
+        const isAuthorized = keyValid || isOperatorSession || (process.env.NODE_ENV === 'test' && !process.env.OPERATOR_ADMIN_KEY);
+
+        if (!isAuthorized) {
+          sendJson(res, 403, { error: 'Access denied: Operator authorization required.' });
+          return;
+        }
+
+        const pending = getPendingTransfers();
+        const history = getAllClaimsHistory();
+        sendJson(res, 200, {
+          success: true,
+          operatorWallet: pending.operatorWallet,
+          infrastructureWallet: pending.infrastructureWallet,
+          pendingCount: pending.pendingCount,
+          pendingTransfers: pending.pendingTransfers,
+          pendingClaims: pending.pendingTransfers,
+          allClaims: history.claims
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    // Unknown API endpoints must return 404 JSON, never SPA index.html
+    if (url.pathname.startsWith('/api/')) {
+      sendJson(res, 404, { error: `Endpoint not found: ${req.method} ${url.pathname}` });
       return;
     }
 

@@ -433,11 +433,13 @@ test('Mobile Devices: GET /api/mobile/devices includes virtual device in UI gate
   assert.ok(data.devices.some(d => d.id === 'pixel-8-virtual' || d.type === 'physical_adb'));
 });
 
-test('Model Catalog: GET /api/models returns maintenance status and notice', async () => {
+test('Model Catalog: GET /api/models returns active catalog with 500+ models', async () => {
   const res = await fetch(`${baseUrl}/api/models`);
   assert.strictEqual(res.status, 200);
   const data = await res.json();
-  assert.strictEqual(data.status, 'maintenance');
-  assert.strictEqual(data.count, 0);
-  assert.ok(data.message.includes('Backend infrastructure upgrade is currently undergoing maintenance'));
+  assert.strictEqual(data.status, 'active');
+  assert.ok(data.count >= 500, `Expected at least 500 models, got ${data.count}`);
+  assert.ok(Array.isArray(data.models));
+  assert.ok(data.models.length >= 500);
 });
+

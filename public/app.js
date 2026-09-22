@@ -137,7 +137,22 @@ const elements = {
   btnExportJson: document.getElementById('btn-export-json'),
   btnExportMd: document.getElementById('btn-export-md'),
   btnProfileDownload: document.querySelector('.icon-mini[title*="Download"]'),
-  btnProfileSearch: document.querySelector('.icon-mini[title*="Search"]')
+  btnProfileSearch: document.querySelector('.icon-mini[title*="Search"]'),
+
+  // Holder Hub & Solana Rewards Elements
+  rewardsModal: document.getElementById('rewards-modal'),
+  rewardsClose: document.getElementById('rewards-modal-close'),
+  navRewards: document.getElementById('nav-rewards'),
+  rewardsCopyCa: document.getElementById('rewards-copy-ca'),
+  rewardsTabs: document.getElementById('rewards-tabs'),
+  btnTriggerAccrual: document.getElementById('btn-trigger-accrual'),
+  btnRefreshEligibility: document.getElementById('btn-refresh-eligibility'),
+  btnSubmitTransfer: document.getElementById('btn-submit-transfer'),
+  btnSubmitRedeem: document.getElementById('btn-submit-redeem'),
+  redeemCreditInput: document.getElementById('redeem-credit-input'),
+  btnRefreshHistory: document.getElementById('btn-refresh-history'),
+  btnLoadOperatorClaims: document.getElementById('btn-load-operator-claims'),
+  btnConfirmOperatorTx: document.getElementById('btn-confirm-operator-tx')
 };
 
 // ============================================
@@ -616,6 +631,7 @@ async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = nu
     localStorage.setItem(STORAGE_TIER_PREFIX + address.toLowerCase(), JSON.stringify(userTier));
     console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
     loadServerChats(address);
+    loadRewardsHubData();
   } catch (err) {
     console.error('Verification failure:', err);
   }
@@ -1517,6 +1533,395 @@ async function loadOpenRouterModels() {
   }
 }
 
+// ============================================
+// HOLDER HUB & SOLANA REWARDS ENGINE
+// ============================================
+const SOL_PER_CREDIT = 0.00001; // Standard reference: 100,000 credits = 1.0 SOL (1 credit = 10,000 lamports)
+
+async function openRewardsModal() {
+  if (!elements.rewardsModal) return;
+  elements.rewardsModal.style.display = 'flex';
+  switchRewardsTab('overview');
+  await loadRewardsHubData();
+  await loadRewardsLedgerHistory();
+}
+
+function switchRewardsTab(tabName) {
+  const tabs = elements.rewardsTabs?.querySelectorAll('.tier-tab-btn') || [];
+  tabs.forEach(btn => {
+    if (btn.getAttribute('data-tab') === tabName) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  ['overview', 'transfer', 'redeem', 'history', 'operator'].forEach(name => {
+    const pane = document.getElementById(`pane-rewards-${name}`);
+    if (pane) pane.style.display = (name === tabName) ? 'block' : 'none';
+  });
+
+  if (tabName === 'history') {
+    loadRewardsLedgerHistory();
+  } else if (tabName === 'operator') {
+    loadOperatorClaims();
+  }
+}
+
+async function loadRewardsHubData() {
+  const addrDisplay = document.getElementById('hub-wallet-addr');
+  const tokenDisplay = document.getElementById('hub-token-balance');
+  const tierDisplay = document.getElementById('hub-tier-name');
+  const modalTag = document.getElementById('rewards-modal-tier-tag');
+  const availDisplay = document.getElementById('hub-avail-credits');
+  const rateDisplay = document.getElementById('hub-rate-credits');
+  const earnedDisplay = document.getElementById('hub-earned-credits');
+  const usedDisplay = document.getElementById('hub-used-credits');
+  const actionStatus = document.getElementById('hub-action-status');
+
+  if (!currentWallet) {
+    if (addrDisplay) addrDisplay.textContent = 'Not connected';
+    if (actionStatus) actionStatus.innerHTML = '<span style="color:#ef4444;">Please connect your Solana wallet to access Holder Hub.</span>';
+    return;
+  }
+
+  if (addrDisplay) addrDisplay.textContent = currentWallet;
+  if (actionStatus) actionStatus.textContent = 'Syncing on-chain holdings & ledger balance...';
+
+  try {
+    // 0. Fetch Live Pool Status & Market Cap
+    try {
+      const poolRes = await fetch('/api/pool/status');
+      if (poolRes.ok) {
+        const poolData = await poolRes.json();
+        const mcFormatted = `$${Number(poolData.marketCapUsd || 0).toLocaleString()}`;
+        const hubMcEl = document.getElementById('hub-live-mc');
+        const burnMcEl = document.getElementById('burn-live-mc');
+        const burnPoolEl = document.getElementById('burn-live-pool');
+        if (hubMcEl) hubMcEl.textContent = mcFormatted;
+        if (burnMcEl) burnMcEl.textContent = mcFormatted;
+        if (burnPoolEl) {
+          burnPoolEl.textContent = `${Number(poolData.rewardPool?.distributablePoolSol || 0).toFixed(4)} SOL`;
+        }
+      }
+    } catch (e) {
+      console.warn('Pool status fetch error:', e);
+    }
+
+    // 1. Fetch Eligibility & Token Balance
+    const eligRes = await fetch(`/api/holder/eligibility?address=${encodeURIComponent(currentWallet)}`, { headers: authHeaders() });
+    const eligData = await eligRes.json();
+
+    if (eligRes.ok) {
+      const tokens = eligData.balanceUi !== undefined ? eligData.balanceUi : (eligData.balanceTokens || 0);
+      const tierLabel = eligData.tier || eligData.tierName || 'Free';
+      const tierNum = eligData.tierLevel !== undefined ? eligData.tierLevel : (eligData.tier || 0);
+      const hourlyRate = eligData.creditRatePerHour !== undefined ? eligData.creditRatePerHour : (eligData.accrualRatePerHour || 0);
+
+      if (tokenDisplay) tokenDisplay.textContent = `${Number(tokens).toLocaleString()} $JEVBRAIN`;
+      if (tierDisplay) tierDisplay.textContent = `${tierLabel} (Tier ${tierNum})`;
+      if (modalTag) modalTag.textContent = tierLabel;
+      if (rateDisplay) rateDisplay.innerHTML = `${hourlyRate} <span style="font-size:10px;font-weight:normal;color:var(--text-tertiary);">/hr</span>`;
+    }
+
+    // 2. Fetch Credit Account Balance
+    const balRes = await fetch('/api/credits/balance', { headers: authHeaders() });
+    if (balRes.ok) {
+      const balData = await balRes.json();
+      const userAvail = Number(balData.availableCredits || 0);
+      if (availDisplay) availDisplay.textContent = userAvail.toLocaleString();
+      if (earnedDisplay) earnedDisplay.textContent = Number(balData.earnedCredits || 0).toLocaleString();
+      const usedTotal = (Number(balData.usedCredits || 0) + Number(balData.redeemedCredits || 0) + Number(balData.transferredCredits || 0));
+      if (usedDisplay) usedDisplay.textContent = usedTotal.toLocaleString();
+
+      const burnMaxHint = document.getElementById('burn-max-hint');
+      const burnSlider = document.getElementById('burn-credit-slider');
+      if (burnMaxHint) burnMaxHint.textContent = `Available: ${userAvail.toLocaleString()}`;
+      if (burnSlider) {
+        burnSlider.max = Math.max(10, userAvail);
+        if (parseInt(burnSlider.value, 10) > userAvail) {
+          burnSlider.value = Math.max(10, Math.min(100, userAvail));
+          const inputEl = document.getElementById('redeem-credit-input');
+          if (inputEl) inputEl.value = burnSlider.value;
+        }
+      }
+      if (actionStatus) actionStatus.textContent = '';
+      updateRedeemPreview();
+    } else {
+      if (actionStatus) actionStatus.innerHTML = '<span style="color:var(--text-tertiary);">Session authentication required for ledger balances.</span>';
+    }
+  } catch (err) {
+    console.warn('Rewards Hub sync error:', err);
+    if (actionStatus) actionStatus.textContent = 'Could not sync holdings.';
+  }
+}
+
+async function triggerCreditAccrual() {
+  const actionStatus = document.getElementById('hub-action-status');
+  if (actionStatus) actionStatus.textContent = 'Calculating deterministic accrual...';
+
+  try {
+    const res = await fetch('/api/credits/accrue', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to accrue credits');
+
+    if (actionStatus) {
+      actionStatus.innerHTML = `<span style="color:#10b981;font-weight:600;">⚡ Accrued +${data.accruedAmount || 0} credits! (Available: ${data.availableCredits})</span>`;
+    }
+    await loadRewardsHubData();
+    await loadRewardsLedgerHistory();
+  } catch (err) {
+    if (actionStatus) actionStatus.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`;
+  }
+}
+
+async function submitCreditTransfer() {
+  const toInput = document.getElementById('transfer-to-address');
+  const amtInput = document.getElementById('transfer-credit-amount');
+  const statusMsg = document.getElementById('transfer-status-msg');
+
+  const toAddress = toInput?.value.trim();
+  const amount = parseInt(amtInput?.value, 10);
+
+  if (!toAddress) {
+    if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">Please provide a valid recipient Solana address.</span>';
+    return;
+  }
+  if (!amount || amount <= 0) {
+    if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">Amount must be a positive integer.</span>';
+    return;
+  }
+
+  if (statusMsg) statusMsg.textContent = 'Broadcasting atomic transfer...';
+
+  try {
+    const res = await fetch('/api/credits/transfer', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ toAddress, amount })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Transfer failed');
+
+    if (statusMsg) {
+      statusMsg.innerHTML = `<span style="color:#10b981;font-weight:600;">✓ Successfully transferred ${amount} credits to ${toAddress.slice(0, 6)}...${toAddress.slice(-4)}!</span>`;
+    }
+    if (amtInput) amtInput.value = '';
+    await loadRewardsHubData();
+    await loadRewardsLedgerHistory();
+  } catch (err) {
+    if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`;
+  }
+}
+
+let burnQuoteDebounce = null;
+async function updateRedeemPreview() {
+  const amtInput = document.getElementById('redeem-credit-input');
+  const payoutEl = document.getElementById('redeem-preview-payout');
+  const rateEl = document.getElementById('redeem-preview-rate');
+
+  let amt = parseInt(amtInput?.value, 10) || 0;
+  if (amt <= 0) amt = 10;
+
+  clearTimeout(burnQuoteDebounce);
+  burnQuoteDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/credits/burn-quote?credits=${amt}`);
+      if (res.ok) {
+        const quote = await res.json();
+        if (payoutEl) {
+          payoutEl.textContent = `${Number(quote.estimatedRewardSol || 0).toFixed(6)} SOL`;
+        }
+        if (rateEl) {
+          rateEl.textContent = `1 credit = ~${((quote.rateLamportsPerCredit || 0) / 1e9).toFixed(8)} SOL (MC: $${Number(quote.marketCapUsd || 0).toLocaleString()})`;
+        }
+      }
+    } catch (e) {
+      console.warn('Burn quote fetch error:', e);
+    }
+  }, 150);
+}
+
+async function submitRedemptionClaim() {
+  const amtInput = document.getElementById('redeem-credit-input');
+  const statusMsg = document.getElementById('redeem-status-msg');
+  const submitBtn = document.getElementById('btn-submit-redeem');
+  const amount = parseInt(amtInput?.value, 10);
+
+  if (!amount || amount < 10) {
+    if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">Minimum burn is 10 credits.</span>';
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Processing On-Chain Payout...';
+  }
+  if (statusMsg) statusMsg.innerHTML = '<span style="color:var(--text-secondary);">Broadcasting on-chain credit burn &amp; SOL reward payout...</span>';
+
+  const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+  try {
+    const res = await fetch('/api/credits/burn', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ credits: amount, idempotencyKey })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Burn request failed');
+
+    const txSig = data.txSignature ? `${data.txSignature.slice(0, 8)}...${data.txSignature.slice(-6)}` : 'Confirmed';
+    const solscanUrl = data.txSignature ? `https://solscan.io/tx/${data.txSignature}` : '#';
+
+    if (statusMsg) {
+      statusMsg.innerHTML = `<div style="color:#10b981;font-weight:600;margin-bottom:4px;">🔥 Burn Confirmed! Received +${data.rewardSol} SOL</div>
+      <div style="font-size:10.5px;color:var(--text-secondary);">
+        Solana Tx: <a href="${solscanUrl}" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:underline;">${escapeHtml(txSig)}</a><br/>
+        Remaining Available Credits: <strong>${Number(data.remainingCredits || 0).toLocaleString()}</strong>
+      </div>`;
+    }
+    await loadRewardsHubData();
+    await loadRewardsLedgerHistory();
+  } catch (err) {
+    if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '🔥 Burn Credits & Claim SOL Reward';
+    }
+  }
+}
+
+async function loadRewardsLedgerHistory() {
+  const tbody = document.getElementById('rewards-ledger-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/credits/history', { headers: authHeaders() });
+    if (!res.ok) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:14px;">Connect wallet to view ledger history</td></tr>';
+      return;
+    }
+    const data = await res.json();
+    const ledger = Array.isArray(data.ledger) ? data.ledger : [];
+
+    if (ledger.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:14px;">No transactions recorded yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ledger.slice(-50).reverse().map(entry => {
+      const typeLower = (entry.type || '').toLowerCase();
+      let badgeClass = 'badge-tag-accrual';
+      if (typeLower.includes('usage')) badgeClass = 'badge-tag-usage';
+      else if (typeLower.includes('transfer')) badgeClass = 'badge-tag-transfer';
+      else if (typeLower.includes('redeem')) badgeClass = 'badge-tag-redeem';
+
+      const timeStr = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
+      const deltaStr = entry.delta > 0 ? `+${entry.delta}` : `${entry.delta}`;
+      const deltaColor = entry.delta > 0 ? '#10b981' : '#ef4444';
+
+      let refLink = escapeHtml(entry.reference || entry.reason || '-');
+      if (entry.metadata?.solanaSignature) {
+        const sig = entry.metadata.solanaSignature;
+        refLink = `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:none;">Solscan ↗</a>`;
+      } else if (entry.metadata?.claimId) {
+        refLink = `<span style="font-family:var(--font-mono);font-size:10px;">${escapeHtml(entry.metadata.claimId)}</span>`;
+      }
+
+      return `<tr>
+        <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary);">${timeStr}</td>
+        <td><span class="badge-tag ${badgeClass}">${escapeHtml(entry.type)}</span></td>
+        <td style="font-family:var(--font-mono);font-weight:600;color:${deltaColor};">${deltaStr}</td>
+        <td style="font-family:var(--font-mono);">${entry.balance}</td>
+        <td style="color:var(--text-secondary);font-size:10px;">${refLink}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    console.warn('Ledger load error:', err);
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:14px;">Error loading ledger history</td></tr>';
+  }
+}
+
+async function loadOperatorClaims() {
+  const container = document.getElementById('operator-claims-list');
+  const secret = document.getElementById('operator-secret-input')?.value.trim() || '';
+  if (!container) return;
+
+  try {
+    const headers = { ...authHeaders() };
+    if (secret) headers['x-operator-key'] = secret;
+    const res = await fetch('/api/operator/claims', { headers });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch operator claims');
+
+    const pending = Array.isArray(data.pendingClaims) ? data.pendingClaims : [];
+    if (pending.length === 0) {
+      container.innerHTML = '<div style="color:#10b981;text-align:center;padding:6px;">✓ All 95% manual transfers are fulfilled! No pending claims.</div>';
+      return;
+    }
+
+    container.innerHTML = pending.map(c => {
+      const addr = c.destinationWallet || c.walletAddress || c.userAddress || 'Unknown';
+      const payoutSol = c.manualAllocation?.sol ?? c.operatorPayoutSOL ?? c.manualSol ?? 0;
+      return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 6px;border-bottom:1px solid var(--border-subtle);cursor:pointer;" onclick="document.getElementById('operator-claim-id-input').value='${c.claimId}'">
+        <div>
+          <span style="font-family:var(--font-mono);font-weight:600;color:var(--text-primary);">${escapeHtml(c.claimId)}</span>
+          <div style="font-size:9.5px;color:var(--text-tertiary);font-family:var(--font-mono);">${addr.slice(0, 6)}...${addr.slice(-4)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--font-mono);color:#10b981;font-weight:600;">${Number(payoutSol).toFixed(4)} SOL</div>
+          <span class="badge-tag badge-tag-pending">${c.status}</span>
+        </div>
+      </div>
+    `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div style="color:#ef4444;text-align:center;padding:6px;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function confirmOperatorTransfer() {
+  const claimId = document.getElementById('operator-claim-id-input')?.value.trim();
+  const solanaSignature = document.getElementById('operator-sig-input')?.value.trim();
+  const secret = document.getElementById('operator-secret-input')?.value.trim();
+  const statusMsg = document.getElementById('operator-status-msg');
+
+  if (!claimId || !solanaSignature) {
+    if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">Claim ID and Solana signature are required.</span>';
+    return;
+  }
+
+  if (statusMsg) statusMsg.textContent = 'Verifying Base58 signature and confirming on-chain...';
+
+  try {
+    const headers = { 'Content-Type': 'application/json', ...authHeaders() };
+    if (secret) headers['x-operator-key'] = secret;
+    const res = await fetch('/api/operator/confirm-transfer', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ claimId, solanaSignature })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Confirmation failed');
+
+    if (statusMsg) {
+      statusMsg.innerHTML = `<span style="color:#10b981;font-weight:600;">✓ Confirmed! Claim ${escapeHtml(claimId)} marked fulfilled on-chain.</span>`;
+    }
+    const sigInput = document.getElementById('operator-sig-input');
+    if (sigInput) sigInput.value = '';
+    await loadOperatorClaims();
+    await loadRewardsHubData();
+    await loadRewardsLedgerHistory();
+  } catch (err) {
+    if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`;
+  }
+}
+
 function handleAttachment(file) {
   if (!file) return;
   const maxBytes = 1024 * 1024;
@@ -1993,6 +2398,7 @@ function bindEvents() {
   elements.navArtifacts?.addEventListener('click', (e) => { e.preventDefault(); openArtifactsModal(); });
   elements.navWarden?.addEventListener('click', (e) => { e.preventDefault(); openWardenModal(); });
   elements.navRouter?.addEventListener('click', (e) => { e.preventDefault(); openRouterModal(); });
+  elements.navRewards?.addEventListener('click', (e) => { e.preventDefault(); openRewardsModal(); });
 
   // Modals Close
   elements.projectsClose?.addEventListener('click', () => { elements.projectsModal.style.display = 'none'; });
@@ -2001,13 +2407,49 @@ function bindEvents() {
   elements.routerClose?.addEventListener('click', () => { elements.routerModal.style.display = 'none'; });
   elements.searchClose?.addEventListener('click', () => { elements.searchModal.style.display = 'none'; });
   elements.tierClose?.addEventListener('click', () => { elements.tierModal.style.display = 'none'; });
+  elements.rewardsClose?.addEventListener('click', () => { if (elements.rewardsModal) elements.rewardsModal.style.display = 'none'; });
 
   // Modal Backdrop Click
-  [elements.projectsModal, elements.artifactsModal, elements.wardenModal, elements.routerModal, elements.searchModal, elements.tierModal].forEach(m => {
+  [elements.projectsModal, elements.artifactsModal, elements.wardenModal, elements.routerModal, elements.searchModal, elements.tierModal, elements.rewardsModal].forEach(m => {
     m?.addEventListener('click', (e) => {
       if (e.target === m) m.style.display = 'none';
     });
   });
+
+  // Holder Hub & Solana Rewards Tabs & Actions
+  elements.rewardsTabs?.querySelectorAll('.tier-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.getAttribute('data-tab');
+      if (tabName) switchRewardsTab(tabName);
+    });
+  });
+
+  elements.rewardsCopyCa?.addEventListener('click', () => {
+    navigator.clipboard.writeText('AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump');
+    if (elements.rewardsCopyCa) {
+      elements.rewardsCopyCa.textContent = 'Copied!';
+      setTimeout(() => { if (elements.rewardsCopyCa) elements.rewardsCopyCa.textContent = 'Copy'; }, 1500);
+    }
+  });
+
+  elements.btnTriggerAccrual?.addEventListener('click', triggerCreditAccrual);
+  elements.btnRefreshEligibility?.addEventListener('click', loadRewardsHubData);
+  elements.btnSubmitTransfer?.addEventListener('click', submitCreditTransfer);
+  const burnSlider = document.getElementById('burn-credit-slider');
+  const redeemInput = document.getElementById('redeem-credit-input');
+  burnSlider?.addEventListener('input', (e) => {
+    if (redeemInput) redeemInput.value = e.target.value;
+    updateRedeemPreview();
+  });
+  redeemInput?.addEventListener('input', (e) => {
+    if (burnSlider) burnSlider.value = e.target.value;
+    updateRedeemPreview();
+  });
+  elements.btnSubmitRedeem?.addEventListener('click', submitRedemptionClaim);
+  document.getElementById('btn-submit-redeem')?.addEventListener('click', submitRedemptionClaim);
+  elements.btnRefreshHistory?.addEventListener('click', loadRewardsLedgerHistory);
+  elements.btnLoadOperatorClaims?.addEventListener('click', loadOperatorClaims);
+  elements.btnConfirmOperatorTx?.addEventListener('click', confirmOperatorTransfer);
 
   // Projects Modal
   elements.btnCreateProject?.addEventListener('click', handleCreateProject);

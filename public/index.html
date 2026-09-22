@@ -102,6 +102,16 @@
             <span>Mobile Runner</span>
             <span class="nav-status-pill">ADB</span>
           </a>
+          <a href="#" class="nav-link" id="nav-rewards" title="Holder Rewards & Credit Engine">
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="8"></circle>
+              <line x1="12" y1="2" x2="12" y2="4"></line>
+              <line x1="12" y1="20" x2="12" y2="22"></line>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span>Holder Hub</span>
+            <span class="nav-status-pill" style="background:rgba(124,58,237,0.15); color:#a855f7;">SOL</span>
+          </a>
         </nav>
 
         <div class="nav-section-label" style="margin-top:16px;">DISCORD SENTINEL</div>
@@ -829,6 +839,221 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Holder Hub & Solana Rewards Modal -->
+  <div class="tier-modal-overlay" id="rewards-modal" style="display:none; z-index: 1005;">
+    <div class="tier-modal-card" style="max-width: 680px;">
+      <div class="tier-modal-head">
+        <div class="modal-head-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#a855f7;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+          <h3>Holder Hub &amp; Solana Rewards</h3>
+          <span class="rewards-tier-badge" id="rewards-modal-tier-tag">Checking...</span>
+        </div>
+        <button class="tier-modal-close" id="rewards-modal-close">&times;</button>
+      </div>
+
+      <div class="tier-modal-body">
+        <p class="modal-subtext">
+          On-chain $JEVBRAIN holding unlocks hourly LLM credits. Accumulate, transfer peer-to-peer, or redeem for SOL rewards under an immutable zero-private-key accounting framework.
+        </p>
+
+        <!-- CA & Network Bar -->
+        <div class="modal-ca-bar">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;">SOL MINT:</span>
+            <span class="ca-text" style="font-size:10.5px;">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</span>
+          </div>
+          <button id="rewards-copy-ca" class="btn-ghost-sm" style="padding:2px 6px;font-size:10px;">Copy</button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="router-tier-tabs" id="rewards-tabs" style="margin-bottom:12px;">
+          <button class="tier-tab-btn active" data-tab="overview">Overview &amp; Credits</button>
+          <button class="tier-tab-btn" data-tab="transfer">P2P Transfer</button>
+          <button class="tier-tab-btn" data-tab="redeem">Burn Credits for SOL (5% Pool)</button>
+          <button class="tier-tab-btn" data-tab="history">Ledger History</button>
+          <button class="tier-tab-btn" data-tab="operator">Operator Portal</button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div class="rewards-tab-pane" id="pane-rewards-overview">
+          <div class="rewards-metric-grid">
+            <div class="rewards-metric-card">
+              <div class="rewards-card-label">Available Credits</div>
+              <div class="rewards-card-val" id="hub-avail-credits" style="color:var(--accent-cyan);">0</div>
+            </div>
+            <div class="rewards-metric-card">
+              <div class="rewards-card-label">Accrual Rate</div>
+              <div class="rewards-card-val" id="hub-rate-credits">0 <span style="font-size:10px;font-weight:normal;color:var(--text-tertiary);">/hr</span></div>
+            </div>
+            <div class="rewards-metric-card">
+              <div class="rewards-card-label">Total Earned</div>
+              <div class="rewards-card-val" id="hub-earned-credits">0</div>
+            </div>
+            <div class="rewards-metric-card">
+              <div class="rewards-card-label">Used / Burned</div>
+              <div class="rewards-card-val" id="hub-used-credits">0</div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;color:var(--text-secondary);">Connected Solana Wallet</span>
+              <span style="font-size:10px;color:var(--text-tertiary);font-family:var(--font-mono);" id="hub-wallet-addr">Disconnected</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;color:var(--text-secondary);">Verified On-Chain Holding</span>
+              <span style="font-size:11.5px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary);" id="hub-token-balance">0 $JEVBRAIN</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;color:var(--text-secondary);">Live $JEVBRAIN Market Cap</span>
+              <span style="font-size:11.5px;font-weight:600;font-family:var(--font-mono);color:#10b981;" id="hub-live-mc">$0</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:var(--text-secondary);">Holding Tier (Dynamic)</span>
+              <span style="font-size:11px;font-weight:600;color:#a855f7;" id="hub-tier-name">Tier 0 (Unranked)</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;">
+            <button class="btn-dark-primary" id="btn-trigger-accrual" style="flex:1;">
+              ⚡ Accrue Credits Now
+            </button>
+            <button class="btn-ghost-sm" id="btn-refresh-eligibility" style="padding:6px 12px;">
+              ↻ Refresh Holding
+            </button>
+          </div>
+          <div id="hub-action-status" style="font-size:11px;margin-top:6px;color:var(--text-secondary);text-align:center;"></div>
+        </div>
+
+        <!-- TAB 2: P2P TRANSFER -->
+        <div class="rewards-tab-pane" id="pane-rewards-transfer" style="display:none;">
+          <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:12px;">
+            Transfer credits directly to any Solana wallet address. Debited instantly from your available balance.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="display:block;font-size:10.5px;color:var(--text-tertiary);text-transform:uppercase;margin-bottom:3px;font-weight:600;">Recipient Solana Address (Base58)</label>
+              <input type="text" id="transfer-to-address" class="clean-search-input" placeholder="e.g. 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU" style="font-family:var(--font-mono);font-size:11.5px;width:100%;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:10.5px;color:var(--text-tertiary);text-transform:uppercase;margin-bottom:3px;font-weight:600;">Credit Amount</label>
+              <input type="number" id="transfer-credit-amount" class="clean-search-input" placeholder="Enter integer credits (e.g. 100)" min="1" style="font-family:var(--font-mono);font-size:11.5px;width:100%;" />
+            </div>
+          </div>
+          <button class="btn-dark-primary" id="btn-submit-transfer" style="width:100%;">
+            Confirm &amp; Transfer Credits
+          </button>
+          <div id="transfer-status-msg" style="font-size:11px;margin-top:8px;text-align:center;"></div>
+        </div>
+
+        <!-- TAB 3: BURN FOR SOL (5% REWARD POOL WITH DYNAMIC MC SCALING) -->
+        <div class="rewards-tab-pane" id="pane-rewards-redeem" style="display:none;">
+          <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:10px;">
+            Burn your accumulated credits to receive SOL directly from the <strong>5% Community Trading Fee Pool</strong>. Reward rates scale dynamically with live $JEVBRAIN Market Cap.
+          </p>
+
+          <!-- Live Pool Status Box -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+            <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;">Live Market Cap</div>
+              <div style="font-size:13px;font-weight:700;color:#10b981;font-family:var(--font-mono);" id="burn-live-mc">$0</div>
+            </div>
+            <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;">5% Available Pool</div>
+              <div style="font-size:13px;font-weight:700;color:var(--accent-cyan);font-family:var(--font-mono);" id="burn-live-pool">0.0000 SOL</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <label style="font-size:10.5px;color:var(--text-tertiary);text-transform:uppercase;font-weight:600;">Credits to Burn</label>
+              <span style="font-size:10px;color:var(--text-secondary);" id="burn-max-hint">Available: 0</span>
+            </div>
+            <input type="number" id="redeem-credit-input" class="clean-search-input" placeholder="e.g. 100" min="10" style="font-family:var(--font-mono);font-size:12px;width:100%;margin-bottom:6px;" />
+            <input type="range" id="burn-credit-slider" min="10" max="10000" value="100" step="10" style="width:100%;accent-color:var(--accent-cyan);" />
+          </div>
+
+          <!-- Real-time Financial Breakdown -->
+          <div class="rewards-split-box">
+            <div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--text-tertiary);letter-spacing:0.5px;margin-bottom:6px;">Live Dynamic Estimate</div>
+            <div class="split-row">
+              <span style="color:var(--text-secondary);">Estimated SOL Payout:</span>
+              <span style="font-family:var(--font-mono);color:#10b981;font-weight:700;font-size:13px;" id="redeem-preview-payout">0.0000 SOL</span>
+            </div>
+            <div class="split-row" style="margin-top:4px;">
+              <span style="color:var(--text-secondary);">Current Dynamic Rate:</span>
+              <span style="font-family:var(--font-mono);color:var(--text-primary);" id="redeem-preview-rate">1 credit = ~0.000005 SOL</span>
+            </div>
+          </div>
+
+          <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:5px;padding:8px 10px;font-size:10.5px;color:var(--text-secondary);line-height:1.4;margin-bottom:12px;">
+            <strong style="color:#10b981;">Automated On-Chain Payout:</strong> 95% of token fees are permanently secured in the project treasury, while 100% of this burn reward is transferred directly from the 5% community pool into your connected wallet.
+          </div>
+
+          <button class="btn-dark-primary" id="btn-submit-redeem" style="width:100%;padding:9px;font-weight:600;">
+            🔥 Burn Credits &amp; Claim SOL Reward
+          </button>
+          <div id="redeem-status-msg" style="font-size:11px;margin-top:8px;text-align:center;"></div>
+        </div>
+
+        <!-- TAB 4: LEDGER HISTORY -->
+        <div class="rewards-tab-pane" id="pane-rewards-history" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Immutable Account Ledger</span>
+            <button class="btn-ghost-sm" id="btn-refresh-history" style="padding:2px 8px;font-size:10px;">↻ Refresh</button>
+          </div>
+          <div class="rewards-table-wrapper">
+            <table class="rewards-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Delta</th>
+                  <th>Available</th>
+                  <th>Reference / Link</th>
+                </tr>
+              </thead>
+              <tbody id="rewards-ledger-tbody">
+                <tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:14px;">No ledger entries yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 5: OPERATOR PORTAL -->
+        <div class="rewards-tab-pane" id="pane-rewards-operator" style="display:none;">
+          <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">
+            Operator Confirmation Desk. Manual 95% transfers executed via cold storage are verified on-chain and marked fulfilled here.
+          </p>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <input type="password" id="operator-secret-input" class="clean-search-input" placeholder="Operator Secret (Optional if local session)" style="flex:1;font-size:11px;" />
+            <button class="btn-ghost-sm" id="btn-load-operator-claims" style="padding:4px 10px;font-size:11px;">Load Claims</button>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin-bottom:4px;">Pending Manual Transfers (95% Payouts)</div>
+            <div id="operator-claims-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border-subtle);border-radius:4px;padding:6px;font-size:11px;background:var(--bg-subtle);">
+              <div style="color:var(--text-tertiary);text-align:center;padding:6px;">No pending manual transfers</div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+            <input type="text" id="operator-claim-id-input" class="clean-search-input" placeholder="Claim ID (e.g. claim-xyz)" style="font-size:11px;font-family:var(--font-mono);" />
+            <input type="text" id="operator-sig-input" class="clean-search-input" placeholder="Solana Transaction Signature (64-byte Base58)" style="font-size:11px;font-family:var(--font-mono);" />
+            <button class="btn-dark-primary" id="btn-confirm-operator-tx" style="padding:6px;font-size:11px;">
+              Verify &amp; Confirm Manual On-Chain Transfer
+            </button>
+          </div>
+          <div id="operator-status-msg" style="font-size:11px;text-align:center;"></div>
+        </div>
+
       </div>
     </div>
   </div>

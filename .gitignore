@@ -24,6 +24,13 @@ Thumbs.db
 .idea/
 scratch/
 data/jev-state.json
+data/jev-rewards.json
 data/*.test.json
+data/*.db
+data/*.db-wal
+data/*.db-shm
+*.db
+*.db-wal
+*.db-shm
 
 .vercel

@@ -7,7 +7,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
+  to = "https://jevbrain-backend-production.up.railway.app/api/:splat"
   status = 200
   force = true
 

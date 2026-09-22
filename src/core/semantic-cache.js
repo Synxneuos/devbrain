@@ -32,16 +32,19 @@ export class SemanticCache {
   }
 
   /**
-   * Search for exact or semantic hit
+   * Search for exact or semantic hit scoped to walletAddress
    */
-  lookup(query) {
+  lookup(query, walletAddress = '') {
     const start = performance.now();
     const clean = (query || '').trim().toLowerCase();
     if (!clean) return null;
 
+    const walletPrefix = walletAddress ? walletAddress.toLowerCase() + ':' : '';
+    const key = walletPrefix + clean;
+
     // 1. Exact Match Check (<0.05ms)
-    if (this.cache.has(clean)) {
-      const entry = this.cache.get(clean);
+    if (this.cache.has(key)) {
+      const entry = this.cache.get(key);
       entry.hits++;
       this.stats.hits++;
       this.stats.tokensSavedEstimate += 800; // approx 800 tokens saved
@@ -55,12 +58,13 @@ export class SemanticCache {
       };
     }
 
-    // 2. Semantic N-Gram Similarity Check (<0.3ms)
+    // 2. Semantic N-Gram Similarity Check within same wallet
     const queryTokens = this.tokenize(clean);
     let bestMatch = null;
     let highestSim = 0;
 
-    for (const [cachedQuery, entry] of this.cache.entries()) {
+    for (const [cachedKey, entry] of this.cache.entries()) {
+      if (walletAddress && !cachedKey.startsWith(walletPrefix)) continue;
       const cachedTokens = entry.tokens;
       const sim = this.calculateSimilarity(queryTokens, cachedTokens);
       if (sim > highestSim) {
@@ -76,10 +80,10 @@ export class SemanticCache {
       const latencyMs = Math.round((performance.now() - start) * 100) / 100;
       return {
         ...bestMatch,
-        matchType: 'SEMANTIC_CACHE',
+        matchType: 'SEMANTIC_SIMILARITY',
         similarity: Math.round(highestSim * 100) / 100,
-        latencyMs: Math.max(0.1, latencyMs),
-        dollarsSaved: 0.020
+        latencyMs: Math.max(0.2, latencyMs),
+        dollarsSaved: 0.015
       };
     }
 
@@ -88,23 +92,24 @@ export class SemanticCache {
   }
 
   /**
-   * Store query response in cache
+   * Save response to cache with FIFO eviction, scoped to walletAddress
    */
-  store(query, response, modelName = 'Jev Brain') {
+  store(query, response, modelName, walletAddress = '') {
     const clean = (query || '').trim().toLowerCase();
-    if (!clean || response.length < 5) return;
+    if (!clean || !response) return;
+
+    const walletPrefix = walletAddress ? walletAddress.toLowerCase() + ':' : '';
+    const key = walletPrefix + clean;
 
     if (this.cache.size >= this.maxSize) {
-      // Evict oldest entry
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
     }
 
-    this.cache.set(clean, {
-      query: clean,
-      tokens: this.tokenize(clean),
+    this.cache.set(key, {
       response,
       modelName,
+      tokens: this.tokenize(clean),
       timestamp: Date.now(),
       hits: 0
     });

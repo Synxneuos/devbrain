@@ -23,6 +23,10 @@ export const OPENROUTER_MODELS = {
 
 const BASELINE_UNROUTED_COST = 0.020; // $0.02 standard baseline cost per query
 
+// Hard completion cap enforced on every OpenRouter call so the server can
+// pre-estimate the maximum credit cost BEFORE running inference (B-9 fix).
+export const CHAT_MAX_TOKENS = 512;
+
 export class OpenRouterClient {
   constructor(apiKey = '') {
     this.apiKey = apiKey || process.env.OPENROUTER_API_KEY || '';
@@ -65,15 +69,15 @@ export class OpenRouterClient {
   /**
    * Execute chat query through OpenRouter with 95% Token Optimization
    */
-  async executeChat(prompt, userTier, requestedModel = 'auto') {
+  async executeChat(prompt, userTier, requestedModel = 'auto', walletAddress = null) {
     const start = performance.now();
 
     // 1. Adaptive Prompt Compression (Prunes 35-50% token bloat)
     const { compressed } = compressPrompt(prompt);
     const effectivePrompt = compressed || prompt;
 
-    // 2. Level 0: Semantic Cache Hit (0.1ms latency, 100% token savings)
-    const cached = this.semanticCache.lookup(effectivePrompt);
+    // 2. Level 0: Semantic Cache Hit scoped to wallet (0.1ms latency, 100% token savings)
+    const cached = this.semanticCache.lookup(effectivePrompt, walletAddress);
     if (cached) {
       return {
         response: cached.response,
@@ -85,7 +89,10 @@ export class OpenRouterClient {
         latencyMs: cached.latencyMs,
         userTierName: userTier.tierName,
         userBagValue: userTier.bagUsdValue,
-        isCacheHit: true
+        isCacheHit: true,
+        isSuccess: true,
+        isMaintenance: false,
+        usage: { total_tokens: 0, prompt_tokens: 0, completion_tokens: 0 }
       };
     }
 
@@ -93,10 +100,19 @@ export class OpenRouterClient {
     const modelMeta = OPENROUTER_MODELS[model] || { name: model, cost: 0.001, tier: 'basic' };
 
     let content = '';
+    let isSuccess = false;
+    let isMaintenance = false;
+    let usage = null;
 
     // In test environment, bypass external network requests for speed and deterministic testing
     if (process.env.NODE_ENV === 'test') {
       content = `[TEST] Triaged to ${modelMeta.name}: ${effectivePrompt}`;
+      isSuccess = true;
+      usage = {
+        prompt_tokens: Math.max(1, Math.ceil(effectivePrompt.length / 4)),
+        completion_tokens: Math.max(1, Math.ceil(content.length / 4)),
+        total_tokens: Math.max(2, Math.ceil(effectivePrompt.length / 4) + Math.ceil(content.length / 4))
+      };
     } else if (this.apiKey && this.apiKey.startsWith('sk-or-')) {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -109,6 +125,7 @@ export class OpenRouterClient {
           },
           body: JSON.stringify({
             model: model,
+            max_tokens: CHAT_MAX_TOKENS,
             messages: [
               {
                 role: 'system',
@@ -126,21 +143,27 @@ export class OpenRouterClient {
         if (res.ok) {
           const json = await res.json();
           content = json.choices?.[0]?.message?.content || '';
+          usage = json.usage || null;
+          isSuccess = true;
         } else {
           const errData = await res.json().catch(() => ({}));
           content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ⚠️ **OpenRouter Notice (${res.status}):** ${errData.error?.message || 'Upstream service response'}. Please verify your \`OPENROUTER_API_KEY\` credits and validity.\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
+          isSuccess = false;
         }
       } catch (err) {
         content = `⚡ **Jev Brain Engine**\n\nYour prompt was processed and routed to **${modelMeta.name}** via the **${userTier?.tierName || 'Community'}** tier.\n\n> ⚠️ **Network Notice:** Upstream connection could not be established (${err.message}).\n\n*Heuristic routing and Agent Warden safety checks completed in ${(performance.now() - start).toFixed(1)}ms.*`;
+        isSuccess = false;
       }
     } else {
       // Graceful maintenance notice when live API key is empty / during upgrade
       content = 'No models found. Backend infrastructure upgrade is currently undergoing maintenance.';
+      isSuccess = false;
+      isMaintenance = true;
     }
 
-    // Store in semantic cache for instant future reuse
-    if (content) {
-      this.semanticCache.store(effectivePrompt, content, modelMeta.name);
+    // Only store in semantic cache if real AI response succeeded
+    if (isSuccess && content) {
+      this.semanticCache.store(effectivePrompt, content, modelMeta.name, walletAddress);
     }
 
     const latencyMs = Math.round((performance.now() - start) * 100) / 100;
@@ -156,11 +179,14 @@ export class OpenRouterClient {
       latencyMs: Math.max(0.4, latencyMs),
       userTierName: userTier.tierName,
       userBagValue: userTier.bagUsdValue,
-      isCacheHit: false
+      isCacheHit: false,
+      isSuccess,
+      isMaintenance,
+      usage
     };
   }
 
-  async streamChat(prompt, userTier, requestedModel = 'auto', onToken) {
+  async streamChat(prompt, userTier, requestedModel = 'auto', onToken, walletAddress = null) {
     if (!this.apiKey || !this.apiKey.startsWith('sk-or-')) {
       throw new Error('OPENROUTER_API_KEY is not configured.');
     }
@@ -179,6 +205,8 @@ export class OpenRouterClient {
       body: JSON.stringify({
         model,
         stream: true,
+        max_tokens: CHAT_MAX_TOKENS,
+        stream_options: { include_usage: true },
         messages: [
           { role: 'system', content: 'You are Jev Brain, a helpful AI workspace assistant.' },
           { role: 'user', content: effectivePrompt }
@@ -194,6 +222,7 @@ export class OpenRouterClient {
     const decoder = new TextDecoder();
     let buffer = '';
     let fullResponse = '';
+    let usage = null;
     const consume = async (chunk) => {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split('\n');
@@ -203,7 +232,9 @@ export class OpenRouterClient {
         const payload = line.slice(5).trim();
         if (payload === '[DONE]') continue;
         try {
-          const token = JSON.parse(payload).choices?.[0]?.delta?.content || '';
+          const parsed = JSON.parse(payload);
+          if (parsed.usage) usage = parsed.usage;
+          const token = parsed.choices?.[0]?.delta?.content || '';
           if (token) { fullResponse += token; await onToken(token); }
         } catch { /* ignore incomplete provider frames */ }
       }
@@ -213,13 +244,24 @@ export class OpenRouterClient {
       if (done) break;
       await consume(value);
     }
+    if (fullResponse && walletAddress) {
+      this.semanticCache.store(effectivePrompt, fullResponse, OPENROUTER_MODELS[model]?.name || model, walletAddress);
+    }
     return {
       response: fullResponse,
       model,
       modelName: OPENROUTER_MODELS[model]?.name || model,
       tier: OPENROUTER_MODELS[model]?.tier || 'basic',
       latencyMs: Math.max(0.4, Math.round((performance.now() - started) * 100) / 100),
-      dollarsSaved: Math.max(0, BASELINE_UNROUTED_COST - (OPENROUTER_MODELS[model]?.cost || 0.001))
+      dollarsSaved: Math.max(0, BASELINE_UNROUTED_COST - (OPENROUTER_MODELS[model]?.cost || 0.001)),
+      isSuccess: true,
+      isMaintenance: false,
+      isCacheHit: false,
+      usage: usage || {
+        prompt_tokens: Math.max(1, Math.ceil(effectivePrompt.length / 4)),
+        completion_tokens: Math.max(1, Math.ceil(fullResponse.length / 4)),
+        total_tokens: Math.max(2, Math.ceil(effectivePrompt.length / 4) + Math.ceil(fullResponse.length / 4))
+      }
     };
   }
 

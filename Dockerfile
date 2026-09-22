@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy application source code
 COPY . .
@@ -15,7 +15,6 @@ COPY . .
 EXPOSE 3333
 
 ENV NODE_ENV=production
-ENV PORT=3333
 
 # Start the Jev Brain Web Daemon & Discord Sentinel Bot
-CMD ["node", "bin/brain.js", "serve", "--port", "3333"]
+CMD ["npm", "start"]

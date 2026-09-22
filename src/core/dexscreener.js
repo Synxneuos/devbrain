@@ -80,12 +80,21 @@ export async function fetchLiveMarketData(contractAddress = '', chain = 'solana'
     console.error('DexScreener fetch warning:', err.message);
   }
 
-  // Fallback if network issue
-  return cachedMarketData || {
+  // Fallback if network issue: preserve last known live cached market cap
+  if (cachedMarketData) {
+    return { ...cachedMarketData, live: false, source: 'Cached Live Feed (Offline Fallback)' };
+  }
+
+  return {
     live: false,
     contractAddress: ca,
+    symbol: 'jevbrain',
+    name: 'Jev Brain',
+    chain,
     priceUsd: 0.0001,
     marketCap: 100000,
+    fdv: 100000,
+    liquidityUsd: 25000,
     source: 'Fallback Baseline'
   };
 }
