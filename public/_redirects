@@ -1,2 +1,5 @@
-/api/*  https://jevbrain-backend-production.up.railway.app/api/:splat  200!
-/*      /index.html                        200
+/api/*              https://jevbrain-backend-production.up.railway.app/api/:splat  200!
+/burns              /rewards-tracker.html                                          200
+/rewards-tracker    /rewards-tracker.html                                          200
+/transparency       /rewards-tracker.html                                          200
+/*                  /index.html                                                    200

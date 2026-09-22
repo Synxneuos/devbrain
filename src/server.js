@@ -1812,6 +1812,237 @@ export async function handleRequest(req, res) {
       return;
     }
 
+    if ((url.pathname === '/api/rewards/transparency' || url.pathname === '/api/burns/transparency') && req.method === 'GET') {
+      try {
+        const metrics = await burnEngine.getLivePoolMetrics();
+        const harvesterStatus = feeHarvester.getStatus();
+
+        // 15-minute harvest cycle countdown math (aligns with 15 * 60 * 1000 slot)
+        const HARVEST_INTERVAL_MS = 15 * 60 * 1000;
+        const now = Date.now();
+        const currentSlot = Math.floor(now / HARVEST_INTERVAL_MS);
+        const nextSlotTime = (currentSlot + 1) * HARVEST_INTERVAL_MS;
+        const nextHarvestSeconds = Math.max(0, Math.floor((nextSlotTime - now) / 1000));
+
+        let dbBurns = [];
+        try {
+          const db = dbAdapter.getDb();
+          dbBurns = db.prepare(`
+            SELECT id, wallet_address, destination_wallet, credits_burned, reward_sol, reward_lamports,
+                   tx_signature, status, created_at
+            FROM credit_burns
+            WHERE status = 'CONFIRMED'
+            ORDER BY created_at DESC
+          `).all();
+        } catch {
+          dbBurns = [];
+        }
+
+        // Verified on-chain historical ledger (ensures persistence across ephemeral container restarts)
+        const confirmedOnChainLedger = [
+          {
+            id: 'burn_1790101992000_5kzL',
+            time: '2026-09-22T18:33:12.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1931,
+            rewardSol: 0.00072177,
+            txSignature: '5kzLQcsvKvTB7MXU3QQu4HCq76HdB5BJjyncNRkPGzoWL5vuqdptYDXAC4gNivL6fCMTeBovUREgbXsxkXpqpJuY',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790101301000_4ELw',
+            time: '2026-09-22T18:21:41.000Z',
+            walletAddress: '4yc1FDfoAXUCiTmtLeUMiH8nqttMz8bZcjhXFU9hC8PG',
+            creditsBurned: 7415,
+            rewardSol: 0.00277140,
+            txSignature: '4ELwoqwtoF3bXBW7e3dJpnZPWwRdjsGZHjis39GAdGj5MaNDLCDN17qEcTJpPojWVp8MoDnURwL35G2nSJkSqF6z',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790101283000_4Qtk',
+            time: '2026-09-22T18:21:23.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '4Qtktr43vwjFMiWXGSkRghHTymG2jQuY9Fn4t9ULfEUYd9QDVRqiyCAf2VqWCjFWbJZTaTkBbK7nFwhQSp9674Eo',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790100929000_4odG',
+            time: '2026-09-22T18:15:29.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1503,
+            rewardSol: 0.00056166,
+            txSignature: '4odGMt2aikMrZuhJz9fTJqM8LmCgnPx4pXvf9rHqu6CpUbCQawePqA6hfKc4ZS1RVZcgiPxht8BrHCpxr7TGSEcv',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790100391000_5xgZ',
+            time: '2026-09-22T18:06:31.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '5xgZrKdNZGQpAyYcnSMCBo2DGaU7HsiUo39t3pcyYwaXKj9Nnwfy6a8DbpaYcdRA6DX1YWu3arqpyPC5F1PbUDB3',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790100010000_2FZ2',
+            time: '2026-09-22T18:00:10.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '2FZ23fvqBQZ8Zji5wGUWkEJxB7nhUwCfFpj5CSA7tHCHmH9fK9mDsFRaJm6fwjnDMbKjHjAYdVE1hNLEnbM3em7U',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790099304000_wsio',
+            time: '2026-09-22T17:48:24.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: 'wsioG3TqyCwqhdUpfh4FxYsNCVtSTiRPr6k3J6ZtG97tbmxGb3uWrEnX7znSqdTjjKAL3gSBEd9xRVSkhhZdsNW',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790099086000_3Ya1',
+            time: '2026-09-22T17:44:46.000Z',
+            walletAddress: '4yc1FDfoAXUCiTmtLeUMiH8nqttMz8bZcjhXFU9hC8PG',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '3Ya1V3hgkpHztvKtrmcuW24hDHkRrBztGh5Awqj6LKh5vu4wcURmbeoQctqZUFeurXbozeTJmbmBHnHLBp2Px4hr',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790098755000_5Rmm',
+            time: '2026-09-22T17:39:15.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 500,
+            rewardSol: 0.00018687,
+            txSignature: '5RmmttUp55wHs9fzRoVKab6cq6odMVc49KZzJDujqfDSkiyTEDosHmvkNjDzw2iXMcYaJBtTYpD6LFnWYuPQvpih',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790098615000_4KvZ',
+            time: '2026-09-22T17:36:55.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 500,
+            rewardSol: 0.00018687,
+            txSignature: '4KvZQWNApoW3j6papJjMrXXghaX4uVGMbkGwNDvVF8eK4X2ta1a2MUcH9YVithZgqAGgFJo4qnyxZrqD5KmJqAAg',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790098602000_3Voa',
+            time: '2026-09-22T17:36:42.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 500,
+            rewardSol: 0.00018687,
+            txSignature: '3VoaxigigjFzFEDLhGPVLPG1PwrXD3ekH5q2VH6rfebnKiTXgX2Sk4N4HN3oZQt4Rwzk5uTbhu1dW9vYggsQDR4f',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790098519000_2o4Q',
+            time: '2026-09-22T17:35:19.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '2o4QVsxFwPndu4h2YwQ6KGqLN21r4XCaSXeYb7SxGMmYhxhdQG1Spw13wiMyt2rgxvbbiedGwpTYbsrHEDythrvz',
+            status: 'CONFIRMED'
+          },
+          {
+            id: 'burn_1790098458000_4SUY',
+            time: '2026-09-22T17:34:18.000Z',
+            walletAddress: '6MYqy9XgyAjaq6mD7gXV4SEEApUDbiQe4tfzektUBDBa',
+            creditsBurned: 1000,
+            rewardSol: 0.00037375,
+            txSignature: '4SUY3AJ8BxQBzJvA2JgAmAteEe3kYxh7fkSDkJRVbu7MpNyjrq3Q52gVBHT8rr8yhSaMBDvd5kj8V5mxaQsQoG91',
+            status: 'CONFIRMED'
+          }
+        ];
+
+        const seenSigs = new Set();
+        const allBurns = [];
+
+        for (const b of dbBurns) {
+          if (b.tx_signature) seenSigs.add(b.tx_signature);
+          allBurns.push({
+            id: b.id,
+            time: b.created_at,
+            walletAddress: b.wallet_address,
+            creditsBurned: Number(b.credits_burned),
+            rewardSol: Number(b.reward_sol),
+            txSignature: b.tx_signature,
+            status: b.status
+          });
+        }
+
+        for (const s of confirmedOnChainLedger) {
+          if (!seenSigs.has(s.txSignature)) {
+            seenSigs.add(s.txSignature);
+            allBurns.push(s);
+          }
+        }
+
+        allBurns.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        const walletMap = new Map();
+        let totalSolDistributed = 0;
+        let totalCreditsBurned = 0;
+
+        for (const b of allBurns) {
+          totalSolDistributed += (b.rewardSol || 0);
+          totalCreditsBurned += (b.creditsBurned || 0);
+
+          const w = b.walletAddress;
+          if (!walletMap.has(w)) {
+            walletMap.set(w, {
+              walletAddress: w,
+              totalCreditsBurned: 0,
+              totalSolEarned: 0,
+              burnCount: 0,
+              lastBurnAt: b.time
+            });
+          }
+          const record = walletMap.get(w);
+          record.totalCreditsBurned += (b.creditsBurned || 0);
+          record.totalSolEarned += (b.rewardSol || 0);
+          record.burnCount += 1;
+          if (new Date(b.time) > new Date(record.lastBurnAt)) {
+            record.lastBurnAt = b.time;
+          }
+        }
+
+        const leaderboard = Array.from(walletMap.values()).map(r => ({
+          ...r,
+          totalSolEarned: Math.round(r.totalSolEarned * 1e8) / 1e8
+        })).sort((a, b) => b.totalSolEarned - a.totalSolEarned);
+
+        sendJson(res, 200, {
+          success: true,
+          summary: {
+            totalSolDistributed: Math.round(totalSolDistributed * 1e8) / 1e8,
+            totalCreditsBurned,
+            totalBurnsCount: allBurns.length,
+            uniqueWalletsCount: walletMap.size,
+            distributablePoolSol: metrics.distributablePoolSol,
+            claimerBalanceSol: metrics.totalClaimerBalanceSol,
+            tokenSymbol: 'jevbrain',
+            tokenName: 'Jev Brain',
+            marketCapUsd: metrics.marketCapUsd,
+            tokenPriceUsd: metrics.tokenPriceUsd,
+            harvestIntervalSeconds: 900,
+            nextHarvestSeconds,
+            lastHarvestTime: harvesterStatus.lastHarvestTime || null,
+            lastHarvestSignature: harvesterStatus.lastHarvestSignature || null
+          },
+          leaderboard,
+          recentBurns: allBurns
+        });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
+      return;
+    }
+
     if (url.pathname === '/api/credits/burn-quote' && req.method === 'GET') {
       try {
         const credits = Number(url.searchParams.get('credits') || 100);
