@@ -624,8 +624,13 @@
             return;
           }
 
-          const resp = await provider.connect();
-          const address = resp.publicKey.toString();
+          let address;
+          if (provider.isConnected && provider.publicKey) {
+            address = provider.publicKey.toString();
+          } else {
+            const resp = await provider.connect();
+            address = (resp?.publicKey || provider.publicKey).toString();
+          }
           currentSolanaAddress = address;
 
           signPhantomBtn.innerHTML = 'Fetching Nonce Challenge...';
@@ -637,7 +642,12 @@
 
           signPhantomBtn.innerHTML = 'Awaiting Signature in Phantom...';
           const encodedMsg = new TextEncoder().encode(nonceData.message);
-          const signed = await provider.signMessage(encodedMsg, 'utf8');
+          let signed;
+          try {
+            signed = await provider.signMessage(encodedMsg, 'utf8');
+          } catch (_signErr) {
+            signed = await provider.signMessage(encodedMsg);
+          }
           
           // Base58 encode signature
           const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

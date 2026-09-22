@@ -345,6 +345,83 @@ async function connectMetaMaskWallet() {
 }
 
 // ============================================
+// SLEEK NON-BLOCKING IN-APP TOAST NOTIFICATION
+// ============================================
+function showNotification(message, type = 'info') {
+  let container = document.getElementById('app-notification-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'app-notification-toast-container';
+    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999999;display:flex;flex-direction:column;gap:10px;max-width:420px;pointer-events:none;';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  const bg = type === 'error' ? '#1e111a' : type === 'success' ? '#0f291e' : '#141e2e';
+  const border = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#00f0ff';
+  const textCol = type === 'error' ? '#fca5a5' : type === 'success' ? '#6ee7b7' : '#93c5fd';
+  const icon = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+
+  toast.style.cssText = `
+    background: ${bg};
+    border: 1px solid ${border};
+    color: #f1f5f9;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 12px ${border}33;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: all 0.25s ease-out;
+    pointer-events: auto;
+  `;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.style.cssText = 'display:flex;align-items:center;gap:10px;word-break:break-word;line-height:1.4;';
+  
+  const iconSpan = document.createElement('span');
+  iconSpan.textContent = icon;
+  msgDiv.appendChild(iconSpan);
+
+  const textSpan = document.createElement('span');
+  textSpan.textContent = message;
+  textSpan.style.color = textCol;
+  msgDiv.appendChild(textSpan);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.style.cssText = 'background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;margin-left:8px;';
+  closeBtn.onmouseover = () => { closeBtn.style.color = '#fff'; };
+  closeBtn.onmouseout = () => { closeBtn.style.color = '#94a3b8'; };
+
+  function removeToast() {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(16px)';
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 250);
+  }
+
+  closeBtn.onclick = removeToast;
+
+  toast.appendChild(msgDiv);
+  toast.appendChild(closeBtn);
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+
+  setTimeout(removeToast, 4500);
+}
+
+// ============================================
 // PHANTOM (SOLANA) WALLET & ON-CHAIN HOLDER AUTHENTICATION
 // ============================================
 async function connectSolanaWallet() {
@@ -353,10 +430,8 @@ async function connectSolanaWallet() {
     : (window.solana?.isPhantom ? window.solana : window.solana);
 
   if (!solana) {
-    const install = confirm('Phantom wallet is required for Solana authentication.\n\nClick OK to visit https://phantom.app/ and install Phantom.');
-    if (install) {
-      window.open('https://phantom.app/', '_blank');
-    }
+    showNotification('Phantom wallet is required for Solana authentication. Redirecting to phantom.app...', 'info');
+    setTimeout(() => window.open('https://phantom.app/', '_blank'), 600);
     return;
   }
 
@@ -381,8 +456,13 @@ async function connectSolanaWallet() {
       btn.disabled = true;
     }
 
-    const resp = await solana.connect();
-    const pubkey = resp.publicKey.toString();
+    let pubkey;
+    if (solana.isConnected && solana.publicKey) {
+      pubkey = solana.publicKey.toString();
+    } else {
+      const resp = await solana.connect();
+      pubkey = (resp?.publicKey || solana.publicKey).toString();
+    }
 
     if (btn) {
       btn.innerHTML = `
@@ -403,7 +483,12 @@ async function connectSolanaWallet() {
 
     // Step 2: Sign message using Solana Ed25519 standard
     const encoded = new TextEncoder().encode(message);
-    const signResult = await solana.signMessage(encoded, 'utf8');
+    let signResult;
+    try {
+      signResult = await solana.signMessage(encoded, 'utf8');
+    } catch (_signErr) {
+      signResult = await solana.signMessage(encoded);
+    }
     const rawSig = signResult.signature || signResult;
     const sigHex = Array.from(new Uint8Array(rawSig))
       .map(b => b.toString(16).padStart(2, '0'))
@@ -436,13 +521,14 @@ async function connectSolanaWallet() {
 
     // Step 4: Unlock UI and update state
     await onWalletAuthenticated(verifyData.address, verifyData.tokensHeld, verifyData.userTier);
+    showNotification(`Phantom verified! Tier: ${verifyData.userTier?.tierName || 'Holder'}`, 'success');
 
   } catch (err) {
     console.error('Solana wallet authentication error:', err);
     if (err.code === 4001) {
-      alert('Phantom request rejected by user.');
+      showNotification('Phantom request was cancelled by user.', 'info');
     } else {
-      alert('Solana Verification: ' + (err.message || err));
+      showNotification('Solana Verification: ' + (err.message || err), 'error');
     }
   } finally {
     if (btn) {

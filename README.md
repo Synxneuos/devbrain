@@ -8,6 +8,7 @@
 > **“Don’t think. Route. Don't crash. Ward.”**  
 > An ultra-fast (< 1ms), zero-heavy-weights safety firewall and router for AI agents, CI/CD pipelines, and LLM applications.
 
+[![Live DApp](https://img.shields.io/badge/Live%20DApp-jevbrain.world-00f0ff.svg?logo=googlechrome&logoColor=white)](https://jevbrain.world)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Jev%20Agent%20Warden-purple.svg?logo=github)](https://github.com/marketplace/actions/jev-agent-warden-ai-safety-ci-firewall)
 [![CI](https://github.com/Synxneuos/jevbrain/actions/workflows/jev-warden.yml/badge.svg)](https://github.com/Synxneuos/jevbrain/actions)
 [![Solana CA](https://img.shields.io/badge/Solana%20CA-AxwSUU...pump-14F195?logo=solana&logoColor=white)](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump)
@@ -17,15 +18,20 @@
 
 <br/>
 
+### 🌐 Official Website & Live DApp
+👉 **[https://jevbrain.world](https://jevbrain.world)**
+
+<br/>
+
 ### 🪙 Official Solana Contract Address (CA)
 ```text
 AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump
 ```
-[📊 Live Chart on DexScreener](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💊 Trade on Pump.fun](https://pump.fun/coin/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💬 Official Discord](https://discord.gg/yfvDARvRb)
+[🌐 Live DApp: jevbrain.world](https://jevbrain.world) • [📊 Live Chart on DexScreener](https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💊 Trade on Pump.fun](https://pump.fun/coin/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump) • [💬 Official Discord](https://discord.gg/yfvDARvRb)
 
 <br/>
 
-[Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics & CA](#-token-utility--contract-address)
+[Live DApp](https://jevbrain.world) • [Quickstart](#-30-second-integration-recipes) • [GitHub Action](#1--github-actions-ci-firewall-3-lines) • [SDK Wrapper](#2--universal-openai--anthropic-sdk-wrapper-1-line) • [Git Hook](#3--1-command-git-pre-commit-guard) • [Architecture](#-architecture) • [Benchmarks](#-benchmarks) • [Tokenomics & CA](#-token-utility--contract-address)
 
 </div>
 
@@ -222,7 +228,9 @@ npx jev-brain mobile inspect
 
 ## 🌐 Web Dashboard & REST API
 
-Launch the real-time Kanban decision dashboard, interactive Agent Warden test bench, and model matrix:
+**Official Live Web DApp:** [https://jevbrain.world](https://jevbrain.world)
+
+Launch the real-time Kanban decision dashboard, interactive Agent Warden test bench, and model matrix locally:
 
 ```bash
 npm start
