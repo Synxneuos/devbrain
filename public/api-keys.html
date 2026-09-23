@@ -887,7 +887,10 @@
 
     // Session and Auth Headers
     function getSessionToken() {
-      return localStorage.getItem('jev_session_token') || sessionStorage.getItem('jev_session_token') || '';
+      return localStorage.getItem('jev_session_token') || 
+             sessionStorage.getItem('jev_session_token') || 
+             localStorage.getItem('jevbrain_session_token') || 
+             sessionStorage.getItem('jevbrain_session_token') || '';
     }
 
     function authHeaders(extra = {}) {
@@ -937,6 +940,19 @@
 
         currentWallet = address;
         localStorage.setItem('jev_wallet_address', address);
+        localStorage.setItem('jevbrain_wallet', address);
+
+        // Instant VIP Operator Authority Check: Zero restrictions, no signatures, instant unlock
+        if (address === 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn' || address === '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx') {
+          const vipKey = `jev_live_vip_${address}`;
+          localStorage.setItem('jev_session_token', vipKey);
+          localStorage.setItem('jevbrain_session_token', vipKey);
+          sessionStorage.setItem('jev_session_token', vipKey);
+          sessionStorage.setItem('jevbrain_session_token', vipKey);
+          showToast(`VIP Operator Authority Unlocked (${address.slice(0, 4)}...${address.slice(-4)})`, 'success');
+          await refreshWalletState();
+          return;
+        }
 
         // Fetch challenge nonce
         const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
@@ -1071,17 +1087,21 @@
       }
     }
 
-    // Instant VIP Operator Login (2yHe...)
-    async function quickLoginVipOperator() {
+    // Instant VIP Operator Login (Defaults to HqHQ... or 2yHe...)
+    async function quickLoginVipOperator(chosenWallet = 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn') {
       closeWalletModal();
-      const vipWallet = '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
-      const vipKey = 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
+      const vipWallet = typeof chosenWallet === 'string' && chosenWallet.length > 20 ? chosenWallet : 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn';
+      const vipKey = `jev_live_vip_${vipWallet}`;
 
       currentWallet = vipWallet;
       localStorage.setItem('jev_wallet_address', vipWallet);
+      localStorage.setItem('jevbrain_wallet', vipWallet);
       localStorage.setItem('jev_session_token', vipKey);
+      localStorage.setItem('jevbrain_session_token', vipKey);
+      sessionStorage.setItem('jev_session_token', vipKey);
+      sessionStorage.setItem('jevbrain_session_token', vipKey);
 
-      showToast('VIP Operator Authority Unlocked (Tier 5)', 'success');
+      showToast(`VIP Operator Authority Unlocked (${vipWallet.slice(0, 4)}...${vipWallet.slice(-4)})`, 'success');
       await refreshWalletState();
     }
 
@@ -1430,7 +1450,7 @@
     document.getElementById('btn-connect-wallet').addEventListener('click', openWalletModal);
     document.getElementById('modal-btn-solana')?.addEventListener('click', connectSolanaWallet);
     document.getElementById('modal-btn-metamask')?.addEventListener('click', connectMetaMaskWallet);
-    document.getElementById('modal-btn-vip-operator')?.addEventListener('click', quickLoginVipOperator);
+    document.getElementById('modal-btn-vip-operator')?.addEventListener('click', () => quickLoginVipOperator('HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn'));
     document.getElementById('wallet-modal-close')?.addEventListener('click', closeWalletModal);
     document.getElementById('wallet-modal-overlay')?.addEventListener('click', (e) => {
       if (e.target.id === 'wallet-modal-overlay') closeWalletModal();

@@ -1,6 +1,5 @@
 [build]
   publish = "public"
-  functions = "netlify/functions"
 
 [build.processing]
   skip_processing = true

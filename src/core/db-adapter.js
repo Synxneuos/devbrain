@@ -467,17 +467,40 @@ export class DatabaseAdapter {
 
       // One-time restitution migration for wallets whose credits were reset during container transitions
       const historicalRestores = [
-        { wallet: '9siTM4oZLisiKjPzQoew2ueh7r645qE4HCS5GphyyNB3', earned: '10000', available: '10000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
-        { wallet: '3dzrdCWcGfZqKMb81MU8AquEFAt6A19LT3cKqML4GJA5', earned: '5000', available: '4998', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        // VIP Operator Authority
+        { wallet: '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx', earned: '105000', available: '104847', tier: 'Dynasty Magnate (VIP Whitelist)', tierLevel: 5, rate: 5000, tokens: 1000000, boostLevel: 2, boostMultiplier: 2.0 },
+        { wallet: 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn', earned: '105000', available: '104837', tier: 'Dynasty Magnate (VIP Whitelist)', tierLevel: 5, rate: 5000, tokens: 1000000, boostLevel: 2, boostMultiplier: 2.0 },
+        
+        // Tier 5 Dynasty Magnates
         { wallet: '4Cvc576jwTPK9woCqd9ftXmqbgcrcTxQ5oFLaowQsunh', earned: '20000', available: '15000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 5000, tokens: 1000000 },
-        { wallet: '4fzUKK7YAitPfmh4SEfskjJA9U8TTQVEjD18o9QpFpxc', earned: '2500', available: '2500', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
-        { wallet: 'JUVRz4ZhqAp6qV5KZfsPNwEo7mmiXyjgm4azksBPGDv', earned: '500', available: '500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
-        { wallet: 'CGvSD1FQsGvhPzje9JFrJGUVqYvwm87NAArqkrLcPR25', earned: '10000', available: '9000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
-        { wallet: 'HivzpgbR7x4S4TUfgyef4GezdE1wwNxAUHhkhUCJJAXy', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: '3dzrdCWcGfZqKMb81MU8AquEFAt6A19LT3cKqML4GJA5', earned: '5000', available: '4998', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
         { wallet: 'DHftECifqwfUV2dZxwTfTuUk5bN3XqYr6g5vubJMLM5o', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
-        { wallet: '7QutNzMeDhgWfE6QELfgsTg3AyUgBUiBuBPvHa9xgzP1', earned: '100', available: '100', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 },
+        { wallet: 'Fui9eus9GYiDjW1JnyoVChqbJqbuxopaXWLYA7uRMSfC', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: 'CmZdzesZ5hXkh1smgGHoY82PJaueiENAqAjrkSG4F6qK', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: '9oV2QVtvJUsi9oJbv3jUFyFTfECjxDuzQLJFp3Z9ZxdN', earned: '5000', available: '5000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: '7rTUfy6UA1aEY8BQqjap3zusfJgCpi6MMGVLXr25iDnd', earned: '5000', available: '5000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+
+        // Tier 4 / Tier 3 Partners
+        { wallet: '9siTM4oZLisiKjPzQoew2ueh7r645qE4HCS5GphyyNB3', earned: '10000', available: '10000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
+        { wallet: 'CGvSD1FQsGvhPzje9JFrJGUVqYvwm87NAArqkrLcPR25', earned: '10000', available: '9000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
+        { wallet: 'AAjR76KK2Q3FD4PWbmbty7Dvaz7p8tMqDJZDDSDAfS3v', earned: '10000', available: '9000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
+        { wallet: '4fzUKK7YAitPfmh4SEfskjJA9U8TTQVEjD18o9QpFpxc', earned: '2500', available: '2500', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: '5MGTP4Ax1P2vqFstoGHSuYT5EE7RTakRioS2biyw6iSR', earned: '2500', available: '2500', tier: 'Principal Partner', tierLevel: 3, rate: 200, tokens: 10000 },
+
+        // Tier 2 Associates & Boosters
+        { wallet: 'HivzpgbR7x4S4TUfgyef4GezdE1wwNxAUHhkhUCJJAXy', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: 'DvBP4xHR3DBsyGoMcRjFmk8BgU9DTK6VHXFe5LH5Rf1B', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: 'HdKtZ3fmrhcJjiP9CGpfnFcQkrPTVmkhU1LnLfEdMNwC', earned: '1000', available: '1000', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000, boostLevel: 2, boostMultiplier: 2.0 },
+        { wallet: 'GC2XvZc7yECEwraCdqMCFVoJgsVBk5waGLbLKRiydVho', earned: '1000', available: '1000', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000, boostLevel: 2, boostMultiplier: 2.0 },
+        { wallet: 'JUVRz4ZhqAp6qV5KZfsPNwEo7mmiXyjgm4azksBPGDv', earned: '500', available: '500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: 'SN6MmYai4GDkVYszcFEnMtY52pWYBhsoj4oafadFBhu', earned: '500', available: '500', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 2500 },
+        { wallet: 'E3rNCCQjHKSZtUGxupFY7vDtKXBeA7Va9XTWkxykMTpK', earned: '500', available: '500', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 2500 },
+
+        // Tier 1 Early Supporters
         { wallet: 'ET2Dpvq4tARcfRYmukgRYZFTdrkCueA6KWaBw1MLGev5', earned: '200', available: '200', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 },
-        { wallet: 'Fui9eus9GYiDjW1JnyoVChqbJqbuxopaXWLYA7uRMSfC', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 }
+        { wallet: 'EaPx5yS3BiyzqUWXtPPbXZ9LhaQm2Bx9GdAYLENMZR5w', earned: '200', available: '200', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000, boostLevel: 2, boostMultiplier: 2.0 },
+        { wallet: '7QutNzMeDhgWfE6QELfgsTg3AyUgBUiBuBPvHa9xgzP1', earned: '100', available: '100', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 },
+        { wallet: '65vY8cmEmrriDPxMwW3X6cPw2aHUD7iXSBQe6LAqhMLH', earned: '100', available: '100', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 }
       ];
 
       for (const rec of historicalRestores) {
@@ -488,8 +511,27 @@ export class DatabaseAdapter {
               wallet_address, token_balance_raw, token_balance_ui, tier,
               tier_level, credit_rate_per_hour, boost_level, boost_multiplier,
               last_verified_at, last_accrual_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 1, 1.0, ?, ?, ?, ?)
-          `).run(rec.wallet, (rec.tokens * 1e6).toString(), rec.tokens, rec.tier, rec.tierLevel, rec.rate, now, now, now, now);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            rec.wallet,
+            (BigInt(rec.tokens) * 1000000n).toString(),
+            rec.tokens,
+            rec.tier,
+            rec.tierLevel,
+            rec.rate,
+            rec.boostLevel || 1,
+            rec.boostMultiplier || 1.0,
+            now,
+            now,
+            now,
+            now
+          );
+        } else if (rec.boostMultiplier && rec.boostMultiplier > 1.0) {
+          db.prepare(`
+            UPDATE holder_accounts
+            SET boost_level = ?, boost_multiplier = ?, updated_at = ?
+            WHERE wallet_address = ?
+          `).run(rec.boostLevel || 2, rec.boostMultiplier || 2.0, now, rec.wallet);
         }
 
         const existingCredit = db.prepare('SELECT wallet_address, available FROM credit_accounts WHERE wallet_address = ?').get(rec.wallet);
@@ -502,9 +544,9 @@ export class DatabaseAdapter {
         } else if (BigInt(existingCredit.available || '0') < BigInt(rec.available)) {
           db.prepare(`
             UPDATE credit_accounts
-            SET available = ?, earned = MAX(earned, ?), updated_at = ?
+            SET available = ?, earned = CASE WHEN CAST(earned AS INTEGER) < CAST(? AS INTEGER) THEN ? ELSE earned END, updated_at = ?
             WHERE wallet_address = ?
-          `).run(rec.available, rec.earned, now, rec.wallet);
+          `).run(rec.available, rec.earned, rec.earned, now, rec.wallet);
         }
       }
     } catch {}

@@ -1764,7 +1764,7 @@ export async function handleRequest(req, res) {
 
         if (WHITELIST_ADMIN_WALLETS.has(address)) {
           const currentAvail = Number(summary.available || 0);
-          if (currentAvail < 10000) {
+          if (currentAvail < 100000) {
             rewardsStore.recordLedgerEntry({
               walletAddress: address,
               type: 'EARN',
@@ -1779,9 +1779,10 @@ export async function handleRequest(req, res) {
           mockBalance: reqMockBalance
         }) : null;
         const holderAccount = isValidSolanaAddress(address) ? dbAdapter.getHolderAccount(address) : null;
+        const isVip = WHITELIST_ADMIN_WALLETS.has(address);
         const boostInfo = {
-          level: Number(holderAccount?.boostLevel || 1),
-          multiplier: Number(holderAccount?.boostMultiplier || 1.0),
+          level: isVip ? 2 : Number(holderAccount?.boostLevel || 1),
+          multiplier: isVip ? 2.0 : Number(holderAccount?.boostMultiplier || 1.0),
           totalTokensBurned: tokensRawToUi(holderAccount?.totalTokensBurned || '0'),
           boostActivatedAt: holderAccount?.boostActivatedAt || null,
           lastBurnTxHash: holderAccount?.lastBurnTxHash || null
