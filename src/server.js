@@ -1710,7 +1710,7 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/holder/eligibility' && req.method === 'GET') {
       try {
-        const session = parseSession(req);
+        const session = parseSession(req, {}, { allowApiKey: true });
         // B-7 FIX: Require session auth — no unauthenticated balance oracle
         if (!session || !session.a) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
