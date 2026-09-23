@@ -4,6 +4,18 @@
 [build.processing]
   skip_processing = true
 
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Netlify-CDN-Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Netlify-CDN-Cache-Control = "public, max-age=0, must-revalidate"
+
 [[redirects]]
   from = "/api/*"
   to = "https://jevbrain-backend-production.up.railway.app/api/:splat"
