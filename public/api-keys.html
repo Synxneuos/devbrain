@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Keys & Local CLI Gateway — Jev Brain</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Early Theme Initializer (Default: Black/Dark, Switchable to Light) -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('jev_theme');
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
+  <style>
+    .page-layout {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-main, #09090b);
+      color: var(--text-primary, #f4f4f5);
+      font-family: var(--font-sans, 'Inter', sans-serif);
+      line-height: 1.5;
+    }
+
+    /* Top Navigation */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-topbar, rgba(13, 13, 16, 0.92));
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .nav-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon-svg {
+      color: var(--text-primary);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .brand-path-tag {
+      font-size: 11px;
+      color: var(--text-secondary, #a1a1aa);
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      background: var(--bg-pill, #1f1f24);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle, #27272a);
+    }
+    .nav-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-action-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary, #a1a1aa);
+      text-decoration: none;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-surface, #121215);
+      transition: all 0.15s ease;
+    }
+    .nav-action-link:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-medium, #3f3f46);
+      background: var(--bg-card, #18181b);
+    }
+    .theme-toggle-btn {
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      color: var(--text-secondary, #a1a1aa);
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .theme-toggle-btn:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-medium, #3f3f46);
+    }
+
+    /* Main Container */
+    .main-content {
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+      flex: 1;
+    }
+
+    /* Hero Header */
+    .hero-section {
+      margin-bottom: 36px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      color: var(--accent-cyan, #06b6d4);
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      font-family: var(--font-mono, monospace);
+    }
+    .hero-title {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px 0;
+      background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    [data-theme="light"] .hero-title {
+      background: linear-gradient(180deg, #18181b 0%, #71717a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 760px;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    /* Cards & Containers */
+    .content-card {
+      background: var(--bg-card, #18181b);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    [data-theme="light"] .content-card {
+      background: #ffffff;
+      border-color: #e4e4e7;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+    }
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    /* Wallet Status Pill */
+    .wallet-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-subtle, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+    }
+    [data-theme="light"] .wallet-status-bar {
+      background: #f4f4f5;
+      border-color: #e4e4e7;
+    }
+
+    /* Key Generation Form Grid */
+    .gen-form-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr auto;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    @media (max-width: 768px) {
+      .gen-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary, #a1a1aa);
+    }
+    .custom-input, .custom-select {
+      background: var(--bg-subtle, #09090b);
+      border: 1px solid var(--border-medium, #3f3f46);
+      color: var(--text-primary, #f4f4f5);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.15s ease;
+      height: 42px;
+      box-sizing: border-box;
+    }
+    [data-theme="light"] .custom-input, [data-theme="light"] .custom-select {
+      background: #ffffff;
+      color: #09090b;
+      border-color: #d4d4d8;
+    }
+    .custom-input:focus, .custom-select:focus {
+      border-color: var(--accent-cyan, #06b6d4);
+      box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+    }
+
+    .btn-action-primary {
+      background: #ffffff;
+      color: #09090b;
+      border: none;
+      border-radius: 8px;
+      padding: 0 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 42px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    [data-theme="light"] .btn-action-primary {
+      background: #09090b;
+      color: #ffffff;
+    }
+    .btn-action-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .btn-action-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Newly Created Key Alert Box */
+    .key-reveal-box {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 18px;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .reveal-key-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .reveal-key-code {
+      flex: 1;
+      background: var(--bg-main, #09090b);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: var(--font-mono, monospace);
+      font-size: 13px;
+      color: #10b981;
+      word-break: break-all;
+    }
+
+    /* Table Styling */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+    .keys-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+    .keys-table th {
+      padding: 12px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary, #a1a1aa);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-subtle, #121215);
+    }
+    [data-theme="light"] .keys-table th {
+      background: #f4f4f5;
+    }
+    .keys-table td {
+      padding: 14px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+      vertical-align: middle;
+    }
+    .keys-table tr:last-child td {
+      border-bottom: none;
+    }
+    .keys-table tr:hover td {
+      background: var(--bg-subtle, rgba(255, 255, 255, 0.02));
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 100px;
+      font-size: 10.5px;
+      font-weight: 600;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+    }
+    .status-badge.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-badge.suspended {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .status-badge.revoked {
+      background: rgba(113, 113, 122, 0.15);
+      color: #71717a;
+      border: 1px solid rgba(113, 113, 122, 0.3);
+    }
+    .status-badge.expired {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Table Actions */
+    .table-actions-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .btn-table-revoke {
+      background: rgba(245, 158, 11, 0.1);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-table-revoke:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+    .btn-table-delete {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-table-delete:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+    .btn-table-copy {
+      background: var(--bg-surface, #121215);
+      color: var(--text-secondary, #a1a1aa);
+      border: 1px solid var(--border-subtle, #27272a);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-table-copy:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-medium, #3f3f46);
+    }
+
+    /* Terminal Quickstart Box */
+    .cli-quickstart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    @media (max-width: 768px) {
+      .cli-quickstart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .cli-box {
+      background: var(--bg-subtle, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    [data-theme="light"] .cli-box {
+      background: #f4f4f5;
+    }
+    .cli-box-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary, #a1a1aa);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cli-code-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-main, #09090b);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--font-mono, monospace);
+      font-size: 11.5px;
+      color: var(--accent-cyan, #06b6d4);
+    }
+    [data-theme="light"] .cli-code-row {
+      background: #ffffff;
+    }
+
+    /* Notification Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      background: var(--bg-card, #18181b);
+      border: 1px solid var(--border-medium, #3f3f46);
+      color: var(--text-primary, #f4f4f5);
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastIn 0.25s ease;
+    }
+    @keyframes toastIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="page-layout">
+
+  <!-- Top Sticky Navigation -->
+  <header class="site-nav">
+    <a href="/" class="nav-brand-group">
+      <div class="nav-brand-logo">
+        <svg class="brand-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+        </svg>
+        <span class="brand-title">Jev Brain</span>
+      </div>
+      <span class="brand-path-tag">/api-keys</span>
+    </a>
+
+    <div class="nav-actions-group">
+      <a href="/" class="nav-action-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Workspace</span>
+      </a>
+      <a href="/how-it-works.html" class="nav-action-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>How It Works</span>
+      </a>
+      <a href="/roadmap.html" class="nav-action-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        <span>Roadmap</span>
+      </a>
+
+      <!-- Theme Switcher -->
+      <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle Theme (Dark / Light)">
+        <svg id="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.07" x2="5.64" y2="17.64"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg id="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <!-- Connect Wallet Button -->
+      <button class="btn-action-primary" id="btn-connect-wallet" style="height:34px;padding:0 14px;font-size:12px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z"></path><circle cx="16" cy="12" r="2"></circle></svg>
+        <span id="wallet-btn-text">Connect Wallet</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Body Content -->
+  <main class="main-content">
+
+    <!-- Hero Header -->
+    <section class="hero-section">
+      <div class="hero-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <span>TERMINAL & REST API GATEWAY</span>
+      </div>
+      <h1 class="hero-title">API Keys & Local System CLI</h1>
+      <p class="hero-subtitle">
+        Generate cryptographically secure API keys (<code style="font-family:var(--font-mono);color:var(--accent-cyan);">jev_live_...</code>) to authenticate your local developer terminal, CI/CD pipelines, and agent workflows. Keys are gated by live on-chain $JEVBRAIN holding verification.
+      </p>
+    </section>
+
+    <!-- Connected Wallet Status Banner -->
+    <div class="wallet-status-bar" id="wallet-status-container">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(6,182,212,0.15);display:flex;align-items:center;justify-content:center;color:var(--accent-cyan);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-weight:700;font-size:13.5px;" id="wallet-addr-display">Wallet Not Connected</span>
+            <span class="status-badge" id="wallet-tier-badge" style="display:none;">TIER 1</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-secondary);" id="wallet-meta-display">Connect your Solana wallet to manage API keys.</div>
+        </div>
+      </div>
+      <div id="wallet-balance-info" style="text-align:right;display:none;">
+        <div style="font-size:11px;color:var(--text-secondary);">Holding Balance</div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent-cyan);" id="wallet-balance-num">0 $JEVBRAIN</div>
+      </div>
+    </div>
+
+    <!-- Gate Warning (If wallet holds 0 tokens) -->
+    <div id="gate-warning-box" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:14px 18px;margin-bottom:24px;font-size:12.5px;color:#d97706;line-height:1.5;">
+      <strong>⚠️ Holding Gate Active:</strong> The connected wallet does not hold the minimum required $JEVBRAIN tokens. Acquire tokens on pump.fun or Raydium (CA: <code style="font-family:var(--font-mono);font-size:11px;">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>) to generate API keys and unlock local CLI access.
+    </div>
+
+    <!-- 1. Generate New API Key Card -->
+    <div class="content-card">
+      <div class="card-header-row">
+        <div class="card-title-group">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-cyan);"><path d="M21 2l-2 2m-1-1l-3 3m-1-1l-2 2m-1-1l-3 3m-1-1l-2 2m-1-1l-3 3"></path><circle cx="7" cy="17" r="5"></circle></svg>
+          <h2 class="card-title">Generate New API Key</h2>
+        </div>
+        <span style="font-size:11px;color:var(--text-secondary);font-family:var(--font-mono);">Format: jev_live_[hex]</span>
+      </div>
+
+      <div class="gen-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="key-name-input">Key Label / Purpose</label>
+          <input type="text" id="key-name-input" class="custom-input" placeholder="e.g. MacBook Pro Terminal, Cursor IDE, Docker Daemon" maxlength="50" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="key-expiry-select">Expiration Period</label>
+          <select id="key-expiry-select" class="custom-select">
+            <option value="30d" selected>30 Days (Recommended)</option>
+            <option value="7d">7 Days</option>
+            <option value="90d">90 Days</option>
+            <option value="365d">1 Year</option>
+            <option value="never">Never Expire</option>
+          </select>
+        </div>
+
+        <button class="btn-action-primary" id="btn-generate-key">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline></svg>
+          <span>Generate API Key</span>
+        </button>
+      </div>
+
+      <!-- Key Reveal Box (Shown right after generation) -->
+      <div class="key-reveal-box" id="key-reveal-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-weight:700;font-size:12.5px;color:#10b981;display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>API Key Generated Successfully!</span>
+          </div>
+          <button class="btn-table-copy" id="btn-close-reveal" style="font-size:10px;padding:2px 8px;">Dismiss</button>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-secondary);margin:6px 0 0 0;">
+          Copy your full secret key now. You can also view and copy masked versions from your active keys table anytime.
+        </p>
+        <div class="reveal-key-row">
+          <div class="reveal-key-code" id="reveal-key-text">jev_live_...</div>
+          <button class="btn-action-primary" id="btn-copy-revealed-key" style="height:38px;padding:0 14px;font-size:12px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy Key</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Active API Keys Management Table -->
+    <div class="content-card">
+      <div class="card-header-row">
+        <div class="card-title-group">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-primary);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <h2 class="card-title">Your API Keys</h2>
+        </div>
+        <button class="btn-table-copy" id="btn-refresh-keys" title="Refresh Keys">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span style="margin-left:4px;">Refresh</span>
+        </button>
+      </div>
+
+      <div class="table-container">
+        <table class="keys-table">
+          <thead>
+            <tr>
+              <th>Label / Name</th>
+              <th>API Key</th>
+              <th>Created</th>
+              <th>Expires At</th>
+              <th>Status</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="keys-tbody">
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:24px;">
+                Connect your wallet to load API keys.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. Local CLI Installation & Setup Guide -->
+    <div class="content-card">
+      <div class="card-header-row">
+        <div class="card-title-group">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-cyan);"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <h2 class="card-title">Local System Terminal Quickstart</h2>
+        </div>
+        <span style="font-size:11px;color:var(--text-secondary);">Native Windows / macOS / Linux</span>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 14px 0;line-height:1.5;">
+        Install the Jev Brain CLI globally on your operating system or use <code style="font-family:var(--font-mono);color:var(--accent-cyan);">npx jevbrain</code> directly.
+      </p>
+
+      <div class="cli-quickstart-grid">
+        <div class="cli-box">
+          <div class="cli-box-title">💻 Windows (PowerShell)</div>
+          <div class="cli-code-row">
+            <code id="cmd-win">irm https://jevbrain.world/install.ps1 | iex</code>
+            <button class="btn-table-copy" onclick="copySnippet('cmd-win')">Copy</button>
+          </div>
+        </div>
+
+        <div class="cli-box">
+          <div class="cli-box-title">🍎 macOS &amp; 🐧 Linux (Bash)</div>
+          <div class="cli-code-row">
+            <code id="cmd-unix">curl -fsSL https://jevbrain.world/install.sh | bash</code>
+            <button class="btn-table-copy" onclick="copySnippet('cmd-unix')">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;background:var(--bg-subtle,#121215);border:1px solid var(--border-subtle,#27272a);border-radius:8px;padding:14px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-primary);">Configuring Your CLI with Generated Key:</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-family:var(--font-mono);font-size:11.5px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-main,#09090b);padding:8px 12px;border-radius:6px;border:1px solid var(--border-subtle,#27272a);">
+            <span><span style="color:var(--text-tertiary);"># 1. Set your API Key</span><br><code id="step-set-key" style="color:var(--accent-cyan);">jevbrain config set-key &lt;your-key&gt;</code></span>
+            <button class="btn-table-copy" onclick="copySnippet('step-set-key')">Copy</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-main,#09090b);padding:8px 12px;border-radius:6px;border:1px solid var(--border-subtle,#27272a);">
+            <span><span style="color:var(--text-tertiary);"># 2. Check live on-chain status</span><br><code id="step-status" style="color:var(--accent-cyan);">jevbrain status</code></span>
+            <button class="btn-table-copy" onclick="copySnippet('step-status')">Copy</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-main,#09090b);padding:8px 12px;border-radius:6px;border:1px solid var(--border-subtle,#27272a);">
+            <span><span style="color:var(--text-tertiary);"># 3. Interactive chat terminal</span><br><code id="step-chat" style="color:var(--accent-cyan);">jevbrain chat</code></span>
+            <button class="btn-table-copy" onclick="copySnippet('step-chat')">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Notification Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Wallet & API Keys JavaScript -->
+  <script>
+    // State
+    let currentWallet = null;
+    let currentTier = null;
+    let latestGeneratedKey = null;
+
+    // Toast Notification Utility
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      const icon = type === 'success' 
+        ? '<span style="color:#10b981;">✔</span>' 
+        : (type === 'error' ? '<span style="color:#ef4444;">✖</span>' : '<span style="color:#06b6d4;">ℹ</span>');
+      toast.innerHTML = `${icon} <span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 250);
+      }, 4000);
+    }
+
+    // Helper: copy to clipboard
+    function copySnippet(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const text = el.innerText || el.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!', 'success');
+      }).catch(() => {
+        showToast('Failed to copy', 'error');
+      });
+    }
+
+    // Theme Switcher Logic
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    const sunIcon = document.getElementById('theme-icon-sun');
+    const moonIcon = document.getElementById('theme-icon-moon');
+
+    function syncThemeIcons(theme) {
+      if (theme === 'light') {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      } else {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      }
+    }
+    syncThemeIcons(document.documentElement.getAttribute('data-theme') || 'dark');
+
+    themeBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('jev_theme', next);
+      syncThemeIcons(next);
+    });
+
+    // Session and Auth Headers
+    function getSessionToken() {
+      return localStorage.getItem('jev_session_token') || sessionStorage.getItem('jev_session_token') || '';
+    }
+
+    function authHeaders(extra = {}) {
+      const headers = { ...extra };
+      const token = getSessionToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    // Connect Solana Wallet
+    async function connectWallet() {
+      const btn = document.getElementById('btn-connect-wallet');
+      const btnText = document.getElementById('wallet-btn-text');
+
+      try {
+        const provider = window.solana || window.phantom?.solana;
+        if (!provider) {
+          showToast('Phantom or Solana wallet extension not detected.', 'error');
+          window.open('https://phantom.app', '_blank');
+          return;
+        }
+
+        btn.disabled = true;
+        btnText.textContent = 'Connecting...';
+
+        let address;
+        if (provider.isConnected && provider.publicKey) {
+          address = provider.publicKey.toString();
+        } else {
+          const resp = await provider.connect();
+          address = (resp?.publicKey || provider.publicKey).toString();
+        }
+
+        currentWallet = address;
+        localStorage.setItem('jev_wallet_address', address);
+
+        // Fetch challenge nonce
+        const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(address)}`);
+        const nonceData = await nonceRes.json();
+        if (!nonceRes.ok || !nonceData.message) {
+          throw new Error(nonceData.error || 'Failed to fetch signature challenge');
+        }
+
+        btnText.textContent = 'Sign Challenge...';
+        const encodedMsg = new TextEncoder().encode(nonceData.message);
+
+        let signedSig;
+        try {
+          if (provider.request) {
+            const resp = await provider.request({ method: 'signMessage', params: { message: encodedMsg, display: 'utf8' } });
+            signedSig = resp.signature;
+          } else {
+            const resp = await provider.signMessage(encodedMsg, 'utf8');
+            signedSig = resp.signature;
+          }
+        } catch (signErr) {
+          throw new Error('Signature cancelled by user.');
+        }
+
+        // Convert signature to Base58
+        let sigB58 = '';
+        if (typeof signedSig === 'string') {
+          sigB58 = signedSig;
+        } else if (signedSig instanceof Uint8Array || Array.isArray(signedSig)) {
+          sigB58 = toBase58(new Uint8Array(signedSig));
+        }
+
+        btnText.textContent = 'Verifying...';
+        const verifyRes = await fetch('/api/wallet/verify-signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address,
+            signature: sigB58,
+            message: nonceData.message
+          })
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok || !verifyData.sessionToken) {
+          throw new Error(verifyData.error || 'Verification failed');
+        }
+
+        localStorage.setItem('jev_session_token', verifyData.sessionToken);
+        showToast('Wallet verified successfully!', 'success');
+
+        await refreshWalletState();
+      } catch (err) {
+        showToast(err.message, 'error');
+        btnText.textContent = 'Connect Wallet';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Base58 encoder for Solana signatures
+    function toBase58(bytes) {
+      const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+      let num = 0n;
+      for (const b of bytes) num = (num << 8n) + BigInt(b);
+      let str = '';
+      while (num > 0n) {
+        str = B58[Number(num % 58n)] + str;
+        num /= 58n;
+      }
+      for (const b of bytes) {
+        if (b === 0) str = '1' + str;
+        else break;
+      }
+      return str;
+    }
+
+    // Refresh Wallet Tier, Balance and Key List
+    async function refreshWalletState() {
+      const token = getSessionToken();
+      const cachedWallet = localStorage.getItem('jev_wallet_address');
+
+      if (!token && !cachedWallet) {
+        renderDisconnectedState();
+        return;
+      }
+
+      try {
+        const address = cachedWallet || (window.solana?.publicKey?.toString());
+        if (!address) {
+          renderDisconnectedState();
+          return;
+        }
+
+        currentWallet = address;
+
+        // Fetch live eligibility & tier
+        const eligRes = await fetch(`/api/holder/eligibility?address=${encodeURIComponent(address)}`);
+        const eligData = await eligRes.json();
+
+        currentTier = eligData;
+        renderConnectedState(address, eligData);
+        await loadApiKeys();
+      } catch (err) {
+        console.warn('Error refreshing wallet state:', err.message);
+        renderDisconnectedState();
+      }
+    }
+
+    function renderDisconnectedState() {
+      document.getElementById('wallet-btn-text').textContent = 'Connect Wallet';
+      document.getElementById('wallet-addr-display').textContent = 'Wallet Not Connected';
+      document.getElementById('wallet-meta-display').textContent = 'Connect your Solana wallet to manage API keys.';
+      document.getElementById('wallet-tier-badge').style.display = 'none';
+      document.getElementById('wallet-balance-info').style.display = 'none';
+      document.getElementById('gate-warning-box').style.display = 'none';
+      document.getElementById('btn-generate-key').disabled = true;
+
+      const tbody = document.getElementById('keys-tbody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:24px;">
+            Connect your wallet above to view and manage API keys.
+          </td>
+        </tr>`;
+    }
+
+    function renderConnectedState(address, elig) {
+      const shortAddr = address.slice(0, 4) + '...' + address.slice(-4);
+      document.getElementById('wallet-btn-text').textContent = shortAddr;
+      document.getElementById('wallet-addr-display').textContent = shortAddr;
+
+      const tierBadge = document.getElementById('wallet-tier-badge');
+      const balanceNum = document.getElementById('wallet-balance-num');
+      const balanceInfo = document.getElementById('wallet-balance-info');
+      const gateWarning = document.getElementById('gate-warning-box');
+      const metaDisplay = document.getElementById('wallet-meta-display');
+      const genBtn = document.getElementById('btn-generate-key');
+
+      tierBadge.style.display = 'inline-flex';
+      balanceInfo.style.display = 'block';
+
+      const balance = Number(elig.balanceUi || elig.tokensHeld || 0).toLocaleString();
+      balanceNum.textContent = `${balance} $JEVBRAIN`;
+
+      if (elig.tierId > 0) {
+        tierBadge.textContent = elig.tierName || `Tier ${elig.tierId}`;
+        tierBadge.className = 'status-badge active';
+        metaDisplay.textContent = `Emissions: ${elig.creditRatePerHour || 100} credits/hr · Models: ${(elig.allowedModels || []).length} available`;
+        gateWarning.style.display = 'none';
+        genBtn.disabled = false;
+      } else {
+        tierBadge.textContent = 'Ineligible (0 Tokens)';
+        tierBadge.className = 'status-badge suspended';
+        metaDisplay.textContent = 'Acquire $JEVBRAIN tokens on Solana to unlock local terminal and REST access.';
+        gateWarning.style.display = 'block';
+        genBtn.disabled = true;
+      }
+    }
+
+    // Fetch and render keys table
+    async function loadApiKeys() {
+      const tbody = document.getElementById('keys-tbody');
+      try {
+        const res = await fetch('/api/keys', { headers: authHeaders() });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to load keys');
+        }
+
+        const keys = data.keys || [];
+        if (keys.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:24px;">
+                No API keys generated yet. Click "Generate API Key" above to create your first key.
+              </td>
+            </tr>`;
+          return;
+        }
+
+        tbody.innerHTML = keys.map(k => {
+          const created = new Date(k.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+          
+          let expiryText = 'Never';
+          let isExpired = false;
+          if (k.expiresAt) {
+            const expTime = new Date(k.expiresAt).getTime();
+            isExpired = expTime < Date.now();
+            const daysLeft = Math.ceil((expTime - Date.now()) / (1000 * 60 * 60 * 24));
+            if (isExpired) {
+              expiryText = `<span style="color:#ef4444;font-weight:600;">Expired</span>`;
+            } else if (daysLeft === 1) {
+              expiryText = `Tomorrow (${new Date(k.expiresAt).toLocaleDateString()})`;
+            } else {
+              expiryText = `In ${daysLeft} days (${new Date(k.expiresAt).toLocaleDateString()})`;
+            }
+          }
+
+          let statusClass = 'active';
+          let statusText = 'ACTIVE';
+
+          if (k.isRevoked || k.status === 'revoked') {
+            statusClass = 'revoked';
+            statusText = 'REVOKED';
+          } else if (isExpired || k.status === 'expired') {
+            statusClass = 'expired';
+            statusText = 'EXPIRED';
+          } else if (k.status === 'suspended') {
+            statusClass = 'suspended';
+            statusText = 'SUSPENDED';
+          }
+
+          const masked = k.maskedKey || (k.apiKey ? (k.apiKey.slice(0, 13) + '...' + k.apiKey.slice(-4)) : 'jev_live_...');
+
+          return `
+            <tr data-key-id="${k.keyId}">
+              <td style="font-weight:600;">${escapeHtml(k.name || 'Default Key')}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <code class="key-display-code" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">${masked}</code>
+                  <button class="btn-table-copy" onclick="copyKeyText('${escapeHtml(k.apiKey || masked)}')">Copy</button>
+                </div>
+              </td>
+              <td style="color:var(--text-secondary);font-size:12px;">${created}</td>
+              <td style="font-size:12px;">${expiryText}</td>
+              <td>
+                <span class="status-badge ${statusClass}">${statusText}</span>
+              </td>
+              <td>
+                <div class="table-actions-cell">
+                  ${(statusText === 'ACTIVE' || statusText === 'SUSPENDED') ? `
+                    <button class="btn-table-revoke" onclick="revokeKey('${k.keyId}')" title="Revoke this key">Revoke</button>
+                  ` : ''}
+                  <button class="btn-table-delete" onclick="deleteKey('${k.keyId}')" title="Permanently delete from database">Delete</button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center;color:#ef4444;padding:24px;">
+              ${escapeHtml(err.message)}
+            </td>
+          </tr>`;
+      }
+    }
+
+    // Generate Key
+    async function handleGenerateKey() {
+      const nameInput = document.getElementById('key-name-input');
+      const expirySelect = document.getElementById('key-expiry-select');
+      const genBtn = document.getElementById('btn-generate-key');
+
+      const name = (nameInput.value || '').trim() || 'CLI Terminal Key';
+      const expiry = expirySelect.value;
+
+      try {
+        genBtn.disabled = true;
+        genBtn.innerHTML = '<span>Generating...</span>';
+
+        const res = await fetch('/api/keys/generate', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ name, expiry })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to generate key');
+        }
+
+        latestGeneratedKey = data.key.apiKey;
+        nameInput.value = '';
+
+        // Show Reveal Box
+        const revealBox = document.getElementById('key-reveal-box');
+        const revealText = document.getElementById('reveal-key-text');
+        revealText.textContent = data.key.apiKey;
+        revealBox.style.display = 'block';
+
+        // Update CLI quickstart step
+        const stepKey = document.getElementById('step-set-key');
+        if (stepKey) {
+          stepKey.textContent = `jevbrain config set-key ${data.key.apiKey}`;
+        }
+
+        showToast('API Key generated!', 'success');
+        await loadApiKeys();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        genBtn.disabled = false;
+        genBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline></svg>
+          <span>Generate API Key</span>`;
+      }
+    }
+
+    // Revoke Key
+    async function revokeKey(keyId) {
+      if (!confirm('Are you sure you want to revoke this API key? Applications using it will immediately be rejected.')) return;
+      try {
+        const res = await fetch('/api/keys/revoke', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ keyId })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Revoke failed');
+        }
+        showToast('API key revoked successfully', 'info');
+        await loadApiKeys();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Delete Key
+    async function deleteKey(keyId) {
+      if (!confirm('Are you sure you want to permanently delete this key from your database? This action cannot be undone.')) return;
+      try {
+        const res = await fetch('/api/keys/delete', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ keyId })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Delete failed');
+        }
+        showToast('API key deleted from database', 'info');
+        await loadApiKeys();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Helper: copy specific key
+    function copyKeyText(keyStr) {
+      navigator.clipboard.writeText(keyStr).then(() => {
+        showToast('Key copied to clipboard!', 'success');
+      }).catch(() => {
+        showToast('Failed to copy', 'error');
+      });
+    }
+
+    // HTML escape helper
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Event Listeners
+    document.getElementById('btn-connect-wallet').addEventListener('click', connectWallet);
+    document.getElementById('btn-generate-key').addEventListener('click', handleGenerateKey);
+    document.getElementById('btn-refresh-keys').addEventListener('click', loadApiKeys);
+    document.getElementById('btn-close-reveal').addEventListener('click', () => {
+      document.getElementById('key-reveal-box').style.display = 'none';
+    });
+    document.getElementById('btn-copy-revealed-key').addEventListener('click', () => {
+      if (latestGeneratedKey) {
+        copyKeyText(latestGeneratedKey);
+      }
+    });
+
+    // On Load
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshWalletState();
+    });
+  </script>
+</body>
+</html>

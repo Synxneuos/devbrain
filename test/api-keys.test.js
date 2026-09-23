@@ -392,4 +392,87 @@ test('API Key Tier Enforcement: Partial sell downgrades allowed models', async (
   assert.ok(forbidData.error.includes('not included in your'));
 });
 
+test('API Key Expiry & Deletion: Expiry dropdown options, expired key rejection, and deletion endpoint', async () => {
+  const holderWallet = createTestSolanaWallet();
+  setMockHolderBalance(holderWallet.address, 5000);
+
+  // Authenticate holder
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${holderWallet.address}`);
+  const nonceData = await nonceRes.json();
+  const sigBytes = crypto.sign(null, Buffer.from(nonceData.message, 'utf8'), holderWallet.privateKey);
+  const sigB58 = encodeBase58(sigBytes);
+
+  const verifyRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address: holderWallet.address,
+      signature: sigB58,
+      message: nonceData.message
+    })
+  });
+  const { sessionToken } = await verifyRes.json();
+
+  // 1. Generate key with 7d expiry
+  const gen7dRes = await fetch(`${baseUrl}/api/keys/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({ name: 'Short-lived 7-day Key', expiry: '7d' })
+  });
+  const gen7dData = await gen7dRes.json();
+  assert.strictEqual(gen7dRes.status, 200);
+  assert.ok(gen7dData.key.expiresAt, 'Must set expiresAt for 7d key');
+  const expiryDate = new Date(gen7dData.key.expiresAt).getTime();
+  assert.ok(expiryDate > Date.now() + 6 * 86400000, 'Expiry date must be ~7 days in future');
+
+  // 2. Test expired key rejection in API authentication
+  const pastDate = new Date(Date.now() - 3600000).toISOString();
+  const expiredKeyRecord = dbAdapter.createApiKey({
+    walletAddress: holderWallet.address,
+    name: 'Expired Test Key',
+    tokensHeld: 5000,
+    tierId: 2,
+    expiresAt: pastDate
+  });
+
+  // Verify listApiKeys marks it expired
+  const listedKeys = dbAdapter.listApiKeys(holderWallet.address);
+  const foundExpired = listedKeys.find(k => k.keyId === expiredKeyRecord.keyId);
+  assert.ok(foundExpired);
+  assert.strictEqual(foundExpired.isExpired, true);
+  assert.strictEqual(foundExpired.status, 'expired');
+
+  // Attempt using expired key
+  const expiredAuthRes = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${expiredKeyRecord.apiKey}`
+    },
+    body: JSON.stringify({ prompt: 'Hello' })
+  });
+  assert.strictEqual(expiredAuthRes.status, 401, 'Expired key must be rejected with 401');
+
+  // 3. Test Delete API Key endpoint
+  const deleteRes = await fetch(`${baseUrl}/api/keys/delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({ keyId: gen7dData.key.keyId })
+  });
+  const deleteData = await deleteRes.json();
+  assert.strictEqual(deleteRes.status, 200);
+  assert.strictEqual(deleteData.deleted, true);
+
+  // Verify key is gone from DB
+  const keysAfterDelete = dbAdapter.listApiKeys(holderWallet.address);
+  assert.strictEqual(keysAfterDelete.some(k => k.keyId === gen7dData.key.keyId), false);
+});
+
+
 

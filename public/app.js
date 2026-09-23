@@ -218,11 +218,120 @@ function stringToHex(str) {
 }
 
 // ============================================
+// MOBILE DEVICE DETECTION & NATIVE WALLET DEEP LINKING
+// ============================================
+function isMobileDevice() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua);
+  return isMobileUA || (isTouch && window.innerWidth <= 820);
+}
+
+function buildPhantomDeepLink(targetUrl = window.location.href) {
+  try {
+    const url = new URL(targetUrl, window.location.origin);
+    url.searchParams.set('auto_connect', 'phantom');
+    const dappUrl = url.toString();
+    const ref = window.location.origin;
+    return `https://phantom.app/ul/browse/${encodeURIComponent(dappUrl)}?ref=${encodeURIComponent(ref)}`;
+  } catch (err) {
+    return 'https://phantom.app/';
+  }
+}
+
+function buildMetaMaskDeepLink(targetUrl = window.location.href) {
+  try {
+    const url = new URL(targetUrl, window.location.origin);
+    url.searchParams.set('auto_connect', 'metamask');
+    const hostAndPath = (url.host + url.pathname + (url.search || '') + (url.hash || '')).replace(/^\/+/, '');
+    return `https://metamask.app.link/dapp/${hostAndPath}`;
+  } catch (err) {
+    return 'https://metamask.io/download/';
+  }
+}
+
+function openMobileWalletDeepLink(walletType) {
+  const isPhantom = walletType === 'phantom';
+  const appName = isPhantom ? 'Phantom' : 'MetaMask';
+  const deepLink = isPhantom ? buildPhantomDeepLink() : buildMetaMaskDeepLink();
+  
+  // Show a modern mobile handoff banner with direct tap action
+  const toastId = 'wallet-mobile-handoff';
+  let existing = document.getElementById(toastId);
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+  const banner = document.createElement('div');
+  banner.id = toastId;
+  banner.style.position = 'fixed';
+  banner.style.bottom = '24px';
+  banner.style.left = '50%';
+  banner.style.transform = 'translateX(-50%)';
+  banner.style.zIndex = '999999';
+  banner.style.width = '92%';
+  banner.style.maxWidth = '390px';
+  banner.style.background = '#18181b';
+  banner.style.color = '#fafafa';
+  banner.style.border = '1px solid rgba(255,255,255,0.18)';
+  banner.style.borderRadius = '12px';
+  banner.style.padding = '14px 16px';
+  banner.style.boxShadow = '0 12px 36px rgba(0,0,0,0.7)';
+  banner.style.fontFamily = 'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)';
+  banner.style.textAlign = 'center';
+  banner.innerHTML = `
+    <div style="font-size:13.5px; font-weight:600; margin-bottom:6px; display:flex; align-items:center; justify-content:center; gap:8px;">
+      <span style="font-size:16px;">📱</span>
+      Opening ${appName} Mobile App...
+    </div>
+    <div style="font-size:11.5px; color:#a1a1aa; margin-bottom:12px; line-height:1.45;">
+      Redirecting to your installed ${appName} app to sign &amp; authenticate securely.
+    </div>
+    <div style="display:flex; gap:8px; justify-content:center;">
+      <a href="${deepLink}" style="display:inline-flex; align-items:center; gap:6px; background:${isPhantom ? '#7c3aed' : '#f97316'}; color:#fff; font-size:12px; font-weight:600; padding:8px 16px; border-radius:8px; text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        Open ${appName} App ↗
+      </a>
+      <button id="close-handoff-banner" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:#a1a1aa; font-size:12px; padding:8px 12px; border-radius:8px; cursor:pointer;">
+        Dismiss
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+  document.getElementById('close-handoff-banner')?.addEventListener('click', () => {
+    if (banner.parentNode) banner.parentNode.removeChild(banner);
+  });
+
+  // Attempt instant navigation to deep link
+  try {
+    window.location.href = deepLink;
+  } catch (err) {
+    console.warn('Direct deep link navigation failed:', err);
+  }
+
+  // Auto-dismiss after 15 seconds if user stays on page
+  setTimeout(() => {
+    if (banner.parentNode) banner.parentNode.removeChild(banner);
+  }, 15000);
+}
+
+// Expose on window for debugging & testing
+if (typeof window !== 'undefined') {
+  window.isMobileDevice = isMobileDevice;
+  window.buildPhantomDeepLink = buildPhantomDeepLink;
+  window.buildMetaMaskDeepLink = buildMetaMaskDeepLink;
+  window.openMobileWalletDeepLink = openMobileWalletDeepLink;
+}
+
+// ============================================
 // METAMASK WALLET CONNECTION & SIGNATURE AUTHENTICATION
 // ============================================
 async function connectMetaMaskWallet() {
   const provider = getWeb3Provider();
   if (!provider) {
+    if (isMobileDevice()) {
+      openMobileWalletDeepLink('metamask');
+      return;
+    }
     const install = confirm('MetaMask is required to authenticate with Jev Brain.\n\nClick OK to open https://metamask.io/download/ and install MetaMask.');
     if (install) {
       window.open('https://metamask.io/download/', '_blank');
@@ -430,8 +539,12 @@ async function connectSolanaWallet() {
     : (window.solana?.isPhantom ? window.solana : window.solana);
 
   if (!solana) {
-    showNotification('Phantom wallet is required for Solana authentication. Redirecting to phantom.app...', 'info');
-    setTimeout(() => window.open('https://phantom.app/', '_blank'), 600);
+    if (isMobileDevice()) {
+      openMobileWalletDeepLink('phantom');
+      return;
+    }
+    showNotification('Phantom wallet extension is required for Solana authentication. Redirecting to Phantom download...', 'info');
+    setTimeout(() => window.open('https://phantom.app/download', '_blank'), 600);
     return;
   }
 
@@ -1123,6 +1236,12 @@ async function handleSubmit() {
     totalSavingsUsd += (finalData.dollarsSaved || 0);
     elements.savedPill.textContent = `Saved $${totalSavingsUsd.toFixed(4)}`;
 
+    // Live credit sync: any chat (web OR CLI) debits the same wallet ledger, so refresh
+    // the Holder Hub balance in the background right after each completed generation.
+    if (typeof loadRewardsHubData === 'function') {
+      loadRewardsHubData().catch(() => {});
+    }
+
     // Extract any code block as artifact
     extractAndSaveArtifact(text, responseText);
 
@@ -1703,13 +1822,15 @@ function switchRewardsTab(tabName) {
     }
   });
 
-  ['overview', 'transfer', 'redeem', 'history', 'cli', 'operator'].forEach(name => {
+  ['overview', 'transfer', 'redeem', 'boost', 'history', 'cli', 'operator'].forEach(name => {
     const pane = document.getElementById(`pane-rewards-${name}`);
     if (pane) pane.style.display = (name === tabName) ? 'block' : 'none';
   });
 
   if (tabName === 'history') {
     loadRewardsLedgerHistory();
+  } else if (tabName === 'boost') {
+    loadBoostStatus();
   } else if (tabName === 'operator') {
     loadOperatorClaims();
   } else if (tabName === 'cli') {
@@ -1794,6 +1915,25 @@ async function loadRewardsHubData() {
           if (inputEl) inputEl.value = burnSlider.value;
         }
       }
+
+      // 3. Display Boost Multiplier Status in Overview
+      const boost = balData.boost || null;
+      const boostBadge = document.getElementById('hub-boost-badge');
+      if (boostBadge) {
+        if (boost && Number(boost.multiplier) > 1.0) {
+          boostBadge.innerHTML = `<span style="color:#10b981;">⚡ ${Number(boost.multiplier).toFixed(1)}x Multiplier (Active)</span>`;
+        } else {
+          boostBadge.textContent = '1.0x (Standard)';
+        }
+      }
+      if (rateDisplay && boost && Number(boost.multiplier) > 1.0) {
+        const baseRate = Number(eligData?.creditRatePerHour || 0);
+        if (baseRate > 0) {
+          const boostedRate = Math.round(baseRate * Number(boost.multiplier));
+          rateDisplay.innerHTML = `${boostedRate} <span style="font-size:10px;font-weight:normal;color:#10b981;">/hr (⚡ ${boost.multiplier}x Boost)</span>`;
+        }
+      }
+
       if (actionStatus) actionStatus.textContent = '';
       updateRedeemPreview();
     } else {
@@ -1804,6 +1944,14 @@ async function loadRewardsHubData() {
     if (actionStatus) actionStatus.textContent = 'Could not sync holdings.';
   }
 }
+
+// Live credit sync: while the Holder Hub modal is open, auto-refresh balances every 30s so
+// usage from the local CLI (or another device/session) appears without a manual refresh.
+setInterval(() => {
+  if (elements.rewardsModal && elements.rewardsModal.style.display === 'flex' && getSessionToken()) {
+    loadRewardsHubData().catch(() => {});
+  }
+}, 30000);
 
 async function triggerCreditAccrual() {
   const actionStatus = document.getElementById('hub-action-status');
@@ -2009,7 +2157,7 @@ async function loadOperatorClaims() {
 
     const pending = Array.isArray(data.pendingClaims) ? data.pendingClaims : [];
     if (pending.length === 0) {
-      container.innerHTML = '<div style="color:#10b981;text-align:center;padding:6px;">✓ All 95% manual transfers are fulfilled! No pending claims.</div>';
+      container.innerHTML = '<div style="color:#10b981;text-align:center;padding:6px;">✓ All manual reward transfers are fulfilled! No pending claims.</div>';
       return;
     }
 
@@ -2168,7 +2316,12 @@ async function loadCliKeyData() {
         if (keyMeta) {
           const createdDate = new Date(activeKey.createdAt).toLocaleDateString();
           const usedDate = activeKey.lastUsedAt ? new Date(activeKey.lastUsedAt).toLocaleDateString() : 'Never';
-          keyMeta.textContent = `Created: ${createdDate} · Last Used: ${usedDate}`;
+          let expInfo = '';
+          if (activeKey.expiresAt) {
+            const expDate = new Date(activeKey.expiresAt);
+            expInfo = ` · Expires: ${expDate.toLocaleDateString()}`;
+          }
+          keyMeta.textContent = `Created: ${createdDate}${expInfo} · Used: ${usedDate}`;
         }
         return;
       }
@@ -2195,14 +2348,20 @@ async function generateCliApiKey() {
 
   const btnFirst = document.getElementById('btn-generate-first-cli-key');
   const btnNew = document.getElementById('btn-generate-cli-key');
+  const nameInput = document.getElementById('cli-key-name-input');
+  const expirySelect = document.getElementById('cli-key-expiry-select');
+
   if (btnFirst) btnFirst.disabled = true;
   if (btnNew) btnNew.disabled = true;
+
+  const name = nameInput?.value?.trim() || 'Web Dashboard Key';
+  const expiry = expirySelect?.value || '30d';
 
   try {
     const res = await fetch('/api/keys/generate', {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ name: 'Web Dashboard Key' })
+      body: JSON.stringify({ name, expiry })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to generate API key');
@@ -2249,6 +2408,29 @@ async function revokeCliApiKey() {
   }
 }
 
+async function deleteCliApiKey() {
+  if (!activeCliKeyId) return;
+  const ok = confirm('Are you sure you want to permanently delete this Jev Brain API key from the database? This action cannot be undone.');
+  if (!ok) return;
+
+  try {
+    const res = await fetch('/api/keys/delete', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ keyId: activeCliKeyId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+    latestGeneratedCliKey = '';
+    activeCliKeyId = null;
+    await loadCliKeyData();
+    alert('✔ API key permanently deleted from database.');
+  } catch (err) {
+    alert(`Could not delete key: ${err.message}`);
+  }
+}
+
 function toggleCliKeyVisibility() {
   const keyInput = document.getElementById('cli-key-input');
   const btnToggle = document.getElementById('btn-toggle-cli-key');
@@ -2272,6 +2454,121 @@ function copyCliApiKey() {
   if (copyBtn) {
     copyBtn.textContent = 'Copied!';
     setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy'; }, 1500);
+  }
+}
+
+// ============================================
+// BURN-TO-BOOST (2.0x LIFETIME MULTIPLIER)
+// ============================================
+
+async function loadBoostStatus() {
+  const statusPill = document.getElementById('boost-status-pill');
+  const userTierEl = document.getElementById('boost-user-tier');
+  const reqEl = document.getElementById('boost-tokens-required');
+  const projEl = document.getElementById('boost-projected-rate');
+  const receiptsTbody = document.getElementById('boost-receipts-tbody');
+  const actionStatus = document.getElementById('boost-action-status');
+
+  if (!currentWallet) {
+    if (actionStatus) actionStatus.innerHTML = '<span style="color:#ef4444;">Please connect your Solana wallet first.</span>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/boost/status?wallet=${encodeURIComponent(currentWallet)}`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch boost status');
+    const data = await res.json();
+
+    const mult = Number(data.boostMultiplier || 1.0);
+    const isBoosted = mult > 1.0;
+
+    if (statusPill) {
+      if (isBoosted) {
+        statusPill.style.background = 'rgba(16, 185, 129, 0.15)';
+        statusPill.style.color = '#10b981';
+        statusPill.textContent = `⚡ ${mult.toFixed(1)}x Titan Boost (Active)`;
+      } else {
+        statusPill.style.background = 'rgba(56, 189, 248, 0.15)';
+        statusPill.style.color = '#38bdf8';
+        statusPill.textContent = '1.0x Base Rate (Unboosted)';
+      }
+    }
+
+    if (data.requirement) {
+      if (userTierEl) userTierEl.textContent = `${data.requirement.tierName} (Tier ${data.requirement.tierLevel})`;
+      if (reqEl) reqEl.textContent = `${Number(data.requirement.requiredTokensUi).toLocaleString()} $JEVBRAIN`;
+      if (projEl) {
+        projEl.textContent = `${Number(data.requirement.boostedCreditsPerDay).toLocaleString()} credits / day (${data.requirement.boostedRatePerHour}/hr)`;
+      }
+    } else {
+      if (userTierEl) userTierEl.textContent = 'Tier 0 (Holdings Required)';
+      if (reqEl) reqEl.textContent = 'Hold $JEVBRAIN tokens to qualify';
+      if (projEl) projEl.textContent = '--';
+    }
+
+    // Render receipts
+    if (receiptsTbody) {
+      const receipts = data.receipts || [];
+      if (receipts.length === 0) {
+        receiptsTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-tertiary);padding:10px;">No on-chain burns recorded yet</td></tr>';
+      } else {
+        receiptsTbody.innerHTML = receipts.map(r => {
+          const date = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 'Recent';
+          const sigShort = r.txSignature ? `${r.txSignature.slice(0, 8)}...${r.txSignature.slice(-6)}` : 'On-chain';
+          const sigUrl = r.txSignature ? `https://solscan.io/tx/${r.txSignature}` : '#';
+          return `
+            <tr>
+              <td>${date}</td>
+              <td style="font-weight:600;color:#10b981;">${Number(r.tokensBurnedUi || 0).toLocaleString()}</td>
+              <td><strong>${r.multiplierAwarded}x</strong></td>
+              <td><a href="${sigUrl}" target="_blank" rel="noopener" style="color:var(--accent-cyan);text-decoration:none;font-family:var(--font-mono);">${sigShort} ↗</a></td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+  } catch (err) {
+    console.warn('Boost status load error:', err);
+  }
+}
+
+async function handleBoostVerification() {
+  const input = document.getElementById('boost-tx-input');
+  const btn = document.getElementById('btn-verify-boost');
+  const statusEl = document.getElementById('boost-action-status');
+
+  const sig = input?.value?.trim();
+  if (!sig) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#ef4444;">Please paste your Solana transaction signature.</span>';
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--accent-cyan);">Verifying on-chain transaction via Solana RPC...</span>';
+
+  try {
+    const res = await fetch('/api/boost/burn-verify', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txSignature: sig })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Verification failed');
+    }
+
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:#10b981;font-weight:600;">🎉 Success! Verified burn of ${data.tokensBurned} $JEVBRAIN. ${data.boostMultiplier}x Lifetime Multiplier is now permanently active!</span>`;
+    }
+    if (input) input.value = '';
+    showNotification(`⚡ ${data.boostMultiplier}x Lifetime Multiplier Unlocked!`, 'success');
+    await loadBoostStatus();
+    await loadRewardsHubData();
+  } catch (err) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#ef4444;">Verification error: ${escapeHtml(err.message)}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2803,6 +3100,18 @@ function bindEvents() {
   elements.btnLoadOperatorClaims?.addEventListener('click', loadOperatorClaims);
   elements.btnConfirmOperatorTx?.addEventListener('click', confirmOperatorTransfer);
 
+  // Burn-to-Boost Controls
+  document.getElementById('btn-verify-boost')?.addEventListener('click', handleBoostVerification);
+  document.getElementById('btn-refresh-boost')?.addEventListener('click', loadBoostStatus);
+  document.getElementById('btn-copy-burn-addr')?.addEventListener('click', () => {
+    navigator.clipboard.writeText('1nc1nerator11111111111111111111111111111111');
+    const b = document.getElementById('btn-copy-burn-addr');
+    if (b) {
+      b.textContent = 'Copied!';
+      setTimeout(() => { b.textContent = 'Copy Burn Address'; }, 1500);
+    }
+  });
+
   // Jev Brain CLI Controls
   document.getElementById('nav-cli')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -2813,6 +3122,7 @@ function bindEvents() {
   document.getElementById('btn-generate-first-cli-key')?.addEventListener('click', generateCliApiKey);
   document.getElementById('btn-generate-cli-key')?.addEventListener('click', generateCliApiKey);
   document.getElementById('btn-revoke-cli-key')?.addEventListener('click', revokeCliApiKey);
+  document.getElementById('btn-delete-cli-key')?.addEventListener('click', deleteCliApiKey);
   document.getElementById('btn-toggle-cli-key')?.addEventListener('click', toggleCliKeyVisibility);
   document.getElementById('btn-copy-cli-key')?.addEventListener('click', copyCliApiKey);
 
@@ -3192,6 +3502,71 @@ function initThemeToggle() {
 }
 
 // ============================================
+// MOBILE IN-APP BROWSER AUTO-CONNECT HANDOFF
+// ============================================
+async function handleMobileAutoConnect() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  const autoConnect = params.get('auto_connect');
+  if (!autoConnect) return;
+
+  // If already authenticated with active session, just strip param
+  if (currentWallet && getSessionToken()) {
+    params.delete('auto_connect');
+    const cleanSearch = params.toString() ? `?${params.toString()}` : '';
+    window.history.replaceState({}, document.title, window.location.pathname + cleanSearch + window.location.hash);
+    return;
+  }
+
+  // Clean the auto_connect query param from the URL immediately so page reloads don't loop
+  params.delete('auto_connect');
+  const cleanSearch = params.toString() ? `?${params.toString()}` : '';
+  const cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
+  window.history.replaceState({}, document.title, cleanUrl);
+
+  console.log(`📱 Mobile Auto-Connect detected for: ${autoConnect}. Awaiting wallet provider injection...`);
+
+  // Polling helper to wait for wallet provider injection inside mobile in-app browser
+  const pollForProvider = (checkFn, maxWaitMs = 2500, intervalMs = 100) => {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const interval = setInterval(() => {
+        const result = checkFn();
+        if (result || (Date.now() - startTime) >= maxWaitMs) {
+          clearInterval(interval);
+          resolve(result);
+        }
+      }, intervalMs);
+    });
+  };
+
+  if (autoConnect === 'phantom') {
+    const solana = await pollForProvider(() => {
+      return (window.phantom?.solana?.isPhantom ? window.phantom.solana : (window.solana?.isPhantom ? window.solana : window.solana));
+    });
+    if (solana) {
+      console.log('⚡ Phantom provider detected in in-app browser. Triggering connection...');
+      await connectSolanaWallet();
+    } else {
+      console.warn('Phantom provider injection timed out in in-app browser.');
+    }
+  } else if (autoConnect === 'metamask') {
+    const provider = await pollForProvider(() => getWeb3Provider());
+    if (provider) {
+      console.log('🦊 MetaMask provider detected in in-app browser. Triggering connection...');
+      await connectMetaMaskWallet();
+    } else {
+      console.warn('MetaMask provider injection timed out in in-app browser.');
+    }
+  }
+}
+
+// Expose for testing
+if (typeof window !== 'undefined') {
+  window.handleMobileAutoConnect = handleMobileAutoConnect;
+}
+
+// ============================================
 // APP INITIALIZATION
 // ============================================
 async function init() {
@@ -3234,6 +3609,9 @@ async function init() {
   } else {
     elements.gateOverlay.style.display = 'flex';
   }
+
+  // Handle mobile in-app browser auto-connect handoff
+  await handleMobileAutoConnect();
 }
 
 // Start

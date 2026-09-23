@@ -25,8 +25,14 @@ const MAGENTA = '\x1b[35m';
 
 function banner() {
   console.log(`
-${CYAN}${BOLD}⚡ JEV BRAIN${RESET} ${GRAY}v1.0.0${RESET}
-${MAGENTA}“Don't think. Route.”${RESET}
+${CYAN}${BOLD}      ██╗  ███████╗      ██╗   ██╗ ██╗  ██╗ ██████╗  █████╗ ██╗  ██╗${RESET}
+${CYAN}${BOLD}      ██║  ██╔════╝      ██║   ██║ ██║  ██║ ██╔══██╗██╔══██╗██║ ██╔╝${RESET}
+${CYAN}${BOLD}      ██║  ███████╗█████╗██║   ██║ ███████║ ██████╔╝███████║ █████╔╝ ${RESET}
+${MAGENTA}${BOLD} ██   ██║  ╚════██║╚════╝██║   ██║ ██╔══██║ ██╔══██╗██╔══██║ ██╔═██╗ ${RESET}
+${MAGENTA}${BOLD} ╚█████╔╝  ███████║      ╚██████╔╝ ██║  ██║ ██║  ██║██║  ██║██║  ██╗${RESET}
+${MAGENTA}${BOLD}  ╚════╝   ╚══════╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝${RESET}
+${GRAY}   v1.0.0 · Token-Gated AI Terminal for $JEVBRAIN Holders${RESET}
+${MAGENTA}   “Don't think. Route.”${RESET}
   `);
 }
 
@@ -405,6 +411,87 @@ function saveCliConfig(cfg) {
   }
 }
 
+// Prompt a single line through an existing readline interface
+function promptLine(rl, question) {
+  return new Promise((resolve) => rl.question(question, (answer) => resolve(answer)));
+}
+
+// Validate a jev_live_ API key against the backend (returns account + tier info)
+async function validateApiKey(endpoint, apiKey) {
+  try {
+    const res = await fetch(`${endpoint}/api/keys/status`, {
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok && data.success === true, status: res.status, data };
+  } catch (err) {
+    return { ok: false, status: 0, data: { error: `Could not reach server: ${err.message}` } };
+  }
+}
+
+// Fetch live credit balance for the configured key
+async function fetchCreditSummary(endpoint, apiKey) {
+  try {
+    const res = await fetch(`${endpoint}/api/credits/balance`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+    const data = await res.json().catch(() => ({}));
+    return data.success ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+// Interactive first-run onboarding: paste key from website, verify live, save & welcome
+async function interactiveApiKeySetup(rl, cfg, maxAttempts = 3) {
+  const endpoint = (cfg.endpoint || 'https://jevbrain.world').replace(/\/+$/, '');
+  console.log(`${BOLD}⚙  No API key configured yet.${RESET}`);
+  console.log(`${GRAY}Get your free key on the website: connect your Solana wallet holding $JEVBRAIN at`);
+  console.log(`   ${CYAN}${endpoint}${RESET}${GRAY}  ➜  Holder Hub  ➜  Jev Brain CLI  ➜  Generate CLI Key${RESET}`);
+  console.log(`${GRAY}Then paste it below. Your credits and holding tier are always enforced server-side.${RESET}\n`);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const raw = (await promptLine(rl, `${BOLD}${CYAN}➤ Paste your API key (jev_live_...): ${RESET}`)).trim();
+    if (!raw) {
+      console.log(`${YELLOW}Empty input. Paste the full key copied from ${endpoint} or type /exit to quit.${RESET}\n`);
+      continue;
+    }
+    if (raw === '/exit' || raw === '/quit') return false;
+    if (!raw.startsWith('jev_live_')) {
+      console.log(`${YELLOW}⚠ Keys start with ${BOLD}jev_live_${RESET}${YELLOW}. Copy the complete key from your dashboard and try again.${RESET}\n`);
+      continue;
+    }
+
+    process.stdout.write(`${GRAY}Verifying key against ${endpoint}...${RESET} `);
+    const check = await validateApiKey(endpoint, raw);
+    if (!check.ok) {
+      console.log(`${RED}✖${RESET}`);
+      console.log(`${RED}✖ Key rejected (${check.status || 'network'}): ${check.data.error || 'Invalid or revoked key'}${RESET}\n`);
+      continue;
+    }
+    console.log(`${GREEN}✔${RESET}`);
+
+    cfg.apiKey = raw;
+    saveCliConfig(cfg);
+
+    const d = check.data;
+    console.log(`\n${GREEN}${BOLD}✔ API key verified & saved to ${CONFIG_FILE}${RESET}`);
+    console.log(`  ${BOLD}Wallet:${RESET}   ${CYAN}${(d.walletAddress || '').slice(0, 6)}...${(d.walletAddress || '').slice(-4)}${RESET}`);
+    console.log(`  ${BOLD}Tier:${RESET}     ${MAGENTA}[${d.tierName || 'Holder'}]${RESET} (Tier ${d.tierId || 0}) · ${GRAY}+${d.creditRatePerHour || 0} credits/hr${RESET}`);
+
+    const summary = await fetchCreditSummary(endpoint, raw);
+    if (summary) {
+      console.log(`  ${BOLD}Credits:${RESET}  ${GREEN}${summary.availableCredits}${RESET} available\n`);
+    } else {
+      console.log('');
+    }
+    return true;
+  }
+
+  console.log(`${YELLOW}Too many failed attempts. Run ${CYAN}jevbrain config set-key <your-key>${RESET}${YELLOW} when you have a valid key.${RESET}\n`);
+  return false;
+}
+
 async function handleConfig() {
   const sub = args[1];
   const val = args[2];
@@ -541,9 +628,19 @@ async function streamAiResponse(prompt, model = 'auto') {
     if (metaInfo && metaInfo.model) {
       const tierBadge = metaInfo.userTier?.tierName || 'Holder';
       console.log(`\n${GRAY}⚡ Model: ${metaInfo.model} · Tier: [${tierBadge}] · Latency: ${Math.round(metaInfo.latencyMs || 0)}ms${RESET}`);
+      if (metaInfo.isCacheHit) {
+        console.log(`${GRAY}💾 Semantic cache hit · 0 credits charged${RESET}`);
+      } else {
+        const cd = metaInfo.creditDeduction;
+        if (cd && cd.creditsDeducted !== undefined) {
+          console.log(`${GRAY}💳 Credits used: ${YELLOW}${cd.creditsDeducted}${GRAY} · Remaining balance: ${GREEN}${cd.availableCredits}${RESET}`);
+        }
+      }
     }
+    return metaInfo;
   } catch (err) {
     console.error(`\n${RED}Connection error:${RESET}`, err.message);
+    return null;
   }
 }
 
@@ -616,18 +713,10 @@ async function handleStatus() {
   }
 }
 
-async function handleChat(initialModel = 'auto') {
-  banner();
+async function handleChat(initialModel = 'auto', opts = {}) {
+  if (!opts.skipBanner) banner();
   const cfg = loadCliConfig();
-  if (!cfg.apiKey && !process.env.JEV_API_KEY) {
-    await streamAiResponse(''); // triggers onboarding message
-    return;
-  }
-
-  let activeModel = initialModel;
-  console.log(`${BOLD}⚡ Jev Brain Interactive Terminal Chat${RESET}`);
-  console.log(`${GRAY}Connected to: ${cfg.endpoint || 'https://jevbrain.world'} · Model: [${CYAN}${activeModel}${GRAY}]${RESET}`);
-  console.log(`${GRAY}Commands: ${CYAN}/exit${GRAY} (quit), ${CYAN}/model <name>${GRAY} (change model), ${CYAN}/status${GRAY} (check tier), ${CYAN}/clear${GRAY} (clear screen)${RESET}\n`);
+  const endpoint = (cfg.endpoint || 'https://jevbrain.world').replace(/\/+$/, '');
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -635,6 +724,28 @@ async function handleChat(initialModel = 'auto') {
     prompt: `${CYAN}jev> ${RESET}`
   });
 
+  // First-run onboarding: paste the key copied from the website, verify live, save.
+  if (!cfg.apiKey && !process.env.JEV_API_KEY) {
+    const ready = await interactiveApiKeySetup(rl, cfg);
+    if (!ready) {
+      rl.close();
+      return;
+    }
+  }
+
+  const apiKey = cfg.apiKey || process.env.JEV_API_KEY;
+  let activeModel = initialModel;
+  console.log(`${BOLD}⚡ Jev Brain Interactive Terminal Chat${RESET}`);
+  console.log(`${GRAY}Connected to: ${endpoint} · Model: [${CYAN}${activeModel}${GRAY}]${RESET}`);
+  console.log(`${GRAY}Commands: ${CYAN}/credits${GRAY} (balance), ${CYAN}/exit${GRAY} (quit), ${CYAN}/model <name>${GRAY} (change model), ${CYAN}/status${GRAY} (tier), ${CYAN}/clear${GRAY} (clear)${RESET}`);
+
+  // Show starting credit balance
+  const startSummary = await fetchCreditSummary(endpoint, apiKey);
+  if (startSummary) {
+    console.log(`${GRAY}Wallet balance: ${GREEN}${BOLD}${startSummary.availableCredits}${RESET}${GRAY} credits available${RESET}\n`);
+  } else {
+    console.log('');
+  }
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -662,6 +773,23 @@ async function handleChat(initialModel = 'auto') {
       rl.prompt();
       return;
     }
+    if (input === '/credits' || input === '/balance') {
+      rl.pause();
+      const summary = await fetchCreditSummary(endpoint, cfg.apiKey || process.env.JEV_API_KEY);
+      if (summary) {
+        console.log(`\n${BOLD}💳 Credit Balance:${RESET} ${GREEN}${BOLD}${summary.availableCredits}${RESET} credits available`);
+        if (summary.eligibility) {
+          console.log(`${GRAY}   Rate: +${summary.eligibility.creditRatePerHour || 0} credits/hr · Tier: [${summary.eligibility.tier || 'Holder'}]${RESET}\n`);
+        } else {
+          console.log('');
+        }
+      } else {
+        console.log(`${YELLOW}Could not fetch credit balance. Check your connection or key with /status.${RESET}\n`);
+      }
+      rl.resume();
+      rl.prompt();
+      return;
+    }
     if (input === '/status' || input === '/tier') {
       rl.pause();
       await handleStatus();
@@ -686,6 +814,7 @@ async function handleChat(initialModel = 'auto') {
 function showHelp() {
   banner();
   console.log(`${BOLD}AI & Terminal Commands:${RESET}`);
+  console.log(`  ${CYAN}jevbrain${RESET}                            Open interactive AI session (first run asks for your API key)`);
   console.log(`  ${CYAN}jevbrain "<prompt>"${RESET}                   Run AI query directly with streaming output`);
   console.log(`  ${CYAN}jevbrain -m <model> "<prompt>"${RESET}        Run AI query with a specific tier-allowed model`);
   console.log(`  ${CYAN}jevbrain chat [-m <model>]${RESET}            Start interactive terminal AI chat session`);
@@ -723,7 +852,12 @@ async function main() {
     cleanArgs.splice(modelFlagIdx, 2);
   }
 
-  const primaryCommand = cleanArgs[0] || 'help';
+  // Bare `jevbrain` in a terminal opens the interactive AI session (banner + key setup + chat).
+  // Bare `jevbrain` with piped stdin streams the piped text as one prompt.
+  let primaryCommand = cleanArgs[0];
+  if (!primaryCommand) {
+    primaryCommand = process.stdin.isTTY ? 'chat' : 'stdin-prompt';
+  }
 
   switch (primaryCommand) {
     case 'config':
@@ -736,6 +870,15 @@ async function main() {
     case 'chat':
       await handleChat(requestedModel);
       break;
+    case 'stdin-prompt': {
+      const stdinData = await readAllStdin();
+      if (stdinData.trim()) {
+        await streamAiResponse(stdinData, requestedModel);
+      } else {
+        showHelp();
+      }
+      break;
+    }
     case 'init':
       await handleInit();
       break;

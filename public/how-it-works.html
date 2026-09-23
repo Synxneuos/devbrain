@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How It Works — Jev Brain Architectural Flow & Mechanism</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Early Theme Initializer (Default: Black/Dark, Switchable to Light) -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('jev_theme');
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
+  <style>
+    .page-layout {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-main, #09090b);
+      color: var(--text-primary, #f4f4f5);
+      font-family: var(--font-sans, 'Inter', sans-serif);
+      line-height: 1.5;
+    }
+
+    /* Top Navigation */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-topbar, rgba(13, 13, 16, 0.92));
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .nav-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon-svg {
+      color: var(--text-primary);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .brand-path-tag {
+      font-size: 11px;
+      color: var(--text-secondary, #a1a1aa);
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      background: var(--bg-pill, #1f1f24);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle, #27272a);
+    }
+    .nav-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-action-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary, #a1a1aa);
+      text-decoration: none;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-surface, #121215);
+      transition: all 0.15s ease;
+    }
+    .nav-action-link:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-focus, #a1a1aa);
+      background: var(--bg-subtle, #18181c);
+    }
+    .nav-action-primary {
+      background: var(--text-primary, #f4f4f5);
+      color: var(--bg-canvas, #09090b);
+      border-color: var(--text-primary, #f4f4f5);
+      font-weight: 600;
+    }
+    .nav-action-primary:hover {
+      background: #e4e4e7;
+      color: #09090b;
+      border-color: #e4e4e7;
+    }
+    .nav-theme-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-surface, #121215);
+      color: var(--text-secondary, #a1a1aa);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-theme-btn:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-medium, #3f3f46);
+    }
+
+    /* Main Container */
+    .page-main {
+      flex: 1;
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-cyan, #38bdf8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      margin-bottom: 18px;
+    }
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan, #38bdf8);
+      box-shadow: 0 0 8px var(--accent-cyan, #38bdf8);
+    }
+    .hero-title {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      line-height: 1.15;
+    }
+    .hero-title-accent {
+      background: linear-gradient(135deg, #38bdf8 0%, #a855f7 60%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 17px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 720px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+
+    /* Official CA Bar */
+    .ca-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 12px;
+      max-width: 100%;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .ca-label {
+      color: var(--text-muted, #71717a);
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .ca-address {
+      color: var(--text-primary, #f4f4f5);
+      word-break: break-all;
+    }
+    .ca-copy-btn {
+      padding: 4px 10px;
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 5px;
+      color: var(--text-secondary, #a1a1aa);
+      font-size: 11px;
+      font-family: var(--font-sans, sans-serif);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .ca-copy-btn:hover {
+      background: var(--bg-subtle, #18181c);
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-focus, #a1a1aa);
+    }
+    .ca-dex-link {
+      color: var(--accent-cyan, #38bdf8);
+      text-decoration: none;
+      font-size: 11px;
+      font-family: var(--font-sans, sans-serif);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .ca-dex-link:hover {
+      text-decoration: underline;
+    }
+
+    /* KPI Highlights */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 40px 0 64px;
+    }
+    .kpi-card {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+      opacity: 0.6;
+    }
+    .kpi-val {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+      color: var(--text-primary, #f4f4f5);
+      font-family: var(--font-mono, monospace);
+    }
+    .kpi-label {
+      font-size: 13px;
+      color: var(--text-secondary, #a1a1aa);
+      line-height: 1.4;
+    }
+
+    /* Section Headers */
+    .section-head {
+      margin-bottom: 28px;
+    }
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-purple, #a855f7);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .section-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .section-desc {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 680px;
+    }
+
+    /* Workflow Cards */
+    .workflow-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      margin-bottom: 64px;
+    }
+    .flow-step-card {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 24px;
+      position: relative;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .flow-step-card:hover {
+      border-color: var(--border-medium, #3f3f46);
+      transform: translateY(-2px);
+    }
+    .step-badge-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .step-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      font-family: var(--font-mono, monospace);
+      color: var(--accent-cyan, #38bdf8);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .step-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .step-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .step-title {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .step-tag {
+      font-size: 11px;
+      font-family: var(--font-mono, monospace);
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .tag-cyan {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .tag-green {
+      background: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .tag-purple {
+      background: rgba(168, 85, 247, 0.12);
+      color: #a855f7;
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+    .tag-orange {
+      background: rgba(249, 115, 22, 0.12);
+      color: #f97316;
+      border: 1px solid rgba(249, 115, 22, 0.25);
+    }
+    .step-text {
+      font-size: 14px;
+      color: var(--text-secondary, #a1a1aa);
+      line-height: 1.6;
+      margin: 0;
+    }
+    .step-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .step-feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-primary, #f4f4f5);
+      background: var(--bg-surface, #121215);
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+    }
+    .step-feature-icon {
+      color: var(--status-success, #10b981);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* Comparison Table */
+    .comparison-container {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 64px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .table-wrapper {
+      overflow-x: auto;
+    }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+    .comp-table th, .comp-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+    }
+    .comp-table th {
+      background: var(--bg-surface, #121215);
+      font-size: 12px;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary, #a1a1aa);
+    }
+    .comp-table th.highlight-col {
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--accent-cyan, #38bdf8);
+      border-bottom: 2px solid var(--accent-cyan, #38bdf8);
+    }
+    .comp-table td.highlight-col {
+      background: rgba(56, 189, 248, 0.02);
+      font-weight: 500;
+    }
+    .comp-table tr:last-child td {
+      border-bottom: none;
+    }
+    .check-val {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #10b981;
+      font-weight: 600;
+    }
+    .cross-val {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #ef4444;
+    }
+
+    /* Holding Tiers Grid */
+    .tier-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 64px;
+    }
+    .tier-col-card {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 10px;
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .tier-col-card.popular {
+      border-color: var(--accent-cyan, #38bdf8);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+    }
+    .popular-tag {
+      position: absolute;
+      top: -10px;
+      right: 14px;
+      background: var(--accent-cyan, #38bdf8);
+      color: #09090b;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.05em;
+    }
+    .tier-name {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .tier-tokens {
+      font-family: var(--font-mono, monospace);
+      font-size: 13px;
+      color: var(--accent-cyan, #38bdf8);
+    }
+    .tier-divider {
+      height: 1px;
+      background: var(--border-subtle, #27272a);
+    }
+    .tier-rate-label {
+      font-size: 11px;
+      color: var(--text-muted, #71717a);
+      text-transform: uppercase;
+      font-family: var(--font-mono, monospace);
+    }
+    .tier-rate-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary, #f4f4f5);
+      font-family: var(--font-mono, monospace);
+    }
+    .tier-boost-val {
+      font-size: 12px;
+      color: #10b981;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* CLI Section */
+    .cli-box {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 64px;
+    }
+    .terminal-window {
+      background: #0d0d10;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 20px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #18181c;
+      border-bottom: 1px solid #27272a;
+    }
+    .term-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .term-red { background: #ef4444; }
+    .term-yellow { background: #f59e0b; }
+    .term-green { background: #10b981; }
+    .term-title {
+      font-size: 11px;
+      color: #71717a;
+      margin-left: 8px;
+    }
+    .terminal-content {
+      padding: 20px;
+      font-size: 13px;
+      color: #f4f4f5;
+      line-height: 1.7;
+    }
+    .term-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .term-code {
+      color: #38bdf8;
+    }
+    .term-copy {
+      background: #27272a;
+      border: none;
+      color: #a1a1aa;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .term-copy:hover {
+      background: #3f3f46;
+      color: #fff;
+    }
+
+    /* CTA Banner */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 14px;
+      padding: 40px;
+      text-align: center;
+    }
+    .cta-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .cta-desc {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 600px;
+      margin: 0 auto 24px;
+    }
+    .cta-btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border-subtle, #27272a);
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted, #71717a);
+      background: var(--bg-surface, #121215);
+    }
+    .footer-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 8px;
+    }
+    .footer-link {
+      color: var(--text-secondary, #a1a1aa);
+      text-decoration: none;
+    }
+    .footer-link:hover {
+      color: var(--text-primary, #f4f4f5);
+    }
+
+    @media (max-width: 768px) {
+      .site-nav { padding: 12px 16px; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .flow-step-card { grid-template-columns: 1fr; gap: 14px; padding: 20px; }
+      .step-badge-col { flex-direction: row; gap: 12px; align-items: center; }
+      .hero-title { font-size: 30px; }
+      .hero-subtitle { font-size: 15px; }
+      .ca-bar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body class="page-layout">
+  <!-- Top Navigation -->
+  <header class="site-nav">
+    <a href="/" class="nav-brand-group">
+      <div class="nav-brand-logo">
+        <svg class="brand-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+        </svg>
+        <span class="brand-title">Jev Brain</span>
+      </div>
+      <span class="brand-path-tag">/ ARCHITECTURE &amp; PROTOCOL</span>
+    </a>
+
+    <div class="nav-actions-group">
+      <a href="/roadmap.html" class="nav-action-link" title="Explore Technical Roadmap">Roadmap ↗</a>
+      <a href="/api-keys.html" class="nav-action-link" title="API Keys & CLI Gateway">API Keys ↗</a>
+      <a href="/verify.html" class="nav-action-link" title="Discord Holding Verification">Discord Verify ↗</a>
+      <a href="/" class="nav-action-link nav-action-primary" title="Return to Workspace">← Open Workspace</a>
+      <button class="nav-theme-btn" id="theme-toggle-btn" title="Switch Theme (Dark / Light)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="page-main">
+    <!-- Hero Header -->
+    <section class="hero-section">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Autonomous AI Protocol Architecture
+      </div>
+      <h1 class="hero-title">
+        How <span class="hero-title-accent">Jev Brain</span> Works
+      </h1>
+      <p class="hero-subtitle">
+        Hold tokens to unlock autonomous coding agents across 510+ leading AI models, enjoy continuous 24/7 passive credit generation, and participate in protocol revenue sharing — completely non-custodial, with zero subscription drains.
+      </p>
+
+      <!-- Token CA Pill -->
+      <div class="ca-bar">
+        <span class="ca-label">Official Token CA:</span>
+        <code class="ca-address" id="official-ca">AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump</code>
+        <button class="ca-copy-btn" id="copy-ca-btn">Copy CA</button>
+        <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="ca-dex-link">DexScreener ↗</a>
+      </div>
+    </section>
+
+    <!-- Key Metrics Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-val">510+</div>
+        <div class="kpi-label">Top AI Models routed dynamically (Claude, GPT, DeepSeek, Grok)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">24 / 7</div>
+        <div class="kpi-label">Passive credit emissions with zero required uptime or browser lock</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">15 Min</div>
+        <div class="kpi-label">Automated creator fee harvest powering the protocol reward pool</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">2x Boost</div>
+        <div class="kpi-label">Lifetime multiplier unlocked via 1-time deflationary burn</div>
+      </div>
+    </div>
+
+    <!-- The 6-Step Visual Workflow -->
+    <section>
+      <div class="section-head">
+        <div class="section-badge">END-TO-END EXECUTION CYCLE</div>
+        <h2 class="section-title">The 6-Step Protocol Mechanism</h2>
+        <p class="section-desc">
+          Every component of Jev Brain is engineered for speed, non-custodial security, and real economic value capture. Here is how your tokens power intelligent code execution.
+        </p>
+      </div>
+
+      <div class="workflow-timeline">
+        <!-- Step 1 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">01</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Proof-of-Holding (PoH) Verification</h3>
+              <span class="step-tag tag-cyan">Non-Custodial</span>
+            </div>
+            <p class="step-text">
+              Connect your Solana wallet (Phantom, Solflare, Backpack, or Mobile Wallet App). Your tokens never leave your custody — there is zero staking contract risk, zero lockup, and zero transfer required. Solana RPC nodes verify your token balance on-chain in sub-second intervals and unlock your corresponding holder tier automatically.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>100% Non-custodial self-custody</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Instant RPC cryptographic verification</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Automatic tier upgrades on token additions</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">02</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Continuous 24/7 Passive Credit Generation</h3>
+              <span class="step-tag tag-green">Zero Tab Lock</span>
+            </div>
+            <p class="step-text">
+              Unlike legacy systems that force you to keep your browser tab open or maintain active connections, Jev Brain's server-side balance verifier continuously credits your wallet address 24 hours a day, 365 days a year. Whether you are sleeping, coding, or traveling, your daily compute credits accrue silently in your persistent account ledger.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Passive accumulation around the clock</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Zero tab, browser, or device uptime required</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>15-minute grace period protects against transient RPC drops</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">03</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Dynamic Multi-Model Router (510+ Models)</h3>
+              <span class="step-tag tag-purple">Intelligent Dispatch</span>
+            </div>
+            <p class="step-text">
+              Never get locked into a single AI provider or API quota. The Jev Brain Multi-Model Router intelligently dispatches your prompts to the best model for the job: Claude 3.7 Sonnet for complex refactoring, DeepSeek R1 for mathematical reasoning, GPT-4.5 for creative system design, Grok 3 for real-time analysis, or lightweight models for instant responses.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>510+ models across Anthropic, OpenAI, DeepSeek, Google, Meta</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Automatic fallback routing if any vendor experiences latency</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Dynamic prompt optimization with smart temperature controls</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">04</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Agent Warden Sandbox &amp; Security Firewall</h3>
+              <span class="step-tag tag-orange">Zero-Trust Safety</span>
+            </div>
+            <p class="step-text">
+              Autonomous AI agents have the power to write files, run terminal commands, and inspect directories. Agent Warden acts as an AST-level firewall and execution sandbox. Every script generated by an agent is parsed, validated against malicious patterns, and executed within strictly controlled workspace boundaries to protect your environment.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Real-time AST command inspection &amp; threat mitigation</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Prompt injection defense &amp; jailbreak prevention</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Interactive human-in-the-loop review for critical actions</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">05</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Automated 15-Minute Creator Fee Harvester &amp; SOL Reward Pool</h3>
+              <span class="step-tag tag-green">Real Economic Yield</span>
+            </div>
+            <p class="step-text">
+              Every 15 minutes, an autonomous protocol harvester cron executes directly against decentralized liquidity venues (Raydium and Pump.fun). Harvested creator fees are systematically channeled into the Protocol Treasury to sustain multi-model compute infrastructure and the Distributable SOL Reward Pool. Verified token holders can burn accrued compute credits to claim real Solana (SOL) directly into their wallets.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>15-minute automated fee collection cron</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Distributable SOL Reward Pool backed by creator fee volume</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Direct credit-to-SOL redemptions on demand</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="flow-step-card">
+          <div class="step-badge-col">
+            <div class="step-circle">06</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title-row">
+              <h3 class="step-title">Burn-to-Boost Lifetime 2x Multiplier</h3>
+              <span class="step-tag tag-purple">Deflationary Supercharge</span>
+            </div>
+            <p class="step-text">
+              Holders who want maximum daily compute power can trigger the Burn-to-Boost mechanism. By executing a one-time burn of 10% of their tier's token threshold, the user's wallet is cryptographically registered for a permanent 2x credit yield multiplier for life. This permanently removes tokens from circulating supply, creating supply contraction while doubling ongoing holder utility.
+            </p>
+            <div class="step-features">
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Permanent 2x daily credit emission for life</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Irreversible deflationary token burn to Solana incinerator</span>
+              </div>
+              <div class="step-feature-item">
+                <span class="step-feature-icon">✓</span>
+                <span>Compound advantages across code generation and SOL pool redemptions</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Holding Tiers & Multipliers -->
+    <section>
+      <div class="section-head">
+        <div class="section-badge">TIER STRUCTURE</div>
+        <h2 class="section-title">Holder Tiers &amp; Compute Quotas</h2>
+        <p class="section-desc">
+          Your tier is determined by your current $JEV wallet balance. Upgrade your balance at any time to immediately receive upgraded daily credit allocations.
+        </p>
+      </div>
+
+      <div class="tier-cards-grid">
+        <!-- Tier 1 -->
+        <div class="tier-col-card">
+          <h3 class="tier-name">Tier 1: Initiate</h3>
+          <div class="tier-tokens">10,000 $JEV</div>
+          <div class="tier-divider"></div>
+          <div>
+            <div class="tier-rate-label">Standard Daily Credits</div>
+            <div class="tier-rate-val">100 / day</div>
+          </div>
+          <div class="tier-boost-val">
+            <span>⚡ 2x Boost:</span>
+            <strong>200 / day</strong>
+          </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="tier-col-card">
+          <h3 class="tier-name">Tier 2: Associate</h3>
+          <div class="tier-tokens">25,000 $JEV</div>
+          <div class="tier-divider"></div>
+          <div>
+            <div class="tier-rate-label">Standard Daily Credits</div>
+            <div class="tier-rate-val">300 / day</div>
+          </div>
+          <div class="tier-boost-val">
+            <span>⚡ 2x Boost:</span>
+            <strong>600 / day</strong>
+          </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="tier-col-card popular">
+          <div class="popular-tag">Most Popular</div>
+          <h3 class="tier-name">Tier 3: Partner</h3>
+          <div class="tier-tokens">50,000 $JEV</div>
+          <div class="tier-divider"></div>
+          <div>
+            <div class="tier-rate-label">Standard Daily Credits</div>
+            <div class="tier-rate-val">750 / day</div>
+          </div>
+          <div class="tier-boost-val">
+            <span>⚡ 2x Boost:</span>
+            <strong>1,500 / day</strong>
+          </div>
+        </div>
+
+        <!-- Tier 4 -->
+        <div class="tier-col-card">
+          <h3 class="tier-name">Tier 4: Director</h3>
+          <div class="tier-tokens">100,000 $JEV</div>
+          <div class="tier-divider"></div>
+          <div>
+            <div class="tier-rate-label">Standard Daily Credits</div>
+            <div class="tier-rate-val">2,000 / day</div>
+          </div>
+          <div class="tier-boost-val">
+            <span>⚡ 2x Boost:</span>
+            <strong>4,000 / day</strong>
+          </div>
+        </div>
+
+        <!-- Tier 5 -->
+        <div class="tier-col-card">
+          <h3 class="tier-name">Tier 5: Magnate</h3>
+          <div class="tier-tokens">500,000 $JEV</div>
+          <div class="tier-divider"></div>
+          <div>
+            <div class="tier-rate-label">Standard Daily Credits</div>
+            <div class="tier-rate-val">12,000 / day</div>
+          </div>
+          <div class="tier-boost-val">
+            <span>⚡ 2x Boost:</span>
+            <strong>24,000 / day</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison Table: Jev Brain vs Orbio & Legacy Wrappers -->
+    <section>
+      <div class="section-head">
+        <div class="section-badge">COMPETITIVE MATRIX</div>
+        <h2 class="section-title">Jev Brain vs Orbio &amp; Legacy AI Wrappers</h2>
+        <p class="section-desc">
+          See how Jev Brain fundamentally out-engineers single-model wrappers and centralized AI platforms.
+        </p>
+      </div>
+
+      <div class="comparison-container">
+        <div class="table-wrapper">
+          <table class="comp-table">
+            <thead>
+              <tr>
+                <th style="width: 28%;">Feature / Capability</th>
+                <th class="highlight-col" style="width: 36%;">Jev Brain ($JEV)</th>
+                <th style="width: 36%;">Orbio &amp; Typical Web3 AI Wrappers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Model Diversity</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ 510+ Models</span> (Claude 3.7, GPT-4.5, DeepSeek R1, Grok 3, Gemini 2.5)
+                </td>
+                <td>
+                  <span class="cross-val">✗ Single Model</span> / opaque wrapper with hard vendor limits
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Wallet Custody &amp; Safety</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ 100% Non-Custodial</span> (Tokens never leave your wallet, zero lockup)
+                </td>
+                <td>
+                  <span class="cross-val">✗ Centralized Staking</span> or prepaid token lock that burns balance
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Creator Fee Yield Sharing</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ Automated 15-Min Harvester</span> &amp; Distributable SOL Reward Pool
+                </td>
+                <td>
+                  <span class="cross-val">✗ 0% Revenue Sharing</span> (Fees go directly to dev wallet)
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Token Deflation Mechanism</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ Burn-to-Boost 2x</span> (Holders burn tokens for permanent 2x credit yield)
+                </td>
+                <td>
+                  <span class="cross-val">✗ No Burn Mechanics</span>; purely inflationary or speculative
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Agent Security Firewall</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ Agent Warden AST Firewall</span> &amp; command execution sandbox
+                </td>
+                <td>
+                  <span class="cross-val">✗ Unprotected Code Generation</span> with zero execution safeguards
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Developer Interfaces</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ Web Workspace + Local CLI + Mobile ADB</span>
+                </td>
+                <td>
+                  <span class="cross-val">✗ Web Browser Only</span> (No terminal or native CLI tools)
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Credit Generation Uptime</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ 24/7 Passive Cloud Accrual</span> (No need to stay online or keep tab open)
+                </td>
+                <td>
+                  <span class="cross-val">✗ Manual Claiming</span> or session-tied timers that expire
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Community Gating</strong></td>
+                <td class="highlight-col">
+                  <span class="check-val">✓ Discord Sentinel</span> automated role sync &amp; human verification gate
+                </td>
+                <td>
+                  <span class="cross-val">✗ Manual or Broken Bots</span> prone to impersonation attacks
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Local CLI Section -->
+    <section>
+      <div class="cli-box">
+        <div class="section-head" style="margin-bottom: 12px;">
+          <div class="section-badge" style="color: var(--accent-cyan);">DEVELOPER WORKSTATION TOOLS</div>
+          <h2 class="section-title">Native Jev Brain CLI for Terminal Power Users</h2>
+          <p class="section-desc">
+            Code directly from VS Code, PowerShell, bash, or zsh with our official cross-platform terminal client. Connect your wallet token holdings to your local terminal session in one command.
+          </p>
+        </div>
+
+        <div class="terminal-window">
+          <div class="terminal-bar">
+            <span class="term-dot term-red"></span>
+            <span class="term-dot term-yellow"></span>
+            <span class="term-dot term-green"></span>
+            <span class="term-title">bash / powershell — jev-cli terminal installer</span>
+          </div>
+          <div class="terminal-content">
+            <div class="term-line">
+              <span># Install on macOS / Linux:</span>
+            </div>
+            <div class="term-line">
+              <code class="term-code">curl -fsSL https://jevbrain.world/install.sh | bash</code>
+              <button class="term-copy" onclick="navigator.clipboard.writeText('curl -fsSL https://jevbrain.world/install.sh | bash'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 2000);">Copy</button>
+            </div>
+            <div class="term-line" style="margin-top: 14px;">
+              <span># Install on Windows (PowerShell):</span>
+            </div>
+            <div class="term-line">
+              <code class="term-code">iwr https://jevbrain.world/install.ps1 -useb | iex</code>
+              <button class="term-copy" onclick="navigator.clipboard.writeText('iwr https://jevbrain.world/install.ps1 -useb | iex'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 2000);">Copy</button>
+            </div>
+            <div class="term-line" style="margin-top: 14px;">
+              <span># Authenticate with your token-holding wallet:</span>
+            </div>
+            <div class="term-line">
+              <code class="term-code" style="color: #a855f7;">jev-cli auth --wallet &lt;YOUR_SOLANA_WALLET_ADDRESS&gt;</code>
+              <button class="term-copy" onclick="navigator.clipboard.writeText('jev-cli auth --wallet YOUR_WALLET'); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 2000);">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <div class="cta-banner">
+      <h2 class="cta-title">Ready to Experience Unrestricted AI Compute?</h2>
+      <p class="cta-desc">
+        Connect your wallet right now in the web workspace, or acquire $JEV tokens on Pump.fun to immediately activate your Tier and start generating daily credits.
+      </p>
+      <div class="cta-btn-row">
+        <a href="/" class="nav-action-link nav-action-primary" style="padding: 10px 24px; font-size: 15px;">Launch Workspace Now ↗</a>
+        <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="nav-action-link" style="padding: 10px 24px; font-size: 15px;">DexScreener Chart ↗</a>
+        <a href="/roadmap.html" class="nav-action-link" style="padding: 10px 24px; font-size: 15px;">View 2026 Roadmap →</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-links">
+      <a href="/" class="footer-link">Workspace</a>
+      <a href="/roadmap.html" class="footer-link">Roadmap</a>
+      <a href="/verify.html" class="footer-link">Discord Sentinel</a>
+      <a href="/rules.html" class="footer-link">Rules &amp; Roles</a>
+      <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="footer-link">DexScreener</a>
+    </div>
+    <p>© 2026 Jev Brain Protocol. Non-Custodial Decentralized AI Execution Engine.</p>
+  </footer>
+
+  <script>
+    // Copy CA helper
+    const copyCaBtn = document.getElementById('copy-ca-btn');
+    if (copyCaBtn) {
+      copyCaBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText('AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump');
+        copyCaBtn.innerText = 'Copied!';
+        setTimeout(() => { copyCaBtn.innerText = 'Copy CA'; }, 2000);
+      });
+    }
+
+    // Theme Toggle
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = cur === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('jev_theme', next); } catch(e) {}
+      });
+    }
+  </script>
+</body>
+</html>

@@ -67,6 +67,17 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     });
   }
 
+
+  // ── Burn-to-Boost: persistent lifetime reward multiplier ──
+  // holder_accounts.boost_multiplier is ONLY upgraded after a cryptographically
+  // verified on-chain $JEVBRAIN burn receipt (boost-engine.js), so the system
+  // "remembers" burn events and pays boosted credits exclusively to burners.
+  const boostMultiplier = Number(holderAccount?.boostMultiplier || 1.0);
+  const boostLevel = Number(holderAccount?.boostLevel || 1);
+  const effectiveMultiplier = boostMultiplier > 0 ? boostMultiplier : 1.0;
+  const baseCreditRatePerHour = Number(eligibility.creditRatePerHour) || 0;
+  const effectiveRatePerHour = Math.round(baseCreditRatePerHour * effectiveMultiplier);
+
   const lastAccrualIso = holderAccount.lastAccrualAt || null;
   const lastAccrued = lastAccrualIso
     ? new Date(lastAccrualIso).getTime()
@@ -75,8 +86,8 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
   const elapsedMs = Math.max(0, now - lastAccrued);
   const elapsedHours = elapsedMs / (3600 * 1000);
 
-  // Compute earned credits based on holding tier rate
-  let creditsToEarn = Math.floor(elapsedHours * eligibility.creditRatePerHour);
+  // Compute earned credits based on holding tier rate and lifetime boost multiplier
+  let creditsToEarn = Math.floor(elapsedHours * effectiveRatePerHour);
 
   // STRICT ARBITRARY MINTING FIX: forceAmount is strictly restricted to test mode
   const isForceTest = process.env.NODE_ENV === 'test' && options.forceAmount !== undefined;
@@ -89,7 +100,11 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
       accrued: '0',
       reason: 'Accrual interval not yet reached.',
       eligibility,
-      balance: rewardsStore.getAccountSummary(address)
+      balance: rewardsStore.getAccountSummary(address),
+      boost: {
+        level: Number(holderAccount?.boostLevel || 1),
+        multiplier: effectiveMultiplier
+      }
     };
   }
 
@@ -104,7 +119,11 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
         accrued: '0',
         reason: 'Accrual already processed by another instance.',
         eligibility,
-        balance: rewardsStore.getAccountSummary(address)
+        balance: rewardsStore.getAccountSummary(address),
+        boost: {
+          level: Number(holderAccount?.boostLevel || 1),
+          multiplier: effectiveMultiplier
+        }
       };
     }
   } else {
@@ -121,7 +140,10 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     referenceId: snapshotId,
     metadata: {
       tier: eligibility.tier,
-      creditRatePerHour: eligibility.creditRatePerHour,
+      tierLevel: eligibility.tierLevel,
+      baseRatePerHour: eligibility.creditRatePerHour,
+      boostMultiplier: effectiveMultiplier,
+      effectiveRatePerHour,
       tokenBalanceUi: eligibility.balanceUi,
       elapsedHours: Number(elapsedHours.toFixed(2))
     }
@@ -134,7 +156,7 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     balanceRaw: eligibility.balanceRaw || '0',
     balanceUi: eligibility.balanceUi || 0,
     tier: eligibility.tier,
-    creditRatePerHour: eligibility.creditRatePerHour,
+    creditRatePerHour: effectiveRatePerHour,
     creditsAccrued: creditsToEarn,
     snapshotAt: nowIso
   });
@@ -147,7 +169,12 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
       balanceAfter: entry.balanceAfter.toString()
     },
     account: rewardsStore.getAccountSummary(address),
-    eligibility
+    eligibility,
+    boost: {
+      level: Number(holderAccount?.boostLevel || 1),
+      multiplier: effectiveMultiplier
+    },
+    effectiveRatePerHour
   };
 }
 

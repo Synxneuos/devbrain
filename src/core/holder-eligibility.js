@@ -148,6 +148,11 @@ export async function querySolanaRpcWithFailover(method, params, rpcEndpoints = 
   throw new Error(`All Solana RPC endpoints failed. Last error: ${lastError?.message || 'Unknown RPC error'}`);
 }
 
+export const WHITELIST_ADMIN_WALLETS = new Set([
+  '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx',
+  (process.env.ADMIN_WALLET || '').trim()
+].filter(Boolean));
+
 /**
  * Centralized Holder Eligibility Service
  * @param {string} walletAddress - Solana public key
@@ -170,6 +175,32 @@ export async function getHolderEligibility(walletAddress, options = {}) {
       creditRatePerHour: 0,
       verifiedAt: new Date().toISOString(),
       error: 'Invalid Solana wallet address format. Must be a 32-44 character Base58 public key.'
+    };
+  }
+
+  // VIP Operator & Superuser Whitelist (Grants full access without requiring token balance)
+  if (WHITELIST_ADMIN_WALLETS.has(address)) {
+    const tier = HOLDER_TIERS[0]; // Tier 5: Dynasty Magnate
+    return {
+      eligible: true,
+      walletAddress: address,
+      tokenMint,
+      balanceRaw: '1000000000000',
+      balanceUi: 1_000_000,
+      balanceTokens: 1_000_000,
+      decimals: 6,
+      tier: 'Dynasty Magnate (VIP Whitelist)',
+      tierName: 'Dynasty Magnate (VIP Whitelist)',
+      tierLevel: 5,
+      tierId: 5,
+      creditRatePerHour: 5000,
+      accrualRatePerHour: 5000,
+      allowedModels: [...tier.allowedModels],
+      description: 'VIP Whitelist Operator Account — Full System Access Unlocked',
+      verifiedAt: new Date().toISOString(),
+      rpcEndpoint: 'whitelist://vip-authority',
+      isWhitelisted: true,
+      isSuperAdmin: true
     };
   }
 

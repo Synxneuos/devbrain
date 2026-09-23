@@ -1,0 +1,9 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "deploy": {
+    "startCommand": "node bin/brain.js serve",
+    "restartPolicyType": "ALWAYS",
+    "healthcheckPath": "/api/stats",
+    "healthcheckTimeout": 300
+  }
+}

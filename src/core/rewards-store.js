@@ -21,7 +21,7 @@ export const TOTAL_BASIS_POINTS = 10000n;
 export const INFRASTRUCTURE_WALLET_PUBLIC_KEY = (process.env.INFRASTRUCTURE_WALLET_PUBLIC_KEY || 'JevBrain11111111111111111111111111111111111').trim();
 export const OPERATOR_WALLET_PUBLIC_KEY = (process.env.OPERATOR_WALLET_PUBLIC_KEY || 'JevOperator1111111111111111111111111111111111').trim();
 
-class RewardsStore {
+export class RewardsStore {
   constructor(db = dbAdapter) {
     this.db = db;
   }
@@ -43,6 +43,7 @@ class RewardsStore {
           DELETE FROM llm_usage;
           DELETE FROM credit_ledger;
           DELETE FROM credit_accounts;
+          DELETE FROM token_burn_receipts;
           DELETE FROM holder_snapshots;
           DELETE FROM holder_accounts;
         `);

@@ -7,7 +7,7 @@
  */
 
 import { dbAdapter } from '../core/db-adapter.js';
-import { getHolderEligibility, isValidSolanaAddress } from '../core/holder-eligibility.js';
+import { getHolderEligibility, isValidSolanaAddress, WHITELIST_ADMIN_WALLETS } from '../core/holder-eligibility.js';
 
 export class ApiKeyAuditor {
   constructor() {
@@ -83,6 +83,23 @@ export class ApiKeyAuditor {
 
     for (const [walletAddress, keys] of walletKeysMap.entries()) {
       if (!isValidSolanaAddress(walletAddress)) continue;
+
+      if (WHITELIST_ADMIN_WALLETS.has(walletAddress)) {
+        for (const key of keys) {
+          if (key.status === 'suspended') {
+            dbAdapter.reactivateApiKey(key.key_id, 1000000, 5);
+            reactivatedCount++;
+          } else {
+            dbAdapter.updateApiKeyAuditInfo(key.key_id, {
+              status: 'active',
+              suspensionReason: null,
+              tokensHeld: 1000000,
+              tierId: 5
+            });
+          }
+        }
+        continue;
+      }
 
       try {
         const eligibility = await getHolderEligibility(walletAddress, { skipCache: true });

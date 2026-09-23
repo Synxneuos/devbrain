@@ -133,6 +133,30 @@
             <span>Jev Brain CLI</span>
             <span class="nav-status-pill" style="background:rgba(6,182,212,0.15); color:#06b6d4;">CLI</span>
           </a>
+          <a href="/api-keys.html" class="nav-link" id="nav-api-keys" title="Generate & Manage API Keys">
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>API Keys</span>
+            <span class="nav-status-pill" style="background:rgba(234,179,8,0.15); color:#eab308;">REST</span>
+          </a>
+          <a href="/how-it-works.html" class="nav-link" id="nav-how-it-works" title="Architecture & Flow Guide">
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>How It Works</span>
+            <span class="nav-status-pill" style="background:rgba(56,189,248,0.15); color:#38bdf8;">Guide</span>
+          </a>
+          <a href="/roadmap.html" class="nav-link" id="nav-roadmap" title="Protocol Roadmap 2026">
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>Roadmap</span>
+            <span class="nav-status-pill" style="background:rgba(168,85,247,0.15); color:#a855f7;">2026</span>
+          </a>
         </nav>
 
         <div class="nav-section-label" style="margin-top:16px;">DISCORD SENTINEL</div>
@@ -915,7 +939,8 @@
         <div class="router-tier-tabs" id="rewards-tabs" style="margin-bottom:12px;">
           <button class="tier-tab-btn active" data-tab="overview">Overview &amp; Credits</button>
           <button class="tier-tab-btn" data-tab="transfer">P2P Transfer</button>
-          <button class="tier-tab-btn" data-tab="redeem">Burn Credits for SOL (5% Pool)</button>
+          <button class="tier-tab-btn" data-tab="redeem">Burn Credits for SOL (Reward Pool)</button>
+          <button class="tier-tab-btn" data-tab="boost">⚡ Burn-to-Boost (2x)</button>
           <button class="tier-tab-btn" data-tab="history">Ledger History</button>
           <button class="tier-tab-btn" data-tab="cli">⚡ Jev Brain CLI</button>
           <button class="tier-tab-btn" data-tab="operator">Operator Portal</button>
@@ -955,9 +980,13 @@
               <span style="font-size:11px;color:var(--text-secondary);">Live $JEVBRAIN Market Cap</span>
               <span style="font-size:11.5px;font-weight:600;font-family:var(--font-mono);color:#10b981;" id="hub-live-mc">$0</span>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <span style="font-size:11px;color:var(--text-secondary);">Holding Tier (Dynamic)</span>
               <span style="font-size:11px;font-weight:600;color:#a855f7;" id="hub-tier-name">Tier 0 (Unranked)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:var(--text-secondary);">Lifetime Boost Multiplier</span>
+              <span style="font-size:11px;font-weight:700;font-family:var(--font-mono);color:#38bdf8;" id="hub-boost-badge">1.0x (Standard)</span>
             </div>
           </div>
 
@@ -993,10 +1022,10 @@
           <div id="transfer-status-msg" style="font-size:11px;margin-top:8px;text-align:center;"></div>
         </div>
 
-        <!-- TAB 3: BURN FOR SOL (5% REWARD POOL WITH DYNAMIC MC SCALING) -->
+        <!-- TAB 3: BURN FOR SOL (DISTRIBUTABLE REWARD POOL WITH DYNAMIC MC SCALING) -->
         <div class="rewards-tab-pane" id="pane-rewards-redeem" style="display:none;">
           <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:10px;">
-            Burn your accumulated credits to receive SOL directly from the <strong>5% Community Trading Fee Pool</strong>. Reward rates scale dynamically with live $JEVBRAIN Market Cap.
+            Burn your accumulated credits to receive SOL directly from the <strong>Community Trading Fee Pool</strong>. Reward rates scale dynamically with live $JEVBRAIN Market Cap.
           </p>
 
           <!-- Live Pool Status Box -->
@@ -1006,7 +1035,7 @@
               <div style="font-size:13px;font-weight:700;color:#10b981;font-family:var(--font-mono);" id="burn-live-mc">$0</div>
             </div>
             <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;">
-              <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;">5% Available Pool</div>
+              <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;">Available SOL Pool</div>
               <div style="font-size:13px;font-weight:700;color:var(--accent-cyan);font-family:var(--font-mono);" id="burn-live-pool">0.0000 SOL</div>
             </div>
           </div>
@@ -1034,13 +1063,110 @@
           </div>
 
           <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:5px;padding:8px 10px;font-size:10.5px;color:var(--text-secondary);line-height:1.4;margin-bottom:12px;">
-            <strong style="color:#10b981;">Automated On-Chain Payout:</strong> 95% of token fees are permanently secured in the project treasury, while 100% of this burn reward is transferred directly from the 5% community pool into your connected wallet.
+            <strong style="color:#10b981;">Automated On-Chain Payout:</strong> Creator fees are secured in the project treasury to sustain AI compute infrastructure, while 100% of this burn reward is transferred directly from the community reward pool into your connected wallet.
           </div>
 
           <button class="btn-dark-primary" id="btn-submit-redeem" style="width:100%;padding:9px;font-weight:600;">
             🔥 Burn Credits &amp; Claim SOL Reward
           </button>
           <div id="redeem-status-msg" style="font-size:11px;margin-top:8px;text-align:center;"></div>
+        </div>
+
+        <!-- TAB 3b: BURN-TO-BOOST (2x/3x/5x LIFETIME MULTIPLIER) -->
+        <div class="rewards-tab-pane" id="pane-rewards-boost" style="display:none;">
+          <!-- Active Status Banner -->
+          <div style="background:linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(168,85,247,0.08) 100%);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#38bdf8;font-family:var(--font-mono);">⚡ Lifetime Rewards Multiplier</span>
+              <span id="boost-status-pill" style="font-size:10.5px;font-family:var(--font-mono);padding:2px 8px;border-radius:4px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:600;">1.0x Base Rate</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;">
+              Execute a <strong>1-time on-chain token burn</strong> to permanently lock a <strong>2.0x lifetime credit accrual multiplier</strong> for your wallet. Burned tokens are permanently destroyed from supply.
+            </div>
+          </div>
+
+          <!-- Dynamic Tier Requirement Box -->
+          <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;color:var(--text-secondary);">Your Holding Tier</span>
+              <span style="font-size:11.5px;font-weight:600;color:#a855f7;" id="boost-user-tier">Tier 0 (Unranked)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-size:11px;color:var(--text-secondary);">1-Time Burn Required</span>
+              <span style="font-size:12px;font-weight:700;font-family:var(--font-mono);color:#10b981;" id="boost-tokens-required">-- $JEVBRAIN</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:11px;color:var(--text-secondary);">Boosted Credit Emission</span>
+              <span style="font-size:11.5px;font-weight:700;font-family:var(--font-mono);color:#38bdf8;" id="boost-projected-rate">-- credits / day</span>
+            </div>
+          </div>
+
+          <!-- On-chain Burn Verification Form -->
+          <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+              <span>Step 1: Burn to Solana Incinerator / Dead Address</span>
+              <button class="btn-ghost-sm" id="btn-copy-burn-addr" style="font-size:10px;padding:1px 6px;">Copy Burn Address</button>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);word-break:break-all;margin-bottom:10px;" id="boost-dead-address">
+              1nc1nerator11111111111111111111111111111111
+            </div>
+
+            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">
+              Step 2: Paste Burn Transaction Signature (Hash)
+            </div>
+            <input type="text" id="boost-tx-input" placeholder="e.g. 5Kq9... (Solana Tx Signature)" style="width:100%;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;margin-bottom:10px;" />
+
+            <button class="btn-dark-primary" id="btn-verify-boost" style="width:100%;padding:9px;font-weight:600;">
+              ⚡ Verify On-Chain Burn &amp; Unlock 2.0x Boost
+            </button>
+            <div id="boost-action-status" style="font-size:11px;margin-top:8px;text-align:center;"></div>
+          </div>
+
+          <!-- 5-Tier Matrix Table -->
+          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">
+            Tier Burn &amp; 2.0x Multiplier Matrix
+          </div>
+          <div class="rewards-table-wrapper" style="margin-bottom:12px;">
+            <table class="rewards-table" style="font-size:11px;">
+              <thead>
+                <tr>
+                  <th>Tier Name</th>
+                  <th>Min Tokens</th>
+                  <th>1-Time Burn</th>
+                  <th>Standard Rate</th>
+                  <th>Boosted 2.0x</th>
+                </tr>
+              </thead>
+              <tbody id="boost-matrix-tbody">
+                <tr><td>Reserve Initiate</td><td>1</td><td><strong>100</strong></td><td>10 / hr</td><td style="color:#10b981;font-weight:600;">20 / hr (480/d)</td></tr>
+                <tr><td>Charter Associate</td><td>1,000</td><td><strong>250</strong></td><td>50 / hr</td><td style="color:#10b981;font-weight:600;">100 / hr (2,400/d)</td></tr>
+                <tr><td>Principal Partner</td><td>10,000</td><td><strong>2,000</strong></td><td>200 / hr</td><td style="color:#10b981;font-weight:600;">400 / hr (9,600/d)</td></tr>
+                <tr><td>Syndicate Director</td><td>100,000</td><td><strong>15,000</strong></td><td>750 / hr</td><td style="color:#10b981;font-weight:600;">1,500 / hr (36,000/d)</td></tr>
+                <tr><td>Dynasty Magnate</td><td>1,000,000</td><td><strong>100,000</strong></td><td>2,500 / hr</td><td style="color:#10b981;font-weight:600;">5,000 / hr (120,000/d)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Receipts History Table -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">Your Verified Burn Receipts</span>
+            <button class="btn-ghost-sm" id="btn-refresh-boost" style="padding:2px 8px;font-size:10px;">↻ Refresh</button>
+          </div>
+          <div class="rewards-table-wrapper">
+            <table class="rewards-table" style="font-size:10.5px;">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tokens Burned</th>
+                  <th>Multiplier</th>
+                  <th>Tx Signature</th>
+                </tr>
+              </thead>
+              <tbody id="boost-receipts-tbody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-tertiary);padding:10px;">No burns recorded yet</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- TAB 4: LEDGER HISTORY -->
@@ -1093,9 +1219,11 @@
 
           <!-- Key Management Section -->
           <div id="cli-key-section" style="margin-bottom:14px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
               <span style="font-size:11px;font-weight:600;color:var(--text-primary);">Your Jev Brain CLI API Key</span>
-              <button class="btn-ghost-sm" id="btn-generate-cli-key" style="font-size:10px;padding:3px 8px;display:none;">+ Generate New Key</button>
+              <a href="/api-keys.html" target="_blank" style="font-size:10.5px;color:var(--accent-cyan);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                <span>Full API Keys Portal</span> &rarr;
+              </a>
             </div>
 
             <!-- Existing Key Box -->
@@ -1110,17 +1238,30 @@
                   <span id="cli-key-status-pill" class="status-badge-active" style="font-size:9px;padding:1px 6px;">ACTIVE</span>
                   <span id="cli-key-meta">Created: Just now</span>
                 </div>
-                <button id="btn-revoke-cli-key" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;text-decoration:underline;">Revoke Key</button>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button id="btn-revoke-cli-key" style="background:none;border:none;color:#f59e0b;cursor:pointer;font-size:10px;text-decoration:underline;" title="Revoke this key">Revoke Key</button>
+                  <span style="color:var(--border-subtle);">|</span>
+                  <button id="btn-delete-cli-key" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;text-decoration:underline;" title="Permanently delete from database">Delete Key</button>
+                </div>
               </div>
               <div id="cli-suspended-notice" style="display:none;margin-top:6px;padding:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:4px;font-size:10px;color:#ef4444;">
                 ⚠️ <strong>Key Suspended:</strong> Your wallet no longer holds $JEVBRAIN tokens. Re-acquire tokens to automatically reactivate your CLI.
               </div>
             </div>
 
-            <!-- No Key State -->
-            <div id="cli-no-key-box" style="background:var(--bg-subtle);border:1px dashed var(--border-medium);border-radius:6px;padding:14px;text-align:center;">
-              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">You haven't generated a CLI API key for this wallet yet.</div>
-              <button class="btn-dark-primary" id="btn-generate-first-cli-key" style="padding:6px 14px;font-size:11px;">
+            <!-- Key Creation Inputs Box -->
+            <div id="cli-creation-controls" style="background:var(--bg-subtle);border:1px dashed var(--border-medium);border-radius:6px;padding:12px;margin-bottom:8px;">
+              <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                <input type="text" id="cli-key-name-input" class="clean-search-input" placeholder="Key Label (e.g. CLI Terminal)" style="flex:2;min-width:140px;font-size:11px;" />
+                <select id="cli-key-expiry-select" class="clean-search-input" style="flex:1;min-width:120px;font-size:11px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;">
+                  <option value="30d" selected>30 Days (Rec)</option>
+                  <option value="7d">7 Days</option>
+                  <option value="90d">90 Days</option>
+                  <option value="365d">1 Year</option>
+                  <option value="never">Never Expire</option>
+                </select>
+              </div>
+              <button class="btn-dark-primary" id="btn-generate-cli-key" style="width:100%;padding:6px 14px;font-size:11px;">
                 ⚡ Generate Jev Brain CLI Key
               </button>
             </div>
@@ -1187,7 +1328,7 @@
         <!-- TAB 6: OPERATOR PORTAL -->
         <div class="rewards-tab-pane" id="pane-rewards-operator" style="display:none;">
           <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">
-            Operator Confirmation Desk. Manual 95% transfers executed via cold storage are verified on-chain and marked fulfilled here.
+            Operator Confirmation Desk. Manual transfers executed via cold storage are verified on-chain and marked fulfilled here.
           </p>
           <div style="display:flex;gap:6px;margin-bottom:10px;">
             <input type="password" id="operator-secret-input" class="clean-search-input" placeholder="Operator Secret (Optional if local session)" style="flex:1;font-size:11px;" />
@@ -1195,7 +1336,7 @@
           </div>
 
           <div style="margin-bottom:10px;">
-            <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin-bottom:4px;">Pending Manual Transfers (95% Payouts)</div>
+            <div style="font-size:10px;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin-bottom:4px;">Pending Manual Transfers (Treasury Payouts)</div>
             <div id="operator-claims-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border-subtle);border-radius:4px;padding:6px;font-size:11px;background:var(--bg-subtle);">
               <div style="color:var(--text-tertiary);text-align:center;padding:6px;">No pending manual transfers</div>
             </div>

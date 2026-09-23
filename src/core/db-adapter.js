@@ -21,7 +21,42 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
-const DATA_DIR = isServerless ? '/tmp/jev-data' : path.join(__dirname, '..', '..', 'data');
+
+/**
+ * Data directory resolution (financial state lives here — never lose it):
+ * 1. DATABASE_PATH env can override the exact DB file directly.
+ * 2. JEV_DATA_DIR env explicitly pins the persistent data directory.
+ * 3. RAILWAY_VOLUME_MOUNT_PATH (auto-set by Railway when a Volume is attached).
+ * 4. Serverless → /tmp (inherently ephemeral; warnings emitted below).
+ * 5. Local daemon → ./data next to the repo.
+ */
+function resolveDataDir() {
+  if (process.env.DATABASE_PATH) return path.dirname(process.env.DATABASE_PATH);
+  if (process.env.JEV_DATA_DIR) return process.env.JEV_DATA_DIR;
+  const railwayVolume = (process.env.RAILWAY_VOLUME_MOUNT_PATH || '').trim();
+  if (railwayVolume) return railwayVolume;
+
+  // Auto-detect persistent volume mounted at /data on Linux / Docker / Railway containers
+  if (process.platform !== 'win32' && fs.existsSync('/data')) {
+    try {
+      fs.accessSync('/data', fs.constants.W_OK);
+      return '/data';
+    } catch {}
+  }
+
+  if (isServerless) return '/tmp/jev-data';
+  return path.join(__dirname, '..', '..', 'data');
+}
+export const DATA_DIR = resolveDataDir();
+
+// True when the database file lives on explicitly configured/persistent storage
+export const PERSISTENT_STORAGE = Boolean(
+  process.env.DATABASE_PATH ||
+  process.env.JEV_DATA_DIR ||
+  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+  (DATA_DIR === '/data' && process.platform !== 'win32' && fs.existsSync('/data'))
+);
+
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 
 const DEFAULT_DB_PATH = process.env.NODE_ENV === 'test'
@@ -40,6 +75,17 @@ export class DatabaseAdapter {
     try {
       this.db = new DatabaseSync(this.dbPath);
       this.setupSchema();
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(`[DBAdapter] Database file: ${this.dbPath}`);
+        if (!PERSISTENT_STORAGE && (process.env.RAILWAY || process.env.RENDER || process.env.FLY_APP_NAME || process.env.NODE_ENV === 'production')) {
+          console.warn(
+            '[DBAdapter] ⚠⚠ WARNING: database is on EPHEMERAL container storage! ' +
+            'All holder credits, ledger entries and CLI API keys WILL BE WIPED on every redeploy/restart. ' +
+            'Fix: attach a persistent volume (Railway: create a Volume, mount path e.g. /data) — it is auto-detected ' +
+            'via RAILWAY_VOLUME_MOUNT_PATH — or set DATABASE_PATH/JEV_DATA_DIR to a mounted path.'
+          );
+        }
+      }
     } catch (err) {
       console.error('[DBAdapter] Init error:', err);
     }
@@ -68,6 +114,11 @@ export class DatabaseAdapter {
         tier TEXT NOT NULL DEFAULT 'None',
         tier_level INTEGER NOT NULL DEFAULT 0,
         credit_rate_per_hour INTEGER NOT NULL DEFAULT 0,
+        boost_level INTEGER NOT NULL DEFAULT 1,
+        boost_multiplier REAL NOT NULL DEFAULT 1.0,
+        total_tokens_burned TEXT NOT NULL DEFAULT '0',
+        boost_activated_at TEXT DEFAULT NULL,
+        last_burn_tx_hash TEXT DEFAULT NULL,
         last_verified_at TEXT NOT NULL,
         last_accrual_at TEXT NOT NULL,
         created_at TEXT NOT NULL,
@@ -307,21 +358,41 @@ export class DatabaseAdapter {
         last_verified_tier INTEGER DEFAULT 0,
         last_verified_at TEXT,
         created_at TEXT NOT NULL,
-        last_used_at TEXT
+        last_used_at TEXT,
+        expires_at TEXT DEFAULT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_api_keys_lookup ON api_keys(api_key, is_revoked);
       CREATE INDEX IF NOT EXISTS idx_api_keys_wallet ON api_keys(wallet_address);
+
+      -- 18. TOKEN BURN RECEIPTS (Burn-to-Boost: one-time burn → permanent lifetime multiplier audit trail)
+      CREATE TABLE IF NOT EXISTS token_burn_receipts (
+        id TEXT PRIMARY KEY,
+        wallet_address TEXT NOT NULL,
+        tier_at_burn INTEGER NOT NULL,
+        boost_level_unlocked INTEGER NOT NULL,
+        multiplier_awarded REAL NOT NULL,
+        tokens_burned_raw TEXT NOT NULL,
+        tokens_burned_ui REAL NOT NULL,
+        tx_signature TEXT UNIQUE NOT NULL,
+        block_time INTEGER NOT NULL,
+        burn_method TEXT NOT NULL DEFAULT 'token_burn',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (wallet_address) REFERENCES holder_accounts(wallet_address) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_burn_receipts_wallet ON token_burn_receipts(wallet_address);
+      CREATE INDEX IF NOT EXISTS idx_burn_receipts_sig ON token_burn_receipts(tx_signature);
     `);
 
     // Durable SQLite synchronous setting
     try { db.exec('PRAGMA synchronous = NORMAL;'); } catch {}
 
-    // Migrations for api_keys status & live tier auditing
+    // Migrations for api_keys status, live tier auditing & expiration
     try { db.exec(`ALTER TABLE api_keys ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`); } catch {}
     try { db.exec(`ALTER TABLE api_keys ADD COLUMN suspension_reason TEXT;`); } catch {}
     try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_tokens REAL DEFAULT 0;`); } catch {}
     try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_tier INTEGER DEFAULT 0;`); } catch {}
     try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_at TEXT;`); } catch {}
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN expires_at TEXT DEFAULT NULL;`); } catch {}
     try { db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status);`); } catch {}
 
     // Migration: add idempotency_key and payment state machine columns to credit_burns
@@ -337,6 +408,14 @@ export class DatabaseAdapter {
     } catch (e) {
       console.warn('[DBAdapter] idempotency index warning:', e.message);
     }
+
+    // Migration: Burn-to-Boost lifetime multiplier state on holder_accounts (auto-upgrade existing DBs)
+    try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN boost_level INTEGER NOT NULL DEFAULT 1;`); } catch {}
+    try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN boost_multiplier REAL NOT NULL DEFAULT 1.0;`); } catch {}
+    try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN total_tokens_burned TEXT NOT NULL DEFAULT '0';`); } catch {}
+    try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN boost_activated_at TEXT DEFAULT NULL;`); } catch {}
+    try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN last_burn_tx_hash TEXT DEFAULT NULL;`); } catch {}
+    try { db.exec(`CREATE INDEX IF NOT EXISTS idx_holder_accounts_boost ON holder_accounts(boost_level);`); } catch {}
   }
 
   /**
@@ -377,6 +456,11 @@ export class DatabaseAdapter {
       creditRatePerHour: Number(row.credit_rate_per_hour),
       lastVerifiedAt: row.last_verified_at,
       lastAccrualAt: row.last_accrual_at,
+      boostLevel: Number(row.boost_level ?? 1),
+      boostMultiplier: Number(row.boost_multiplier ?? 1.0),
+      totalTokensBurned: String(row.total_tokens_burned ?? '0'),
+      boostActivatedAt: row.boost_activated_at ?? null,
+      lastBurnTxHash: row.last_burn_tx_hash ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -456,6 +540,101 @@ export class DatabaseAdapter {
       snapshot.snapshotAt || now,
       now
     );
+  }
+
+  // ── BURN-TO-BOOST (token_burn_receipts + permanent holder boost state) ─────
+
+  insertBurnReceipt(receipt) {
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO token_burn_receipts (
+        id, wallet_address, tier_at_burn, boost_level_unlocked, multiplier_awarded,
+        tokens_burned_raw, tokens_burned_ui, tx_signature, block_time, burn_method, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      receipt.id,
+      receipt.walletAddress,
+      Number(receipt.tierAtBurn || 0),
+      Number(receipt.boostLevelUnlocked || 1),
+      Number(receipt.multiplierAwarded || 1.0),
+      String(receipt.tokensBurnedRaw || '0'),
+      Number(receipt.tokensBurnedUi || 0),
+      String(receipt.txSignature),
+      Number(receipt.blockTime || 0),
+      receipt.burnMethod || 'token_burn',
+      receipt.createdAt || now
+    );
+    return this.getBurnReceipt(receipt.id);
+  }
+
+  getBurnReceipt(id) {
+    const db = this.getDb();
+    const row = db.prepare('SELECT * FROM token_burn_receipts WHERE id = ?').get(id);
+    return row ? this.mapBurnReceiptRow(row) : null;
+  }
+
+  getBurnReceiptBySignature(signature) {
+    const db = this.getDb();
+    const row = db.prepare('SELECT * FROM token_burn_receipts WHERE tx_signature = ?').get(String(signature || '').trim());
+    return row ? this.mapBurnReceiptRow(row) : null;
+  }
+
+  getBurnReceiptsByWallet(walletAddress, limit = 10) {
+    const db = this.getDb();
+    const rows = db.prepare(
+      'SELECT * FROM token_burn_receipts WHERE wallet_address = ? ORDER BY created_at DESC LIMIT ?'
+    ).all(walletAddress, Number(limit) || 10);
+    return rows.map(r => this.mapBurnReceiptRow(r));
+  }
+
+  mapBurnReceiptRow(row) {
+    return {
+      id: row.id,
+      walletAddress: row.wallet_address,
+      tierAtBurn: Number(row.tier_at_burn),
+      boostLevelUnlocked: Number(row.boost_level_unlocked),
+      multiplierAwarded: Number(row.multiplier_awarded),
+      tokensBurnedRaw: String(row.tokens_burned_raw),
+      tokensBurnedUi: Number(row.tokens_burned_ui),
+      txSignature: row.tx_signature,
+      blockTime: Number(row.block_time),
+      burnMethod: row.burn_method || 'token_burn',
+      createdAt: row.created_at
+    };
+  }
+
+  /**
+   * Permanently upgrade a holder's lifetime boost state (Burn-to-Boost).
+   * Accumulates total_tokens_burned with exact BigInt-safe arithmetic and stamps
+   * the activation timestamp + originating burn transaction signature.
+   */
+  applyBoostToHolder({ walletAddress, boostLevel, boostMultiplier, tokensBurnedRaw, txSignature }) {
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    const holder = this.getHolderAccount(walletAddress);
+    const previousRaw = BigInt(holder?.totalTokensBurned || '0');
+    const newTotalRaw = (previousRaw + BigInt(tokensBurnedRaw || '0')).toString();
+
+    db.prepare(`
+      UPDATE holder_accounts
+      SET boost_level = ?,
+          boost_multiplier = ?,
+          total_tokens_burned = ?,
+          boost_activated_at = ?,
+          last_burn_tx_hash = ?,
+          updated_at = ?
+      WHERE wallet_address = ?
+    `).run(
+      Number(boostLevel || 1),
+      Number(boostMultiplier || 1.0),
+      newTotalRaw,
+      holder?.boostActivatedAt || now,
+      String(txSignature || holder?.lastBurnTxHash || ''),
+      now,
+      walletAddress
+    );
+    return this.getHolderAccount(walletAddress);
   }
 
   // ── CREDIT ACCOUNTS ────────────────────────────────────────────────────────
@@ -1180,7 +1359,7 @@ export class DatabaseAdapter {
   // JEV BRAIN CLI & API KEY MANAGEMENT
   // ==========================================
 
-  createApiKey({ walletAddress, name = 'Default CLI Key', tokensHeld = 0, tierId = 0 }) {
+  createApiKey({ walletAddress, name = 'Default CLI Key', tokensHeld = 0, tierId = 0, expiresAt = null }) {
     const db = this.getDb();
     const keyId = `key_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const apiKey = `jev_live_${crypto.randomBytes(24).toString('hex')}`;
@@ -1189,10 +1368,10 @@ export class DatabaseAdapter {
     db.prepare(`
       INSERT INTO api_keys (
         key_id, api_key, wallet_address, name, is_revoked, status,
-        last_verified_tokens, last_verified_tier, last_verified_at, created_at, last_used_at
+        last_verified_tokens, last_verified_tier, last_verified_at, created_at, last_used_at, expires_at
       )
-      VALUES (?, ?, ?, ?, 0, 'active', ?, ?, ?, ?, NULL)
-    `).run(keyId, apiKey, walletAddress, name.trim().slice(0, 50), Number(tokensHeld) || 0, Number(tierId) || 0, createdAt, createdAt);
+      VALUES (?, ?, ?, ?, 0, 'active', ?, ?, ?, ?, NULL, ?)
+    `).run(keyId, apiKey, walletAddress, name.trim().slice(0, 50), Number(tokensHeld) || 0, Number(tierId) || 0, createdAt, createdAt, expiresAt || null);
 
     return {
       keyId,
@@ -1202,7 +1381,8 @@ export class DatabaseAdapter {
       status: 'active',
       lastVerifiedTokens: Number(tokensHeld) || 0,
       lastVerifiedTier: Number(tierId) || 0,
-      createdAt
+      createdAt,
+      expiresAt: expiresAt || null
     };
   }
 
@@ -1212,11 +1392,19 @@ export class DatabaseAdapter {
     const row = db.prepare(`
       SELECT key_id, api_key, wallet_address, name, is_revoked, status,
              suspension_reason, last_verified_tokens, last_verified_tier,
-             last_verified_at, created_at, last_used_at
+             last_verified_at, created_at, last_used_at, expires_at
       FROM api_keys
       WHERE api_key = ? AND is_revoked = 0
     `).get(apiKey);
-    return row || null;
+    if (!row) return null;
+    if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+      return {
+        ...row,
+        status: 'expired',
+        isExpired: true
+      };
+    }
+    return row;
   }
 
   getAllActiveApiKeys() {
@@ -1224,7 +1412,7 @@ export class DatabaseAdapter {
     return db.prepare(`
       SELECT key_id, api_key, wallet_address, name, is_revoked, status,
              suspension_reason, last_verified_tokens, last_verified_tier,
-             last_verified_at, created_at, last_used_at
+             last_verified_at, created_at, last_used_at, expires_at
       FROM api_keys
       WHERE is_revoked = 0
       ORDER BY created_at DESC
@@ -1278,28 +1466,42 @@ export class DatabaseAdapter {
     const rows = db.prepare(`
       SELECT key_id, wallet_address, name, is_revoked, status,
              suspension_reason, last_verified_tokens, last_verified_tier,
-             last_verified_at, created_at, last_used_at, api_key
+             last_verified_at, created_at, last_used_at, expires_at, api_key
       FROM api_keys
       WHERE wallet_address = ?
       ORDER BY created_at DESC
     `).all(walletAddress);
 
-    return rows.map(r => ({
-      keyId: r.key_id,
-      walletAddress: r.wallet_address,
-      name: r.name,
-      isRevoked: Boolean(r.is_revoked),
-      status: r.status || (r.is_revoked ? 'revoked' : 'active'),
-      suspensionReason: r.suspension_reason || null,
-      lastVerifiedTokens: r.last_verified_tokens || 0,
-      lastVerifiedTier: r.last_verified_tier || 0,
-      lastVerifiedAt: r.last_verified_at || null,
-      createdAt: r.created_at,
-      lastUsedAt: r.last_used_at,
-      maskedKey: r.api_key.length > 16 
-        ? `${r.api_key.slice(0, 13)}...${r.api_key.slice(-4)}`
-        : r.api_key
-    }));
+    const now = Date.now();
+    return rows.map(r => {
+      const isExpired = Boolean(r.expires_at && new Date(r.expires_at).getTime() < now);
+      let effectiveStatus = r.status || (r.is_revoked ? 'revoked' : 'active');
+      if (r.is_revoked) {
+        effectiveStatus = 'revoked';
+      } else if (isExpired) {
+        effectiveStatus = 'expired';
+      }
+
+      return {
+        keyId: r.key_id,
+        walletAddress: r.wallet_address,
+        name: r.name,
+        isRevoked: Boolean(r.is_revoked),
+        isExpired,
+        status: effectiveStatus,
+        suspensionReason: r.suspension_reason || null,
+        lastVerifiedTokens: r.last_verified_tokens || 0,
+        lastVerifiedTier: r.last_verified_tier || 0,
+        lastVerifiedAt: r.last_verified_at || null,
+        createdAt: r.created_at,
+        expiresAt: r.expires_at || null,
+        lastUsedAt: r.last_used_at,
+        apiKey: r.api_key,
+        maskedKey: r.api_key.length > 16 
+          ? `${r.api_key.slice(0, 13)}...${r.api_key.slice(-4)}`
+          : r.api_key
+      };
+    });
   }
 
   revokeApiKey({ keyId, walletAddress }) {
@@ -1308,6 +1510,16 @@ export class DatabaseAdapter {
     const res = db.prepare(`
       UPDATE api_keys
       SET is_revoked = 1, status = 'revoked'
+      WHERE key_id = ? AND wallet_address = ?
+    `).run(keyId, walletAddress);
+    return res.changes > 0;
+  }
+
+  deleteApiKey({ keyId, walletAddress }) {
+    if (!keyId || !walletAddress) return false;
+    const db = this.getDb();
+    const res = db.prepare(`
+      DELETE FROM api_keys
       WHERE key_id = ? AND wallet_address = ?
     `).run(keyId, walletAddress);
     return res.changes > 0;
@@ -1326,8 +1538,107 @@ export class DatabaseAdapter {
     } catch {}
   }
 
+  // ==========================================
+  // BURN-TO-BOOST LIFETIME REWARD MULTIPLIER
+  // ==========================================
+
+  insertBurnReceipt(receipt) {
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO token_burn_receipts (
+        id, wallet_address, tier_at_burn, boost_level_unlocked, multiplier_awarded,
+        tokens_burned_raw, tokens_burned_ui, tx_signature, block_time, burn_method, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      receipt.id,
+      receipt.walletAddress,
+      Number(receipt.tierAtBurn),
+      Number(receipt.boostLevelUnlocked),
+      Number(receipt.multiplierAwarded),
+      String(receipt.tokensBurnedRaw),
+      Number(receipt.tokensBurnedUi),
+      receipt.txSignature,
+      Number(receipt.blockTime || Math.floor(Date.now() / 1000)),
+      receipt.burnMethod || 'token_burn',
+      receipt.createdAt || now
+    );
+    return this.getBurnReceiptById(receipt.id);
+  }
+
+  getBurnReceiptById(id) {
+    if (!id) return null;
+    const db = this.getDb();
+    const row = db.prepare('SELECT * FROM token_burn_receipts WHERE id = ?').get(id);
+    return row ? this._formatBurnReceipt(row) : null;
+  }
+
+  getBurnReceiptBySignature(signature) {
+    if (!signature) return null;
+    const db = this.getDb();
+    const row = db.prepare('SELECT * FROM token_burn_receipts WHERE tx_signature = ?').get(signature);
+    return row ? this._formatBurnReceipt(row) : null;
+  }
+
+  getBurnReceiptsByWallet(walletAddress, limit = 50) {
+    if (!walletAddress) return [];
+    const db = this.getDb();
+    const rows = db.prepare(`
+      SELECT * FROM token_burn_receipts
+      WHERE wallet_address = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `).all(walletAddress, limit);
+    return rows.map(r => this._formatBurnReceipt(r));
+  }
+
+  _formatBurnReceipt(row) {
+    return {
+      id: row.id,
+      walletAddress: row.wallet_address,
+      tierAtBurn: Number(row.tier_at_burn),
+      boostLevelUnlocked: Number(row.boost_level_unlocked),
+      multiplierAwarded: Number(row.multiplier_awarded),
+      tokensBurnedRaw: String(row.tokens_burned_raw),
+      tokensBurnedUi: Number(row.tokens_burned_ui),
+      txSignature: row.tx_signature,
+      blockTime: Number(row.block_time),
+      burnMethod: row.burn_method,
+      createdAt: row.created_at
+    };
+  }
+
+  applyBoostToHolder({ walletAddress, boostLevel, boostMultiplier, tokensBurnedRaw, txSignature }) {
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    const holder = this.getHolderAccount(walletAddress);
+    const prevBurnedRaw = BigInt(holder?.totalTokensBurned || '0');
+    const newBurnedRaw = (prevBurnedRaw + BigInt(tokensBurnedRaw || '0')).toString();
+
+    db.prepare(`
+      UPDATE holder_accounts
+      SET boost_level = ?,
+          boost_multiplier = ?,
+          total_tokens_burned = ?,
+          boost_activated_at = COALESCE(boost_activated_at, ?),
+          last_burn_tx_hash = ?,
+          updated_at = ?
+      WHERE wallet_address = ?
+    `).run(
+      Number(boostLevel),
+      Number(boostMultiplier),
+      newBurnedRaw,
+      now,
+      txSignature,
+      now,
+      walletAddress
+    );
+    return this.getHolderAccount(walletAddress);
+  }
+
   close() {
     if (this.db) {
+      try { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE);'); } catch {}
       try { this.db.close(); } catch {}
       this.db = null;
     }

@@ -33,10 +33,11 @@ Write-Host "🎉 JEV BRAIN CLI READY TO USE ON WINDOWS!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Quick Setup:" -ForegroundColor White
 Write-Host "  1. Get your Token Holder API key from: https://jevbrain.world" -ForegroundColor Cyan
-Write-Host "  2. Configure your key in this PowerShell terminal:" -ForegroundColor White
+Write-Host "     (Connect wallet -> Holder Hub -> Jev Brain CLI -> Generate CLI Key)" -ForegroundColor Gray
+Write-Host "  2. Open the Jev Brain terminal session - it will ask you to paste your key:" -ForegroundColor White
+Write-Host "     jevbrain" -ForegroundColor Cyan
+Write-Host "  3. Or configure the key directly, then run your first AI query:" -ForegroundColor White
 Write-Host "     jevbrain config set-key <your-api-key>" -ForegroundColor Cyan
-Write-Host "  3. Run your first AI query:" -ForegroundColor White
 Write-Host "     jevbrain `"Write a python script to check Solana token balances`"" -ForegroundColor Cyan
-Write-Host "  4. Interactive terminal chat:" -ForegroundColor White
-Write-Host "     jevbrain chat" -ForegroundColor Cyan
+Write-Host "  4. Inside chat: /credits shows your live balance, /model switches AI model" -ForegroundColor White
 Write-Host ""

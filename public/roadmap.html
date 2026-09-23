@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roadmap 2026 — Jev Brain Architectural Evolution</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Early Theme Initializer (Default: Black/Dark, Switchable to Light) -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('jev_theme');
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
+  <style>
+    .page-layout {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-main, #09090b);
+      color: var(--text-primary, #f4f4f5);
+      font-family: var(--font-sans, 'Inter', sans-serif);
+      line-height: 1.5;
+    }
+
+    /* Top Navigation */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-topbar, rgba(13, 13, 16, 0.92));
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .nav-brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon-svg {
+      color: var(--text-primary);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .brand-path-tag {
+      font-size: 11px;
+      color: var(--text-secondary, #a1a1aa);
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      background: var(--bg-pill, #1f1f24);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle, #27272a);
+    }
+    .nav-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-action-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary, #a1a1aa);
+      text-decoration: none;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-surface, #121215);
+      transition: all 0.15s ease;
+    }
+    .nav-action-link:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-focus, #a1a1aa);
+      background: var(--bg-subtle, #18181c);
+    }
+    .nav-action-primary {
+      background: var(--text-primary, #f4f4f5);
+      color: var(--bg-canvas, #09090b);
+      border-color: var(--text-primary, #f4f4f5);
+      font-weight: 600;
+    }
+    .nav-action-primary:hover {
+      background: #e4e4e7;
+      color: #09090b;
+      border-color: #e4e4e7;
+    }
+    .nav-theme-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle, #27272a);
+      background: var(--bg-surface, #121215);
+      color: var(--text-secondary, #a1a1aa);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .nav-theme-btn:hover {
+      color: var(--text-primary, #f4f4f5);
+      border-color: var(--border-medium, #3f3f46);
+    }
+
+    /* Main Container */
+    .page-main {
+      flex: 1;
+      max-width: 980px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-radius: 9999px;
+      background: rgba(168, 85, 247, 0.12);
+      color: var(--accent-purple, #a855f7);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      margin-bottom: 18px;
+    }
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-purple, #a855f7);
+      box-shadow: 0 0 8px var(--accent-purple, #a855f7);
+    }
+    .hero-title {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      line-height: 1.15;
+    }
+    .hero-title-accent {
+      background: linear-gradient(135deg, #a855f7 0%, #38bdf8 60%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 17px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 700px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+
+    /* Progress Tracker Ribbon */
+    .progress-ribbon {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 56px;
+    }
+    .ribbon-step {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      padding: 14px 16px;
+      text-align: left;
+      position: relative;
+    }
+    .ribbon-step.completed {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.04);
+    }
+    .ribbon-step.active {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.04);
+    }
+    .ribbon-phase-tag {
+      font-size: 11px;
+      font-family: var(--font-mono, monospace);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .ribbon-step.completed .ribbon-phase-tag { color: #10b981; }
+    .ribbon-step.active .ribbon-phase-tag { color: #38bdf8; }
+    .ribbon-step.upcoming .ribbon-phase-tag { color: var(--text-muted, #71717a); }
+    .ribbon-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary, #f4f4f5);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Timeline Container */
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      margin-bottom: 64px;
+    }
+
+    /* Phase Card */
+    .phase-card {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+    .phase-card:hover {
+      border-color: var(--border-medium, #3f3f46);
+    }
+    .phase-card.active-phase {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.08);
+    }
+    .phase-indicator-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 4px;
+    }
+    .bar-completed { background: #10b981; }
+    .bar-active { background: #38bdf8; }
+    .bar-upcoming { background: #a855f7; }
+    .bar-vision { background: #71717a; }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .phase-title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .phase-num {
+      font-size: 13px;
+      font-family: var(--font-mono, monospace);
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+    }
+    .phase-heading {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .phase-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-family: var(--font-mono, monospace);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-completed {
+      background: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-active {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .status-upcoming {
+      background: rgba(168, 85, 247, 0.12);
+      color: #a855f7;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .status-vision {
+      background: rgba(113, 113, 122, 0.12);
+      color: #a1a1aa;
+      border: 1px solid rgba(113, 113, 122, 0.3);
+    }
+
+    .phase-desc {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      margin-bottom: 22px;
+      line-height: 1.6;
+    }
+
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .milestone-item {
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .milestone-icon {
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .icon-done { color: #10b981; }
+    .icon-in-progress { color: #38bdf8; }
+    .icon-pending { color: #71717a; }
+    .milestone-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .milestone-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary, #f4f4f5);
+    }
+    .milestone-sub {
+      font-size: 12px;
+      color: var(--text-secondary, #a1a1aa);
+      line-height: 1.4;
+    }
+
+    /* Architecture Commitment Callout */
+    .guarantee-box {
+      background: var(--bg-card, #141418);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 64px;
+    }
+    .guarantee-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .guarantee-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .guarantee-desc {
+      font-size: 14px;
+      color: var(--text-secondary, #a1a1aa);
+      line-height: 1.6;
+    }
+    .principles-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+    .principle-card {
+      background: var(--bg-surface, #121215);
+      border: 1px solid var(--border-subtle, #27272a);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .principle-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-cyan, #38bdf8);
+      margin-bottom: 6px;
+    }
+    .principle-text {
+      font-size: 12px;
+      color: var(--text-secondary, #a1a1aa);
+      line-height: 1.5;
+    }
+
+    /* CTA Banner */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 14px;
+      padding: 40px;
+      text-align: center;
+    }
+    .cta-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .cta-desc {
+      font-size: 15px;
+      color: var(--text-secondary, #a1a1aa);
+      max-width: 600px;
+      margin: 0 auto 24px;
+    }
+    .cta-btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border-subtle, #27272a);
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted, #71717a);
+      background: var(--bg-surface, #121215);
+    }
+    .footer-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 8px;
+    }
+    .footer-link {
+      color: var(--text-secondary, #a1a1aa);
+      text-decoration: none;
+    }
+    .footer-link:hover {
+      color: var(--text-primary, #f4f4f5);
+    }
+
+    @media (max-width: 768px) {
+      .site-nav { padding: 12px 16px; }
+      .progress-ribbon { grid-template-columns: repeat(2, 1fr); }
+      .phase-card { padding: 22px 18px; }
+      .hero-title { font-size: 30px; }
+      .hero-subtitle { font-size: 15px; }
+    }
+  </style>
+</head>
+<body class="page-layout">
+  <!-- Top Navigation -->
+  <header class="site-nav">
+    <a href="/" class="nav-brand-group">
+      <div class="nav-brand-logo">
+        <svg class="brand-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+          <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+          <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+          <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+        </svg>
+        <span class="brand-title">Jev Brain</span>
+      </div>
+      <span class="brand-path-tag">/ PROTOCOL ROADMAP</span>
+    </a>
+
+    <div class="nav-actions-group">
+      <a href="/how-it-works.html" class="nav-action-link" title="Explore Architecture Guide">How It Works ↗</a>
+      <a href="/api-keys.html" class="nav-action-link" title="API Keys & CLI Gateway">API Keys ↗</a>
+      <a href="/verify.html" class="nav-action-link" title="Discord Holding Verification">Discord Verify ↗</a>
+      <a href="/" class="nav-action-link nav-action-primary" title="Return to Workspace">← Open Workspace</a>
+      <button class="nav-theme-btn" id="theme-toggle-btn" title="Switch Theme (Dark / Light)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="page-main">
+    <!-- Hero Header -->
+    <section class="hero-section">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Technical Architecture &amp; Milestone Roadmap
+      </div>
+      <h1 class="hero-title">
+        The Path to <span class="hero-title-accent">Autonomous Decentralized AI</span>
+      </h1>
+      <p class="hero-subtitle">
+        Tracing the evolutionary progression of Jev Brain from a high-speed token-gated developer workspace to a fully autonomous, self-sustaining agent compute ecosystem.
+      </p>
+    </section>
+
+    <!-- Progress Ribbon -->
+    <div class="progress-ribbon">
+      <div class="ribbon-step completed">
+        <div class="ribbon-phase-tag">Phase 1 • 100% Done</div>
+        <div class="ribbon-title">Foundation &amp; Harvester Engine</div>
+      </div>
+      <div class="ribbon-step active">
+        <div class="ribbon-phase-tag">Phase 2 • In Progress</div>
+        <div class="ribbon-title">Burn-to-Boost &amp; Anti-Dump</div>
+      </div>
+      <div class="ribbon-step upcoming">
+        <div class="ribbon-phase-tag">Phase 3 • Q3-Q4 2026</div>
+        <div class="ribbon-title">Apex Swarms &amp; Open SDK</div>
+      </div>
+      <div class="ribbon-step upcoming">
+        <div class="ribbon-phase-tag">Phase 4 • 2027 Vision</div>
+        <div class="ribbon-title">P2P Compute Mesh &amp; DAO</div>
+      </div>
+    </div>
+
+    <!-- Timeline Phases -->
+    <div class="timeline-container">
+      <!-- PHASE 1 -->
+      <div class="phase-card">
+        <div class="phase-indicator-bar bar-completed"></div>
+        <div class="phase-header">
+          <div class="phase-title-group">
+            <span class="phase-num">PHASE 01</span>
+            <h2 class="phase-heading">Foundation &amp; Harvester Engine</h2>
+          </div>
+          <span class="phase-status-badge status-completed">✓ Live in Production</span>
+        </div>
+        <p class="phase-desc">
+          Core architectural rollout establishing non-custodial wallet verification, continuous passive credit generation, multi-model execution, and automated creator fee collection.
+        </p>
+
+        <div class="milestone-grid">
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">510+ Multi-Model Router</span>
+              <span class="milestone-sub">Integrated Claude 3.7 Sonnet, GPT-4.5, DeepSeek R1, Grok 3, Gemini 2.5 with dynamic failover routing.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Proof-of-Holding (PoH) Verification</span>
+              <span class="milestone-sub">Sub-second Solana RPC verification for Phantom, Solflare, Backpack, and mobile wallet apps.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Automated 15-Minute Fee Harvester</span>
+              <span class="milestone-sub">Autonomous cron engine harvesting Raydium &amp; Pump.fun creator fees to fund protocol compute infrastructure.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Distributable SOL Reward Pool</span>
+              <span class="milestone-sub">Smart reward pool enabling holders to burn accrued compute credits to claim real Solana (SOL).</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Discord Sentinel Verification Gate</span>
+              <span class="milestone-sub">Automated Discord bot providing 1-click human verification and holder role gating.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-done">✓</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Cross-Platform Terminal CLI</span>
+              <span class="milestone-sub">Native CLI for Windows (PowerShell), macOS, and Linux linking wallet holders directly to local shell AI.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="phase-card active-phase">
+        <div class="phase-indicator-bar bar-active"></div>
+        <div class="phase-header">
+          <div class="phase-title-group">
+            <span class="phase-num">PHASE 02</span>
+            <h2 class="phase-heading">Burn-to-Boost &amp; Anti-Dump Security</h2>
+          </div>
+          <span class="phase-status-badge status-active">🚀 Active Deployment</span>
+        </div>
+        <p class="phase-desc">
+          Enhancing protocol sustainability with permanent deflationary burn mechanisms, persistent volume credit protection, and enhanced sandboxed execution firewalls.
+        </p>
+
+        <div class="milestone-grid">
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Burn-to-Boost 2x Lifetime Multiplier</span>
+              <span class="milestone-sub">1-time burn of 10% tier tokens permanently doubles daily credit generation for life.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Anti-Dump Balance Retention Check</span>
+              <span class="milestone-sub">Dynamic 15-minute grace period protecting holders against temporary RPC glitches while auto-rebalancing sellers.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Agent Warden AST Firewall v2</span>
+              <span class="milestone-sub">Deep syntax-tree inspection to isolate code executions and thwart prompt injection attacks.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Persistent Volume Zero-Reset Storage</span>
+              <span class="milestone-sub">Railway / cloud volume synchronization ensuring accrued credits and conversation states never reset across reboots.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Mobile Deep-Linking Auto-Connect</span>
+              <span class="milestone-sub">Phantom and Solflare in-app browser handshake with 1-click authentication and auto-token sync.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-in-progress">⚡</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Live WebContainer Previews</span>
+              <span class="milestone-sub">In-browser interactive execution of HTML, CSS, JavaScript, and Node.js artifacts directly inside the chat workspace.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="phase-card">
+        <div class="phase-indicator-bar bar-upcoming"></div>
+        <div class="phase-header">
+          <div class="phase-title-group">
+            <span class="phase-num">PHASE 03</span>
+            <h2 class="phase-heading">Apex Swarms &amp; Developer Ecosystem</h2>
+          </div>
+          <span class="phase-status-badge status-upcoming">🔮 Upcoming Q3-Q4 2026</span>
+        </div>
+        <p class="phase-desc">
+          Expanding from single-agent coding into autonomous multi-agent engineering teams, public developer APIs, and treasury-backed liquidity mechanisms.
+        </p>
+
+        <div class="milestone-grid">
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Autonomous Multi-Agent Swarms</span>
+              <span class="milestone-sub">Specialized autonomous teams (Architect, Full-Stack Coder, QA Auditor, Deployer) collaborating synchronously.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Apex Supercharge (3x Multiplier)</span>
+              <span class="milestone-sub">High-throughput enterprise tier for automated agents running high-volume batch workloads.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Jev Brain Developer SDK &amp; REST API</span>
+              <span class="milestone-sub">Programmatic API keys for external Solana dApps, Telegram trading bots, and CI/CD pipelines.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Automated Treasury Buyback Engine</span>
+              <span class="milestone-sub">Surplus treasury fees autonomously used to purchase $JEV tokens from open markets and lock liquidity.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Decentralized Role Slashing Sentinel</span>
+              <span class="milestone-sub">Real-time role revocation and credit freezing for wallets attempting Sybil or automated exploit attempts.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Git Worktree Cloud Sync</span>
+              <span class="milestone-sub">Direct GitHub repository synchronization with automated pull request creation and code review audits.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="phase-card">
+        <div class="phase-indicator-bar bar-vision"></div>
+        <div class="phase-header">
+          <div class="phase-title-group">
+            <span class="phase-num">PHASE 04</span>
+            <h2 class="phase-heading">Decentralized Compute Mesh &amp; DAO</h2>
+          </div>
+          <span class="phase-status-badge status-vision">🌐 2027 Long-Term Vision</span>
+        </div>
+        <p class="phase-desc">
+          Achieving ultimate decentralization: peer-to-peer GPU compute nodes, encrypted agent memory networks, and complete token-holder governance.
+        </p>
+
+        <div class="milestone-grid">
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Community GPU Mining Mesh</span>
+              <span class="milestone-sub">Holders can contribute local GPU compute (RTX 4090, H100) to the network and earn $JEV and SOL rewards.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">P2P Encrypted Agent Memory</span>
+              <span class="milestone-sub">Zero-knowledge decentralized vector memory preserving agent context across lifetime sessions.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">On-Chain Arbitrage Agents</span>
+              <span class="milestone-sub">Autonomous AI agents managing liquidity rebalancing and arbitrage to maximize treasury efficiency.</span>
+            </div>
+          </div>
+          <div class="milestone-item">
+            <span class="milestone-icon icon-pending">○</span>
+            <div class="milestone-info">
+              <span class="milestone-name">Full On-Chain DAO Governance</span>
+              <span class="milestone-sub">Holder voting on fee distribution policies, new model onboarding, and compute allocation parameters.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architectural Principles -->
+    <section class="guarantee-box">
+      <div class="guarantee-head">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+        <h3 class="guarantee-title">Architectural Principles &amp; Security Standards</h3>
+      </div>
+      <p class="guarantee-desc">
+        Every milestone on this roadmap is designed with non-negotiable security principles to safeguard users, ensure continuous compute availability, and eliminate single points of failure.
+      </p>
+
+      <div class="principles-row">
+        <div class="principle-card">
+          <div class="principle-title">100% Self-Custodial</div>
+          <div class="principle-text">Your tokens never leave your wallet. We do not require deposit locks, staking contracts, or custodial transfers.</div>
+        </div>
+        <div class="principle-card">
+          <div class="principle-title">Zero API Surcharges</div>
+          <div class="principle-text">Holders access frontier AI models with zero hidden markups, zero subscription renewals, and zero vendor lock-in.</div>
+        </div>
+        <div class="principle-card">
+          <div class="principle-title">Verifiable On-Chain Logic</div>
+          <div class="principle-text">Harvester execution and burn-to-boost transactions are transparently verifiable on the Solana blockchain.</div>
+        </div>
+        <div class="principle-card">
+          <div class="principle-title">High Availability Routing</div>
+          <div class="principle-text">Multi-provider model clustering guarantees that if any vendor API degrades, your requests instantly fallback to equivalent models.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <div class="cta-banner">
+      <h2 class="cta-title">Join the Future of Decentralized Autonomous AI</h2>
+      <p class="cta-desc">
+        Access the developer workspace right now with zero setup. Verify your token holdings or join our Discord community to participate in upcoming milestone governance.
+      </p>
+      <div class="cta-btn-row">
+        <a href="/" class="nav-action-link nav-action-primary" style="padding: 10px 24px; font-size: 15px;">Launch Workspace Now ↗</a>
+        <a href="/how-it-works.html" class="nav-action-link" style="padding: 10px 24px; font-size: 15px;">Read How It Works →</a>
+        <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="nav-action-link" style="padding: 10px 24px; font-size: 15px;">DexScreener Chart ↗</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-links">
+      <a href="/" class="footer-link">Workspace</a>
+      <a href="/how-it-works.html" class="footer-link">How It Works</a>
+      <a href="/verify.html" class="footer-link">Discord Sentinel</a>
+      <a href="/rules.html" class="footer-link">Rules &amp; Roles</a>
+      <a href="https://dexscreener.com/solana/AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump" target="_blank" rel="noopener" class="footer-link">DexScreener</a>
+    </div>
+    <p>© 2026 Jev Brain Protocol. Non-Custodial Decentralized AI Execution Engine.</p>
+  </footer>
+
+  <script>
+    // Theme Toggle
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = cur === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('jev_theme', next); } catch(e) {}
+      });
+    }
+  </script>
+</body>
+</html>
