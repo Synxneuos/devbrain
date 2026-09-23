@@ -472,7 +472,7 @@ export class DatabaseAdapter {
         { wallet: 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn', earned: '105000', available: '104837', tier: 'Dynasty Magnate (VIP Whitelist)', tierLevel: 5, rate: 5000, tokens: 1000000, boostLevel: 2, boostMultiplier: 2.0 },
         
         // Tier 5 Dynasty Magnates
-        { wallet: 'GX3We1me16U7snFAqe76MzsWB7HEbWd1TDvU7eFYg2Tp', earned: '20000', available: '15000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 2347995 },
+        { wallet: 'GX3We1me16U7snFAqe76MzsWB7HEbWd1TDvU7eFYg2Tp', earned: '65000', available: '60000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 2347995 },
         { wallet: '4Cvc576jwTPK9woCqd9ftXmqbgcrcTxQ5oFLaowQsunh', earned: '20000', available: '15000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 5000, tokens: 1000000 },
         { wallet: '4kvs7cudiFUnVejw1NpdkjbrP4VwrZyZJLeRgUukiZ1z', earned: '20000', available: '15000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
         { wallet: '3dzrdCWcGfZqKMb81MU8AquEFAt6A19LT3cKqML4GJA5', earned: '5000', available: '4998', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },

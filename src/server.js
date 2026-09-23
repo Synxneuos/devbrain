@@ -1800,13 +1800,14 @@ export async function handleRequest(req, res) {
           }
         } else if (address === 'GX3We1me16U7snFAqe76MzsWB7HEbWd1TDvU7eFYg2Tp') {
           const currentAvail = Number(summary.available || 0);
-          if (currentAvail < 15000) {
+          if (currentAvail < 60000) {
+            const topUp = 60000 - currentAvail;
             rewardsStore.recordLedgerEntry({
               walletAddress: address,
               type: 'EARN',
-              amount: '15000',
+              amount: String(topUp),
               referenceId: 'holder_restoration_seed',
-              metadata: { reason: 'Dynasty Magnate Whale Restitution' }
+              metadata: { reason: 'Dynasty Magnate Whale Restitution (60k Credits Total)' }
             });
             Object.assign(summary, rewardsStore.getAccountSummary(address));
           }
