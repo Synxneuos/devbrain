@@ -874,6 +874,21 @@ export async function handleRequest(req, res) {
           try {
             await accrueCreditsForHolder(walletAddress);
           } catch (e) {}
+
+          // VIP Operator Auto-Credit Grant: Whitelisted authority always has 1,000,000 available credits
+          if (WHITELIST_ADMIN_WALLETS.has(walletAddress)) {
+            rewardsStore.ensureAccount(walletAddress);
+            const currentBal = rewardsStore.getCreditBalance(walletAddress);
+            if (currentBal < 1_000_000) {
+              rewardsStore.recordLedgerEntry({
+                walletAddress,
+                type: 'EARN',
+                amount: '1000000',
+                referenceId: 'vip_operator_credit_grant',
+                metadata: { reason: 'VIP Operator Master Unlimited Credit Grant' }
+              });
+            }
+          }
         }
 
         // BLOCKER 6 FIX: Two-Phase AI Credit Reservation Protocol

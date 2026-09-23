@@ -29,7 +29,7 @@ const CYAN = '\x1b[36m';
 const WHITE = '\x1b[37m';
 const GRAY = '\x1b[90m';
 
-// High-fidelity 256-color palette (Hermes gradient)
+// High-fidelity 256-color palette
 const C_CYAN = '\x1b[38;5;51m';
 const C_SKY = '\x1b[38;5;45m';
 const C_BLUE = '\x1b[38;5;75m';
@@ -40,25 +40,37 @@ const C_GOLD = '\x1b[38;5;220m';
 const C_EMERALD = '\x1b[38;5;48m';
 const C_MUTED = '\x1b[38;5;244m';
 
+// Sleek White-to-Gray metallic gradient palette (monochrome minimal design)
+const G_W1 = '\x1b[38;2;255;255;255m'; // Pure Crisp White (#FFFFFF)
+const G_W2 = '\x1b[38;2;225;225;230m'; // Platinum Silver (#E1E1E6)
+const G_W3 = '\x1b[38;2;185;185;195m'; // Light Steel Gray (#B9B9C3)
+const G_W4 = '\x1b[38;2;145;145;155m'; // Medium Silver (#91919B)
+const G_W5 = '\x1b[38;2;110;110;120m'; // Slate Gray (#6E6E78)
+const G_W6 = '\x1b[38;2;80;80;90m';    // Deep Shadow Gray (#50505A)
+
+const C_BOX = '\x1b[38;2;90;90;100m';
+const C_TEXT = '\x1b[38;2;240;240;245m';
+const C_DIM = '\x1b[38;2;140;140;150m';
+
 function banner() {
   const gradientLines = [
-    { text: '   ██╗███████╗██╗   ██╗    ██████╗ ██████╗   █████╗  ██╗███╗   ██╗', color: C_CYAN },
-    { text: '   ██║██╔════╝██║   ██║    ██╔══██╗██╔══██╗ ██╔══██╗ ██║████╗  ██║', color: C_SKY },
-    { text: '   ██║█████╗  ██║   ██║    ██████╔╝██████╔╝ ███████║ ██║██╔██╗ ██║', color: C_BLUE },
-    { text: '██ ██║██╔══╝  ╚██╗ ██╔╝    ██╔══██╗██╔══██╗ ██╔══██║ ██║██║╚██╗██║', color: C_PURPLE },
-    { text: '╚████║███████╗ ╚████╔╝     ██████╔╝██║  ██║ ██║  ██║ ██║██║ ╚████║', color: C_VIOLET },
-    { text: ' ╚═══╝╚══════╝  ╚═══╝      ╚═════╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝╚═╝  ╚═══╝', color: C_PINK },
+    { text: '   ██╗███████╗██╗   ██╗    ██████╗ ██████╗   █████╗  ██╗███╗   ██╗', color: G_W1 },
+    { text: '   ██║██╔════╝██║   ██║    ██╔══██╗██╔══██╗ ██╔══██╗ ██║████╗  ██║', color: G_W2 },
+    { text: '   ██║█████╗  ██║   ██║    ██████╔╝██████╔╝ ███████║ ██║██╔██╗ ██║', color: G_W3 },
+    { text: '██ ██║██╔══╝  ╚██╗ ██╔╝    ██╔══██╗██╔══██╗ ██╔══██║ ██║██║╚██╗██║', color: G_W4 },
+    { text: '╚████║███████╗ ╚████╔╝     ██████╔╝██║  ██║ ██║  ██║ ██║██║ ╚████║', color: G_W5 },
+    { text: ' ╚═══╝╚══════╝  ╚═══╝      ╚═════╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝╚═╝  ╚═══╝', color: G_W6 },
   ];
 
   console.log();
   for (const line of gradientLines) {
     console.log(`${BOLD}${line.color}${line.text}${RESET}`);
   }
-  console.log(`\n  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
-  console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_CYAN}⚡ JEV BRAIN CLI${RESET} ${GRAY}v1.0.0${RESET} · ${WHITE}Autonomous On-Chain AI Terminal${RESET}         ${C_MUTED}│${RESET}`);
-  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Contract:${RESET} ${C_PURPLE}AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump${RESET}  ${GRAY}(Solana SPL)${RESET}  ${C_MUTED}│${RESET}`);
-  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Official Hub:${RESET} ${CYAN}https://jevbrain.world${RESET} · ${GRAY}“Don't think. Route.”${RESET}        ${C_MUTED}│${RESET}`);
-  console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
+  console.log(`\n  ${C_BOX}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+  console.log(`  ${C_BOX}│${RESET}  ${BOLD}${C_TEXT}⚡ JEV BRAIN CLI${RESET} ${C_DIM}v1.0.0${RESET} · ${C_TEXT}Autonomous On-Chain AI Terminal${RESET}         ${C_BOX}│${RESET}`);
+  console.log(`  ${C_BOX}│${RESET}  ${C_DIM}Contract:${RESET} ${C_TEXT}AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump${RESET}  ${C_DIM}(Solana SPL)${RESET}  ${C_BOX}│${RESET}`);
+  console.log(`  ${C_BOX}│${RESET}  ${C_DIM}Official Hub:${RESET} ${C_TEXT}https://jevbrain.world${RESET} · ${C_DIM}“Don't think. Route.”${RESET}        ${C_BOX}│${RESET}`);
+  console.log(`  ${C_BOX}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
 }
 
 async function readAllStdin() {
