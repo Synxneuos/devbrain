@@ -1147,7 +1147,9 @@ export async function handleRequest(req, res) {
             verified: true,
             error: balance.error
               ? `Wallet signature verified, but on-chain token balance could not be verified: ${balance.error}`
-              : `Wallet signature verified, but no qualifying ${balance.contract} holding was detected on-chain. A minimum holding is required to unlock AI features.`
+              : (!isSol
+                  ? `MetaMask signature verified, but no qualifying $JEVBRAIN token holding was found for this EVM address (${address.slice(0, 6)}...). Please note: $JEVBRAIN is a Solana token. If your tokens or claim wallet are on Solana (e.g. 2yHe...), please connect with Phantom.`
+                  : `Wallet signature verified, but no qualifying ${balance.contract} holding was detected on-chain. A minimum holding is required to unlock AI features.`)
           }));
           return;
         }

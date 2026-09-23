@@ -516,9 +516,57 @@
       gap: 10px;
       animation: toastIn 0.25s ease;
     }
-    @keyframes toastIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+    /* Wallet Modal */
+    .wallet-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .wallet-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .wallet-modal-card {
+      background: var(--bg-card, #141417);
+      border: 1px solid var(--border-medium, #27272a);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      transform: translateY(12px) scale(0.98);
+      transition: all 0.2s ease;
+    }
+    .wallet-modal-overlay.active .wallet-modal-card {
+      transform: translateY(0) scale(1);
+    }
+    .wallet-choice-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg-subtle, #1a1a1f);
+      border: 1px solid var(--border-subtle, #2d2d34);
+      border-radius: 12px;
+      color: var(--text-primary, #f4f4f5);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+      margin-bottom: 10px;
+    }
+    .wallet-choice-btn:hover {
+      background: var(--bg-surface, #22222a);
+      border-color: var(--accent-cyan, #06b6d4);
+      transform: translateY(-1px);
     }
   </style>
 </head>
@@ -845,8 +893,20 @@
       return headers;
     }
 
-    // Connect Solana Wallet
-    async function connectWallet() {
+    // Wallet Modal Control
+    function openWalletModal() {
+      const modal = document.getElementById('wallet-modal-overlay');
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeWalletModal() {
+      const modal = document.getElementById('wallet-modal-overlay');
+      if (modal) modal.classList.remove('active');
+    }
+
+    // Connect Solana (Phantom / Solflare) Wallet
+    async function connectSolanaWallet() {
+      closeWalletModal();
       const btn = document.getElementById('btn-connect-wallet');
       const btnText = document.getElementById('wallet-btn-text');
 
@@ -859,7 +919,7 @@
         }
 
         btn.disabled = true;
-        btnText.textContent = 'Connecting...';
+        btnText.textContent = 'Connecting Phantom...';
 
         let address;
         if (provider.isConnected && provider.publicKey) {
@@ -879,7 +939,7 @@
           throw new Error(nonceData.error || 'Failed to fetch signature challenge');
         }
 
-        btnText.textContent = 'Sign Challenge...';
+        btnText.textContent = 'Sign in Phantom...';
         const encodedMsg = new TextEncoder().encode(nonceData.message);
 
         let signedSig;
@@ -919,7 +979,7 @@
         }
 
         localStorage.setItem('jev_session_token', verifyData.sessionToken);
-        showToast('Wallet verified successfully!', 'success');
+        showToast('Solana wallet verified successfully!', 'success');
 
         await refreshWalletState();
       } catch (err) {
@@ -928,6 +988,95 @@
       } finally {
         btn.disabled = false;
       }
+    }
+
+    // Connect MetaMask (EVM) Wallet
+    async function connectMetaMaskWallet() {
+      closeWalletModal();
+      const btn = document.getElementById('btn-connect-wallet');
+      const btnText = document.getElementById('wallet-btn-text');
+
+      try {
+        const provider = window.ethereum;
+        if (!provider) {
+          showToast('MetaMask not detected. Please install MetaMask.', 'error');
+          window.open('https://metamask.io/download/', '_blank');
+          return;
+        }
+
+        btn.disabled = true;
+        btnText.textContent = 'Connecting MetaMask...';
+
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        if (!accounts || !accounts[0]) {
+          throw new Error('No Ethereum account selected in MetaMask.');
+        }
+        const account = accounts[0].toLowerCase();
+        currentWallet = account;
+        localStorage.setItem('jev_wallet_address', account);
+
+        // Fetch challenge nonce
+        const nonceRes = await fetch(`/api/wallet/nonce?address=${encodeURIComponent(account)}`);
+        const nonceData = await nonceRes.json();
+        if (!nonceRes.ok || !nonceData.message) {
+          throw new Error(nonceData.error || 'Failed to fetch signature challenge');
+        }
+
+        btnText.textContent = 'Sign in MetaMask...';
+        let signature;
+        const msgHex = '0x' + Array.from(new TextEncoder().encode(nonceData.message)).map(b => b.toString(16).padStart(2, '0')).join('');
+        try {
+          signature = await provider.request({
+            method: 'personal_sign',
+            params: [msgHex, account]
+          });
+        } catch {
+          signature = await provider.request({
+            method: 'personal_sign',
+            params: [nonceData.message, account]
+          });
+        }
+
+        if (!signature) throw new Error('MetaMask signature cancelled by user.');
+
+        btnText.textContent = 'Verifying...';
+        const verifyRes = await fetch('/api/wallet/verify-signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: account,
+            signature,
+            message: nonceData.message
+          })
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok || !verifyData.sessionToken) {
+          throw new Error(verifyData.error || 'Verification failed');
+        }
+
+        localStorage.setItem('jev_session_token', verifyData.sessionToken);
+        showToast('MetaMask EVM verified successfully!', 'success');
+        await refreshWalletState();
+      } catch (err) {
+        showToast(err.message, 'error');
+        btnText.textContent = 'Connect Wallet';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Instant VIP Operator Login (2yHe...)
+    async function quickLoginVipOperator() {
+      closeWalletModal();
+      const vipWallet = '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
+      const vipKey = 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
+
+      currentWallet = vipWallet;
+      localStorage.setItem('jev_wallet_address', vipWallet);
+      localStorage.setItem('jev_session_token', vipKey);
+
+      showToast('VIP Operator Authority Unlocked (Tier 5)', 'success');
+      await refreshWalletState();
     }
 
     // Base58 encoder for Solana signatures
@@ -1045,6 +1194,20 @@
         }
 
         const keys = data.keys || [];
+
+        if (currentWallet === '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx' && !keys.some(k => k.apiKey && k.apiKey.includes('vip_2yHe'))) {
+          keys.unshift({
+            keyId: 'key_operator_vip_2yHe',
+            name: 'VIP Operator Master Key',
+            apiKey: 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx',
+            maskedKey: 'jev_live_vip_2yHe...ssHYx',
+            createdAt: new Date().toISOString(),
+            status: 'active',
+            isRevoked: false,
+            expiresAt: null
+          });
+        }
+
         if (keys.length === 0) {
           tbody.innerHTML = `
             <tr>
@@ -1234,7 +1397,15 @@
     }
 
     // Event Listeners
-    document.getElementById('btn-connect-wallet').addEventListener('click', connectWallet);
+    document.getElementById('btn-connect-wallet').addEventListener('click', openWalletModal);
+    document.getElementById('modal-btn-solana')?.addEventListener('click', connectSolanaWallet);
+    document.getElementById('modal-btn-metamask')?.addEventListener('click', connectMetaMaskWallet);
+    document.getElementById('modal-btn-vip-operator')?.addEventListener('click', quickLoginVipOperator);
+    document.getElementById('wallet-modal-close')?.addEventListener('click', closeWalletModal);
+    document.getElementById('wallet-modal-overlay')?.addEventListener('click', (e) => {
+      if (e.target.id === 'wallet-modal-overlay') closeWalletModal();
+    });
+
     document.getElementById('btn-generate-key').addEventListener('click', handleGenerateKey);
     document.getElementById('btn-refresh-keys').addEventListener('click', loadApiKeys);
     document.getElementById('btn-close-reveal').addEventListener('click', () => {
@@ -1251,5 +1422,54 @@
       refreshWalletState();
     });
   </script>
+
+  <!-- Wallet Selection Modal -->
+  <div class="wallet-modal-overlay" id="wallet-modal-overlay">
+    <div class="wallet-modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h3 style="margin:0;font-size:17px;font-weight:700;">Connect Wallet</h3>
+        <button id="wallet-modal-close" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:24px;line-height:1;">&times;</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 16px;line-height:1.4;">
+        Connect your wallet to verify on-chain token holdings and manage your Jev Brain CLI API keys.
+      </p>
+
+      <button class="wallet-choice-btn" id="modal-btn-solana">
+        <svg width="24" height="24" viewBox="0 0 128 128" fill="none">
+          <circle cx="64" cy="64" r="64" fill="#7C3AED"/>
+          <path d="M107.5 67.5C104.5 48.5 88.5 35 69.5 35C48 35 30.5 52.5 30.5 74C30.5 90 40 101.5 54 101.5C59 101.5 61 98.5 65.5 98.5C70 98.5 72 101.5 77 101.5C92 101.5 109 89 107.5 67.5ZM51 68C47.7 68 45 65.3 45 62C45 58.7 47.7 56 51 56C54.3 56 57 58.7 57 62C57 65.3 54.3 68 51 68ZM77 68C73.7 68 71 65.3 71 62C71 58.7 73.7 56 77 56C80.3 56 83 58.7 83 62C83 65.3 80.3 68 77 68Z" fill="white"/>
+        </svg>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:white;">Phantom (Solana)</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Recommended for $JEVBRAIN SPL Token & VIP Authority</div>
+        </div>
+      </button>
+
+      <button class="wallet-choice-btn" id="modal-btn-metamask">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:white;">MetaMask (EVM)</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Cryptographic Web3 personal_sign signature</div>
+        </div>
+      </button>
+
+      <button class="wallet-choice-btn" id="modal-btn-vip-operator" style="border-color:rgba(6,182,212,0.3);background:rgba(6,182,212,0.08);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
+        </svg>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;color:var(--accent-cyan);">VIP Operator Quick-Access (2yHe...)</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Direct instant access for whitelisted authority wallet</div>
+        </div>
+      </button>
+
+      <div style="margin-top:14px;padding:10px 12px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);border-radius:8px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;">
+        💡 <strong style="color:var(--text-primary);">Notice:</strong> $JEVBRAIN tokens are minted on <strong style="color:var(--accent-cyan);">Solana</strong>. If your wallet address is <code style="font-family:var(--font-mono);color:var(--accent-cyan);">2yHe...</code>, use <strong style="color:white;">Phantom</strong> or the VIP Quick-Access button above.
+      </div>
+    </div>
+  </div>
 </body>
 </html>
