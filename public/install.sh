@@ -28,16 +28,16 @@ NODE_VERSION=$(node -v)
 echo -e "${GREEN}✔${RESET} Found Node.js: ${NODE_VERSION}"
 
 # Install jevbrain
-echo -e "📦 Installing Jev Brain CLI globally..."
-if npm install -g jevbrain >/dev/null 2>&1; then
-  echo -e "${GREEN}✔ Installed via npm global registry!${RESET}"
+echo -e "📦 Installing Jev Brain CLI globally from official repository..."
+if npm install -g Synxneuos/jevbrain >/dev/null 2>&1; then
+  echo -e "${GREEN}✔ Installed via GitHub repository!${RESET}"
 else
   # Fallback: install in user directory ~/.jevbrain
   INSTALL_DIR="$HOME/.jevbrain"
   mkdir -p "$INSTALL_DIR"
   cd "$INSTALL_DIR"
   npm init -y >/dev/null 2>&1 || true
-  npm install jevbrain >/dev/null 2>&1 || true
+  npm install Synxneuos/jevbrain >/dev/null 2>&1 || true
   
   BIN_DIR="$HOME/.local/bin"
   mkdir -p "$BIN_DIR"

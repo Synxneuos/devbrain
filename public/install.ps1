@@ -4,40 +4,39 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "⚡ JEV BRAIN LOCAL CLI INSTALLER" -ForegroundColor Cyan
-Write-Host "“Don't think. Route.”" -ForegroundColor Magenta
+Write-Host "== JEV BRAIN LOCAL CLI INSTALLER ==" -ForegroundColor Cyan
+Write-Host "Don't think. Route." -ForegroundColor Magenta
 Write-Host ""
 
 # Check for Node.js
 $nodeInstalled = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeInstalled) {
-    Write-Host "✖ Node.js is required but not installed." -ForegroundColor Red
+    Write-Host "[ERROR] Node.js is required but not installed." -ForegroundColor Red
     Write-Host "Please install Node.js (v18+) from: https://nodejs.org or run: winget install OpenJS.NodeJS" -ForegroundColor Yellow
     exit 1
 }
 
 $nodeVersion = node -v
-Write-Host "✔ Found Node.js: $nodeVersion" -ForegroundColor Green
+Write-Host "[OK] Found Node.js: $nodeVersion" -ForegroundColor Green
 
-# Install jevbrain
-Write-Host "📦 Installing Jev Brain CLI globally on your system..." -ForegroundColor Gray
+# Install jevbrain globally
+Write-Host "[*] Installing Jev Brain CLI globally from official repository..." -ForegroundColor Cyan
 try {
-    npm install -g jevbrain
-    Write-Host "✔ Successfully installed jevbrain CLI globally!" -ForegroundColor Green
+    npm install -g Synxneuos/jevbrain
+    Write-Host "[OK] Successfully installed jevbrain CLI globally!" -ForegroundColor Green
 } catch {
-    Write-Host "⚠ Global npm install had a permission issue. Falling back to local runner..." -ForegroundColor Yellow
+    Write-Host "[WARN] Global npm install had an issue. Please run: npm install -g Synxneuos/jevbrain" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "🎉 JEV BRAIN CLI READY TO USE ON WINDOWS!" -ForegroundColor Green
+Write-Host "== JEV BRAIN CLI READY TO USE ON WINDOWS! ==" -ForegroundColor Green
 Write-Host ""
 Write-Host "Quick Setup:" -ForegroundColor White
-Write-Host "  1. Get your Token Holder API key from: https://jevbrain.world" -ForegroundColor Cyan
-Write-Host "     (Connect wallet -> Holder Hub -> Jev Brain CLI -> Generate CLI Key)" -ForegroundColor Gray
+Write-Host "  1. Get your Token Holder API key from: https://jevbrain.world/api-keys" -ForegroundColor Cyan
 Write-Host "  2. Open the Jev Brain terminal session - it will ask you to paste your key:" -ForegroundColor White
 Write-Host "     jevbrain" -ForegroundColor Cyan
 Write-Host "  3. Or configure the key directly, then run your first AI query:" -ForegroundColor White
-Write-Host "     jevbrain config set-key <your-api-key>" -ForegroundColor Cyan
-Write-Host "     jevbrain `"Write a python script to check Solana token balances`"" -ForegroundColor Cyan
-Write-Host "  4. Inside chat: /credits shows your live balance, /model switches AI model" -ForegroundColor White
+Write-Host "     jevbrain config set-key your-api-key" -ForegroundColor Cyan
+Write-Host "     jevbrain status" -ForegroundColor Cyan
+Write-Host "  4. Inside chat: /models, /credits, /status, /clear, /exit" -ForegroundColor White
 Write-Host ""
