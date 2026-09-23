@@ -13,27 +13,52 @@ const args = process.argv.slice(2);
 
 const command = args[0] || 'help';
 
-// ANSI colors
+// ANSI colors & gradients (Hermes / Cortex Terminal styling)
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const ITALIC = '\x1b[3m';
+const UNDERLINE = '\x1b[4m';
+
+const RED = '\x1b[31m';
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
-const RED = '\x1b[31m';
-const CYAN = '\x1b[36m';
-const GRAY = '\x1b[90m';
+const BLUE = '\x1b[34m';
 const MAGENTA = '\x1b[35m';
+const CYAN = '\x1b[36m';
+const WHITE = '\x1b[37m';
+const GRAY = '\x1b[90m';
+
+// High-fidelity 256-color palette (Hermes gradient)
+const C_CYAN = '\x1b[38;5;51m';
+const C_SKY = '\x1b[38;5;45m';
+const C_BLUE = '\x1b[38;5;75m';
+const C_PURPLE = '\x1b[38;5;141m';
+const C_VIOLET = '\x1b[38;5;177m';
+const C_PINK = '\x1b[38;5;201m';
+const C_GOLD = '\x1b[38;5;220m';
+const C_EMERALD = '\x1b[38;5;48m';
+const C_MUTED = '\x1b[38;5;244m';
 
 function banner() {
-  console.log(`
-${CYAN}${BOLD}      ██╗  ███████╗      ██╗   ██╗ ██╗  ██╗ ██████╗  █████╗ ██╗  ██╗${RESET}
-${CYAN}${BOLD}      ██║  ██╔════╝      ██║   ██║ ██║  ██║ ██╔══██╗██╔══██╗██║ ██╔╝${RESET}
-${CYAN}${BOLD}      ██║  ███████╗█████╗██║   ██║ ███████║ ██████╔╝███████║ █████╔╝ ${RESET}
-${MAGENTA}${BOLD} ██   ██║  ╚════██║╚════╝██║   ██║ ██╔══██║ ██╔══██╗██╔══██║ ██╔═██╗ ${RESET}
-${MAGENTA}${BOLD} ╚█████╔╝  ███████║      ╚██████╔╝ ██║  ██║ ██║  ██║██║  ██║██║  ██╗${RESET}
-${MAGENTA}${BOLD}  ╚════╝   ╚══════╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝${RESET}
-${GRAY}   v1.0.0 · Token-Gated AI Terminal for $JEVBRAIN Holders${RESET}
-${MAGENTA}   “Don't think. Route.”${RESET}
-  `);
+  const gradientLines = [
+    { text: '   ██╗███████╗██╗   ██╗    ██████╗ ██████╗   █████╗  ██╗███╗   ██╗', color: C_CYAN },
+    { text: '   ██║██╔════╝██║   ██║    ██╔══██╗██╔══██╗ ██╔══██╗ ██║████╗  ██║', color: C_SKY },
+    { text: '   ██║█████╗  ██║   ██║    ██████╔╝██████╔╝ ███████║ ██║██╔██╗ ██║', color: C_BLUE },
+    { text: '██ ██║██╔══╝  ╚██╗ ██╔╝    ██╔══██╗██╔══██╗ ██╔══██║ ██║██║╚██╗██║', color: C_PURPLE },
+    { text: '╚████║███████╗ ╚████╔╝     ██████╔╝██║  ██║ ██║  ██║ ██║██║ ╚████║', color: C_VIOLET },
+    { text: ' ╚═══╝╚══════╝  ╚═══╝      ╚═════╝ ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝╚═╝  ╚═══╝', color: C_PINK },
+  ];
+
+  console.log();
+  for (const line of gradientLines) {
+    console.log(`${BOLD}${line.color}${line.text}${RESET}`);
+  }
+  console.log(`\n  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_CYAN}⚡ JEV BRAIN CLI${RESET} ${GRAY}v1.0.0${RESET} · ${WHITE}Autonomous On-Chain AI Terminal${RESET}         ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Contract:${RESET} ${C_PURPLE}AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump${RESET}  ${GRAY}(Solana SPL)${RESET}  ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Official Hub:${RESET} ${CYAN}https://jevbrain.world${RESET} · ${GRAY}“Don't think. Route.”${RESET}        ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
 }
 
 async function readAllStdin() {
@@ -445,20 +470,28 @@ async function fetchCreditSummary(endpoint, apiKey) {
 // Interactive first-run onboarding: paste key from website, verify live, save & welcome
 async function interactiveApiKeySetup(rl, cfg, maxAttempts = 3) {
   const endpoint = (cfg.endpoint || 'https://jevbrain.world').replace(/\/+$/, '');
-  console.log(`${BOLD}⚙  No API key configured yet.${RESET}`);
-  console.log(`${GRAY}Get your free key on the website: connect your Solana wallet holding $JEVBRAIN at`);
-  console.log(`   ${CYAN}${endpoint}${RESET}${GRAY}  ➜  Holder Hub  ➜  Jev Brain CLI  ➜  Generate CLI Key${RESET}`);
-  console.log(`${GRAY}Then paste it below. Your credits and holding tier are always enforced server-side.${RESET}\n`);
+  console.log(`  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_GOLD}🔑 Setup Required: Jev Brain Live API Key${RESET}                            ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}                                                                        ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  To use this terminal, connect your Solana wallet at:                  ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ➔  ${CYAN}${BOLD}${endpoint}/api-keys${RESET}                                            ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}                                                                        ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${CYAN}1.${RESET} Connect your Phantom / Solana wallet holding $JEVBRAIN tokens       ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${CYAN}2.${RESET} Generate your unique API key (${BOLD}jev_live_...${RESET})                      ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${CYAN}3.${RESET} Paste it below to unlock local terminal AI access                   ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}                                                                        ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}* Whitelisted operator wallets can enter without holding tokens.${RESET}      ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const raw = (await promptLine(rl, `${BOLD}${CYAN}➤ Paste your API key (jev_live_...): ${RESET}`)).trim();
+    const raw = (await promptLine(rl, `${BOLD}${C_CYAN}➤ Paste your API key (jev_live_...): ${RESET}`)).trim();
     if (!raw) {
-      console.log(`${YELLOW}Empty input. Paste the full key copied from ${endpoint} or type /exit to quit.${RESET}\n`);
+      console.log(`${YELLOW}Empty input. Paste the full key copied from ${endpoint}/api-keys or type /exit to quit.${RESET}\n`);
       continue;
     }
     if (raw === '/exit' || raw === '/quit') return false;
     if (!raw.startsWith('jev_live_')) {
-      console.log(`${YELLOW}⚠ Keys start with ${BOLD}jev_live_${RESET}${YELLOW}. Copy the complete key from your dashboard and try again.${RESET}\n`);
+      console.log(`${YELLOW}⚠ Keys start with ${BOLD}jev_live_${RESET}${YELLOW}. Copy the complete key from your dashboard at ${endpoint}/api-keys and try again.${RESET}\n`);
       continue;
     }
 
@@ -466,7 +499,7 @@ async function interactiveApiKeySetup(rl, cfg, maxAttempts = 3) {
     const check = await validateApiKey(endpoint, raw);
     if (!check.ok) {
       console.log(`${RED}✖${RESET}`);
-      console.log(`${RED}✖ Key rejected (${check.status || 'network'}): ${check.data.error || 'Invalid or revoked key'}${RESET}\n`);
+      console.log(`${RED}✖ Key rejected (${check.status || 'network'}): ${check.data?.error || 'Invalid or revoked key'}${RESET}\n`);
       continue;
     }
     console.log(`${GREEN}✔${RESET}`);
@@ -481,7 +514,7 @@ async function interactiveApiKeySetup(rl, cfg, maxAttempts = 3) {
 
     const summary = await fetchCreditSummary(endpoint, raw);
     if (summary) {
-      console.log(`  ${BOLD}Credits:${RESET}  ${GREEN}${summary.availableCredits}${RESET} available\n`);
+      console.log(`  ${BOLD}Credits:${RESET}  ${GREEN}${Number(summary.availableCredits || 0).toLocaleString()}${RESET} available\n`);
     } else {
       console.log('');
     }
@@ -713,6 +746,72 @@ async function handleStatus() {
   }
 }
 
+async function handleModels() {
+  banner();
+  const cfg = loadCliConfig();
+  const apiKey = cfg.apiKey || process.env.JEV_API_KEY;
+  const endpoint = (cfg.endpoint || 'https://jevbrain.world').replace(/\/+$/, '');
+
+  if (!apiKey) {
+    console.log(`${YELLOW}No API key configured.${RESET}`);
+    console.log(`Connect your Solana wallet holding $JEVBRAIN tokens at: ${CYAN}https://jevbrain.world/api-keys${RESET}`);
+    console.log(`Then set your key with: ${CYAN}jevbrain config set-key <your-key>${RESET}\n`);
+    return;
+  }
+
+  process.stdout.write(`${GRAY}Fetching unlocked AI models for your holding tier...${RESET} `);
+  try {
+    const res = await fetch(`${endpoint}/api/keys/status`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      console.log(`${RED}✖${RESET}`);
+      const err = await res.json().catch(() => ({}));
+      console.error(`${RED}${BOLD}✖ Error (${res.status}):${RESET} ${err.error || res.statusText}\n`);
+      return;
+    }
+
+    console.log(`${GREEN}✔${RESET}\n`);
+    const data = await res.json();
+    const shortAddr = data.walletAddress ? `${data.walletAddress.slice(0, 6)}...${data.walletAddress.slice(-4)}` : 'Unknown';
+    const tierName = data.tierName || 'Holder';
+
+    console.log(`  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+    console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_CYAN}Permitted AI Models for Your Holding Tier${RESET}                             ${C_MUTED}│${RESET}`);
+    console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Wallet:${RESET} ${CYAN}${shortAddr}${RESET} · ${GRAY}Tier:${RESET} ${C_PURPLE}[${tierName}]${RESET} (Tier ${data.tierId || 0})               ${C_MUTED}│${RESET}`);
+    console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
+
+    if (data.allowedModels && data.allowedModels.includes('all')) {
+      console.log(`  ${C_EMERALD}${BOLD}✔ ALL 500+ Frontier, Reasoning, Coding & Open-Weight Models Unlocked!${RESET}`);
+      console.log(`  ${GRAY}(Dynasty Magnate VIP tier has unrestricted access to all catalog models)${RESET}\n`);
+      console.log(`  ${BOLD}Top Recommended Models for Development & Architecture:${RESET}`);
+      console.log(`    ${CYAN}• anthropic/claude-3.7-sonnet${RESET}   ${GRAY}- SOTA Hybrid Reasoning & Architecture${RESET}`);
+      console.log(`    ${CYAN}• anthropic/claude-3.5-haiku${RESET}    ${GRAY}- Ultra-low latency code execution & chat${RESET}`);
+      console.log(`    ${CYAN}• openai/gpt-4o${RESET}                 ${GRAY}- Flagship multimodal intelligence${RESET}`);
+      console.log(`    ${CYAN}• openai/o3-mini${RESET}                ${GRAY}- Mathematical & algorithm reasoning engine${RESET}`);
+      console.log(`    ${CYAN}• deepseek/deepseek-chat${RESET}        ${GRAY}- DeepSeek V3 code intelligence & logic${RESET}`);
+      console.log(`    ${CYAN}• meta-llama/llama-3.3-70b-instruct${RESET} ${GRAY}- Top open-weights powerhouse${RESET}`);
+    } else if (data.allowedModels && data.allowedModels.length > 0) {
+      console.log(`  ${BOLD}Available Models for [${tierName}]:${RESET}`);
+      for (const m of data.allowedModels) {
+        console.log(`    ${GREEN}✔${RESET} ${CYAN}${m}${RESET}`);
+      }
+    } else {
+      console.log(`  ${YELLOW}No models unlocked. Wallet holds 0 tokens.${RESET}`);
+      console.log(`  Acquire $JEVBRAIN tokens on Solana to unlock higher tiers.`);
+    }
+
+    console.log(`\n  ${GRAY}Single query: ${CYAN}jevbrain -m <model> "<prompt>"${RESET}`);
+    console.log(`  ${GRAY}Switch inside chat: ${CYAN}/model <model>${RESET}\n`);
+  } catch (err) {
+    console.error(`${RED}Failed to query model list:${RESET}`, err.message);
+  }
+}
+
 async function handleChat(initialModel = 'auto', opts = {}) {
   if (!opts.skipBanner) banner();
   const cfg = loadCliConfig();
@@ -721,7 +820,7 @@ async function handleChat(initialModel = 'auto', opts = {}) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: `${CYAN}jev> ${RESET}`
+    prompt: `${BOLD}${C_CYAN}jevbrain${RESET}${C_MUTED}❯${RESET} `
   });
 
   // First-run onboarding: paste the key copied from the website, verify live, save.
@@ -735,17 +834,38 @@ async function handleChat(initialModel = 'auto', opts = {}) {
 
   const apiKey = cfg.apiKey || process.env.JEV_API_KEY;
   let activeModel = initialModel;
-  console.log(`${BOLD}⚡ Jev Brain Interactive Terminal Chat${RESET}`);
-  console.log(`${GRAY}Connected to: ${endpoint} · Model: [${CYAN}${activeModel}${GRAY}]${RESET}`);
-  console.log(`${GRAY}Commands: ${CYAN}/credits${GRAY} (balance), ${CYAN}/exit${GRAY} (quit), ${CYAN}/model <name>${GRAY} (change model), ${CYAN}/status${GRAY} (tier), ${CYAN}/clear${GRAY} (clear)${RESET}`);
 
-  // Show starting credit balance
-  const startSummary = await fetchCreditSummary(endpoint, apiKey);
-  if (startSummary) {
-    console.log(`${GRAY}Wallet balance: ${GREEN}${BOLD}${startSummary.availableCredits}${RESET}${GRAY} credits available${RESET}\n`);
-  } else {
-    console.log('');
+  // Live key validation on entry
+  const check = await validateApiKey(endpoint, apiKey);
+  if (!check.ok) {
+    console.log(`${RED}${BOLD}✖ API Key Rejected or Expired (${check.status}):${RESET} ${check.data?.error || 'Invalid API key'}`);
+    console.log(`${YELLOW}Please generate an active key at ${endpoint}/api-keys and run:${RESET}`);
+    console.log(`  ${CYAN}jevbrain config set-key <new-key>${RESET}\n`);
+    rl.close();
+    return;
   }
+
+  const d = check.data;
+  const shortAddr = d.walletAddress ? `${d.walletAddress.slice(0, 6)}...${d.walletAddress.slice(-4)}` : 'Unknown';
+  const tierName = d.tierName || 'Holder';
+
+  if (d.keyStatus === 'suspended') {
+    console.log(`  ${RED}${BOLD}✖ API Key Suspended:${RESET} ${YELLOW}${d.suspensionReason || '0 tokens held (sold/transferred)'}${RESET}`);
+    console.log(`  ${GRAY}Re-acquire $JEVBRAIN tokens on Solana to immediately reactivate.${RESET}\n`);
+    rl.close();
+    return;
+  }
+
+  const startSummary = await fetchCreditSummary(endpoint, apiKey);
+  const availCredits = startSummary ? Number(startSummary.availableCredits || 0).toLocaleString() : 'Active';
+
+  console.log(`  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_CYAN}⚡ Jev Brain Interactive Terminal Chat${RESET}                                ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Wallet:${RESET} ${CYAN}${shortAddr}${RESET} · ${GRAY}Tier:${RESET} ${C_PURPLE}[${tierName}]${RESET} (Tier ${d.tierId || 0})               ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Credits:${RESET} ${C_EMERALD}${availCredits} available${RESET} ${GRAY}(+${d.creditRatePerHour || 0}/hr)${RESET} · ${GRAY}Model:${RESET} ${C_CYAN}[${activeModel}]${RESET}         ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}│${RESET}  ${GRAY}Commands: ${CYAN}/help${GRAY}, ${CYAN}/models${GRAY}, ${CYAN}/model <name>${GRAY}, ${CYAN}/balance${GRAY}, ${CYAN}/clear${GRAY}, ${CYAN}/exit${RESET}     ${C_MUTED}│${RESET}`);
+  console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
+
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -754,21 +874,45 @@ async function handleChat(initialModel = 'auto', opts = {}) {
       rl.prompt();
       return;
     }
-    if (input === '/exit' || input === 'exit' || input === 'quit') {
+    if (input === '/exit' || input === 'exit' || input === 'quit' || input === '/quit') {
       rl.close();
       return;
     }
     if (input === '/clear' || input === 'clear') {
       console.clear();
       banner();
+      console.log(`  ${C_MUTED}┌────────────────────────────────────────────────────────────────────────┐${RESET}`);
+      console.log(`  ${C_MUTED}│${RESET}  ${BOLD}${C_CYAN}⚡ Jev Brain Interactive Terminal Chat${RESET} · Active Model: ${C_CYAN}[${activeModel}]${RESET}        ${C_MUTED}│${RESET}`);
+      console.log(`  ${C_MUTED}└────────────────────────────────────────────────────────────────────────┘${RESET}\n`);
       rl.prompt();
       return;
     }
-    if (input.startsWith('/model ')) {
+    if (input === '/help') {
+      console.log(`\n${BOLD}Interactive Terminal Commands:${RESET}`);
+      console.log(`  ${CYAN}/models${RESET}              List permitted AI models for your holding tier`);
+      console.log(`  ${CYAN}/model <name>${RESET}        Switch active model (e.g. /model deepseek/deepseek-chat)`);
+      console.log(`  ${CYAN}/balance | /credits${RESET}  Check live credit balance and accrual rate`);
+      console.log(`  ${CYAN}/status | /tier${RESET}      Show on-chain token holding and tier details`);
+      console.log(`  ${CYAN}/key${RESET}                 Show active configured API key`);
+      console.log(`  ${CYAN}/clear${RESET}               Clear terminal screen`);
+      console.log(`  ${CYAN}/exit${RESET}                Exit chat session\n`);
+      rl.prompt();
+      return;
+    }
+    if (input === '/models') {
+      rl.pause();
+      await handleModels();
+      rl.resume();
+      rl.prompt();
+      return;
+    }
+    if (input.startsWith('/model ') || input === '/model') {
       const newModel = input.slice(7).trim();
       if (newModel) {
         activeModel = newModel;
         console.log(`${GREEN}✔ Active model switched to: [${CYAN}${activeModel}${GREEN}]${RESET}\n`);
+      } else {
+        console.log(`${GRAY}Current active model: [${CYAN}${activeModel}${GRAY}]. To change: ${CYAN}/model <model-name>${RESET}\n`);
       }
       rl.prompt();
       return;
@@ -777,9 +921,9 @@ async function handleChat(initialModel = 'auto', opts = {}) {
       rl.pause();
       const summary = await fetchCreditSummary(endpoint, cfg.apiKey || process.env.JEV_API_KEY);
       if (summary) {
-        console.log(`\n${BOLD}💳 Credit Balance:${RESET} ${GREEN}${BOLD}${summary.availableCredits}${RESET} credits available`);
+        console.log(`\n  ${BOLD}💳 Credit Balance:${RESET} ${C_EMERALD}${BOLD}${Number(summary.availableCredits || 0).toLocaleString()}${RESET} credits available`);
         if (summary.eligibility) {
-          console.log(`${GRAY}   Rate: +${summary.eligibility.creditRatePerHour || 0} credits/hr · Tier: [${summary.eligibility.tier || 'Holder'}]${RESET}\n`);
+          console.log(`  ${GRAY}Accrual Rate: +${summary.eligibility.creditRatePerHour || 0} credits/hr · Tier: [${summary.eligibility.tier || 'Holder'}]${RESET}\n`);
         } else {
           console.log('');
         }
@@ -797,6 +941,15 @@ async function handleChat(initialModel = 'auto', opts = {}) {
       rl.prompt();
       return;
     }
+    if (input === '/key') {
+      const activeKey = cfg.apiKey || process.env.JEV_API_KEY || 'None';
+      const masked = activeKey.length > 16 ? `${activeKey.slice(0, 13)}...${activeKey.slice(-4)}` : activeKey;
+      console.log(`\n  ${BOLD}Active API Key:${RESET} ${C_CYAN}${masked}${RESET}`);
+      console.log(`  ${GRAY}Endpoint:${RESET}       ${endpoint}`);
+      console.log(`  ${GRAY}Config File:${RESET}    ${CONFIG_FILE}\n`);
+      rl.prompt();
+      return;
+    }
 
     rl.pause();
     await streamAiResponse(input, activeModel);
@@ -806,7 +959,7 @@ async function handleChat(initialModel = 'auto', opts = {}) {
   });
 
   rl.on('close', () => {
-    console.log(`\n${MAGENTA}“Don't think. Route.”${RESET}\n`);
+    console.log(`\n  ${C_PURPLE}${BOLD}“Don't think. Route.”${RESET}\n`);
     process.exit(0);
   });
 }
@@ -814,12 +967,14 @@ async function handleChat(initialModel = 'auto', opts = {}) {
 function showHelp() {
   banner();
   console.log(`${BOLD}AI & Terminal Commands:${RESET}`);
-  console.log(`  ${CYAN}jevbrain${RESET}                            Open interactive AI session (first run asks for your API key)`);
+  console.log(`  ${CYAN}jevbrain${RESET}                            Start interactive terminal AI chat session`);
   console.log(`  ${CYAN}jevbrain "<prompt>"${RESET}                   Run AI query directly with streaming output`);
   console.log(`  ${CYAN}jevbrain -m <model> "<prompt>"${RESET}        Run AI query with a specific tier-allowed model`);
   console.log(`  ${CYAN}jevbrain chat [-m <model>]${RESET}            Start interactive terminal AI chat session`);
+  console.log(`  ${CYAN}jevbrain models${RESET}                       List permitted AI models for your holding tier`);
   console.log(`  ${CYAN}jevbrain status | tier${RESET}                Show live on-chain token holding, tier, and models`);
-  console.log(`  ${CYAN}jevbrain config set-key <key>${RESET}         Configure your Jev Brain API key`);
+  console.log(`  ${CYAN}jevbrain balance | credits${RESET}            Check live credit balance and emissions`);
+  console.log(`  ${CYAN}jevbrain config set-key <key>${RESET}         Configure your Jev Brain API key (jev_live_...)`);
   console.log(`  ${CYAN}jevbrain config get-key${RESET}               Show active key and check on-chain token tier`);
   console.log(`  ${CYAN}jevbrain config set-url <url>${RESET}         Point CLI to custom backend URL`);
   console.log(`\n${BOLD}Safety & Routing Commands:${RESET}`);
@@ -832,14 +987,15 @@ function showHelp() {
   console.log(`  ${CYAN}jevbrain mobile [subcommand]${RESET}          Android device gateway (devices, tap, type, inspect)`);
   console.log(`  ${CYAN}jevbrain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
   console.log(`\n${BOLD}Examples:${RESET}`);
+  console.log(`  jevbrain`);
   console.log(`  jevbrain "Write a python script to check Solana token balances"`);
   console.log(`  jevbrain -m deepseek/deepseek-chat "Review this architecture"`);
   console.log(`  jevbrain status`);
+  console.log(`  jevbrain models`);
   console.log(`  cat src/server.js | jevbrain "Audit this code for security vulnerabilities"`);
   console.log(`  git diff | jevbrain "Write a detailed conventional git commit message"`);
-  console.log(`  jevbrain chat`);
   console.log(`  jevbrain config set-key jev_live_xxxxxxxxxxxxxxxx`);
-  console.log(`  jevbrain serve --port 3333`);
+  console.log();
 }
 
 async function main() {
@@ -867,6 +1023,25 @@ async function main() {
     case 'tier':
       await handleStatus();
       break;
+    case 'models':
+      await handleModels();
+      break;
+    case 'balance':
+    case 'credits': {
+      banner();
+      const cfg = loadCliConfig();
+      const endpoint = (cfg.endpoint || 'https://jevbrain.world').replace(/\/+$/, '');
+      const summary = await fetchCreditSummary(endpoint, cfg.apiKey || process.env.JEV_API_KEY);
+      if (summary) {
+        console.log(`  ${BOLD}💳 Credit Balance:${RESET} ${C_EMERALD}${BOLD}${Number(summary.availableCredits || 0).toLocaleString()}${RESET} credits available`);
+        if (summary.eligibility) {
+          console.log(`  ${GRAY}Accrual Rate: +${summary.eligibility.creditRatePerHour || 0} credits/hr · Tier: [${summary.eligibility.tier || 'Holder'}]${RESET}\n`);
+        }
+      } else {
+        console.log(`  ${YELLOW}Could not fetch credit balance. Run jevbrain status or check your key.${RESET}\n`);
+      }
+      break;
+    }
     case 'chat':
       await handleChat(requestedModel);
       break;
