@@ -488,6 +488,7 @@ export class DatabaseAdapter {
         { wallet: '5MGTP4Ax1P2vqFstoGHSuYT5EE7RTakRioS2biyw6iSR', earned: '2500', available: '2500', tier: 'Principal Partner', tierLevel: 3, rate: 200, tokens: 10000 },
 
         // Tier 2 Associates & Boosters
+        { wallet: '4WAi1p5b1XSm5Cm8kEmyfVCkydPzFQ3yDEYX3KxPzx9n', earned: '5000', available: '5000', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 51514 },
         { wallet: 'HivzpgbR7x4S4TUfgyef4GezdE1wwNxAUHhkhUCJJAXy', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
         { wallet: 'DvBP4xHR3DBsyGoMcRjFmk8BgU9DTK6VHXFe5LH5Rf1B', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
         { wallet: 'HdKtZ3fmrhcJjiP9CGpfnFcQkrPTVmkhU1LnLfEdMNwC', earned: '1000', available: '1000', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000, boostLevel: 2, boostMultiplier: 2.0 },

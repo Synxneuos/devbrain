@@ -431,6 +431,8 @@ async function connectMetaMaskWallet() {
     if (verifyData.sessionToken) {
       sessionStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
       localStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
+      sessionStorage.setItem('jev_session_token', verifyData.sessionToken);
+      localStorage.setItem('jev_session_token', verifyData.sessionToken);
     }
 
     // Step 5: Unlock UI and update state
@@ -716,6 +718,8 @@ async function connectSolanaWallet() {
     if (verifyData.sessionToken) {
       sessionStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
       localStorage.setItem(STORAGE_SESSION_TOKEN, verifyData.sessionToken);
+      sessionStorage.setItem('jev_session_token', verifyData.sessionToken);
+      localStorage.setItem('jev_session_token', verifyData.sessionToken);
     }
 
     // Step 4: Unlock UI and update state
@@ -916,6 +920,9 @@ async function onWalletAuthenticated(address, tokens = 0, precalculatedTier = nu
     }
 
     localStorage.setItem(STORAGE_WALLET_KEY, address);
+    localStorage.setItem('jev_wallet_address', address);
+    sessionStorage.setItem(STORAGE_WALLET_KEY, address);
+    sessionStorage.setItem('jev_wallet_address', address);
     localStorage.setItem(STORAGE_TIER_PREFIX + address.toLowerCase(), JSON.stringify(userTier));
     console.log(`✓ Wallet Verified! Tier: [${userTier.tierName}] Bag: ${userTier.bagUsdValue}`);
     loadServerChats(address);
@@ -931,8 +938,13 @@ function disconnectWallet() {
   userTier = null;
   currentUserProfile = null;
   localStorage.removeItem(STORAGE_WALLET_KEY);
+  localStorage.removeItem('jev_wallet_address');
+  sessionStorage.removeItem(STORAGE_WALLET_KEY);
+  sessionStorage.removeItem('jev_wallet_address');
   sessionStorage.removeItem(STORAGE_SESSION_TOKEN);
   localStorage.removeItem(STORAGE_SESSION_TOKEN);
+  sessionStorage.removeItem('jev_session_token');
+  localStorage.removeItem('jev_session_token');
 
   if (elements.heroHeading) {
     elements.heroHeading.textContent = 'Welcome! I’m Jev Brain.';
