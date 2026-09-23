@@ -9,6 +9,7 @@ import { handleRequest } from '../src/server.js';
 import { dbAdapter } from '../src/core/db-adapter.js';
 import { rewardsStore } from '../src/core/rewards-store.js';
 import { setMockHolderBalance } from '../src/core/holder-eligibility.js';
+import { apiKeyAuditor } from '../src/workers/api-key-auditor.js';
 
 let server;
 let baseUrl;
@@ -48,6 +49,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  apiKeyAuditor.stop();
   if (server) {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -257,4 +259,137 @@ test('API Key Security: Non-token holders are rejected from key generation and A
   const chatData = await chatRes.json();
   assert.ok(chatData.error.includes('Access Denied'));
 });
+
+test('API Key Anti-Dump: Live token selling triggers instant suspension and re-buy reactivates', async () => {
+  const traderWallet = createTestSolanaWallet();
+  // 1. Trader starts with 50,000 tokens (Tier 4)
+  setMockHolderBalance(traderWallet.address, 50000);
+
+  // Authenticate session to generate key
+  const nonceRes = await fetch(`${baseUrl}/api/wallet/nonce?address=${traderWallet.address}`);
+  const { message } = await nonceRes.json();
+  const sig = crypto.sign(null, Buffer.from(message), traderWallet.privateKey);
+  const signature = encodeBase58(sig);
+
+  const authRes = await fetch(`${baseUrl}/api/wallet/verify-signature`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: traderWallet.address, signature, message })
+  });
+  const { sessionToken } = await authRes.json();
+
+  // Generate API key
+  const genRes = await fetch(`${baseUrl}/api/keys/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({ name: 'Trader Key' })
+  });
+  assert.strictEqual(genRes.status, 200);
+  const { key } = await genRes.json();
+  assert.ok(key.apiKey);
+
+  // 2. Verify status endpoint while holding tokens
+  const statusRes1 = await fetch(`${baseUrl}/api/keys/status`, {
+    headers: { 'Authorization': `Bearer ${key.apiKey}` }
+  });
+  assert.strictEqual(statusRes1.status, 200);
+  const statusData1 = await statusRes1.json();
+  assert.strictEqual(statusData1.keyStatus, 'active');
+  assert.strictEqual(statusData1.tokensHeld, 50000);
+  assert.ok(statusData1.tierId >= 1);
+
+  // 3. User SELLS ALL TOKENS (dump to 0 on-chain)
+  setMockHolderBalance(traderWallet.address, 0);
+
+  // User attempts to make an AI query with their API key
+  const chatDumpRes = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key.apiKey}`
+    },
+    body: JSON.stringify({ prompt: 'This should fail because tokens were sold' })
+  });
+  assert.strictEqual(chatDumpRes.status, 403);
+  const dumpData = await chatDumpRes.json();
+  assert.ok(dumpData.error.includes('Access Denied'));
+  assert.ok(dumpData.error.includes('suspended'));
+
+  // Database key record must now be suspended
+  const dbKey = dbAdapter.getApiKey(key.apiKey);
+  assert.ok(dbKey, 'Key still exists in DB');
+  assert.strictEqual(dbKey.status, 'suspended');
+  assert.strictEqual(dbKey.suspension_reason, 'tokens_sold_or_transferred');
+
+  // Status endpoint now reflects suspended state
+  const statusRes2 = await fetch(`${baseUrl}/api/keys/status`, {
+    headers: { 'Authorization': `Bearer ${key.apiKey}` }
+  });
+  assert.strictEqual(statusRes2.status, 200);
+  const statusData2 = await statusRes2.json();
+  assert.strictEqual(statusData2.keyStatus, 'suspended');
+
+  // 4. Background Auditor pass confirms suspension
+  const auditResult = await apiKeyAuditor.runAuditCycle();
+  assert.ok(auditResult.audited >= 1);
+
+  // 5. Trader RE-ACQUIRES tokens (buys 10,000 tokens = Tier 3)
+  setMockHolderBalance(traderWallet.address, 10000);
+
+  // Background Auditor detects re-buy and reactivates key
+  const reactivateAudit = await apiKeyAuditor.runAuditCycle();
+  assert.ok(reactivateAudit.reactivated >= 1, 'Auditor must reactivate key upon token repurchase');
+
+  // Verify key is active again in DB and status endpoint
+  const dbKeyReactivated = dbAdapter.getApiKey(key.apiKey);
+  assert.strictEqual(dbKeyReactivated.status, 'active');
+  assert.strictEqual(dbKeyReactivated.suspension_reason, null);
+
+  const statusRes3 = await fetch(`${baseUrl}/api/keys/status`, {
+    headers: { 'Authorization': `Bearer ${key.apiKey}` }
+  });
+  const statusData3 = await statusRes3.json();
+  assert.strictEqual(statusData3.keyStatus, 'active');
+  assert.ok(statusData3.tierId >= 1);
+});
+
+test('API Key Tier Enforcement: Partial sell downgrades allowed models', async () => {
+  const holderWallet = createTestSolanaWallet();
+  // 1. Start with Tier 1 holding (50 tokens)
+  setMockHolderBalance(holderWallet.address, 50);
+
+  const key = dbAdapter.createApiKey({
+    walletAddress: holderWallet.address,
+    name: 'Tier 1 Key',
+    tokensHeld: 50,
+    tierId: 1
+  });
+
+  // Check status
+  const statusRes = await fetch(`${baseUrl}/api/keys/status`, {
+    headers: { 'Authorization': `Bearer ${key.apiKey}` }
+  });
+  const statusData = await statusRes.json();
+  assert.strictEqual(statusData.tierId, 1);
+
+  // Attempt to use a Tier 4/5 model (e.g. anthropic/claude-3.5-haiku) -> MUST BE REJECTED with 403
+  const forbiddenModelRes = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key.apiKey}`
+    },
+    body: JSON.stringify({
+      prompt: 'Hello',
+      model: 'anthropic/claude-3.5-haiku'
+    })
+  });
+  assert.strictEqual(forbiddenModelRes.status, 403);
+  const forbidData = await forbiddenModelRes.json();
+  assert.ok(forbidData.error.includes('not included in your'));
+});
+
 

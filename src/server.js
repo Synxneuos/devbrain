@@ -19,6 +19,7 @@ import { getPendingTransfers, getAllClaimsHistory } from './core/operator-servic
 import { burnEngine } from './core/burn-engine.js';
 import { feeHarvester } from './workers/fee-harvester.js';
 import { paymentReconciler } from './workers/payment-reconciler.js';
+import { apiKeyAuditor } from './workers/api-key-auditor.js';
 import { dbAdapter } from './core/db-adapter.js';
 
 export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
@@ -27,6 +28,7 @@ export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUN
 if (process.env.NODE_ENV !== 'test' && !isServerless) {
   feeHarvester.start(15 * 60 * 1000);
   paymentReconciler.start(20 * 1000);
+  apiKeyAuditor.start(60 * 1000);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -150,6 +152,21 @@ function parseSession(req, body = {}, options = {}) {
     const keyRecord = dbAdapter.getApiKey(token);
     if (!keyRecord || keyRecord.is_revoked) return null;
     dbAdapter.touchApiKeyLastUsed(token);
+
+    if (keyRecord.status === 'suspended') {
+      return {
+        v: SESSION_TOKEN_VERSION,
+        a: keyRecord.wallet_address,
+        th: 0,
+        dc: false,
+        exp: Date.now() + 24 * 60 * 60 * 1000,
+        isApiKey: true,
+        apiKeyId: keyRecord.key_id,
+        isSuspended: true,
+        suspensionReason: keyRecord.suspension_reason || 'tokens_sold_or_transferred'
+      };
+    }
+
     return {
       v: SESSION_TOKEN_VERSION,
       a: keyRecord.wallet_address,
@@ -157,7 +174,8 @@ function parseSession(req, body = {}, options = {}) {
       dc: false,
       exp: Date.now() + 24 * 60 * 60 * 1000,
       isApiKey: true,
-      apiKeyId: keyRecord.key_id
+      apiKeyId: keyRecord.key_id,
+      apiKeyStatus: keyRecord.status || 'active'
     };
   }
 
@@ -761,14 +779,24 @@ export async function handleRequest(req, res) {
           return;
         }
 
+        if (session.isSuspended) {
+          sendJson(res, 403, {
+            error: `Access Denied: Your Jev Brain API key is suspended because wallet (${session.a.slice(0, 4)}...${session.a.slice(-4)}) holds 0 $JEVBRAIN tokens (tokens sold or transferred). Re-acquire tokens at https://jevbrain.world to reactivate.`
+          });
+          return;
+        }
+
         const walletAddress = session.a;
         // B-10 FIX: Resolve tier from the LIVE on-chain balance on every request
         // (session-snapshot fallback only when RPC verification is momentarily down).
         const userTier = await resolveLiveUserTier(session);
         if (!userTier || userTier.tierId <= 0) {
+          if (session.isApiKey && session.apiKeyId) {
+            dbAdapter.suspendApiKey(session.apiKeyId, 'tokens_sold_or_transferred');
+          }
           sendJson(res, 403, {
             error: session.isApiKey
-              ? `Access Denied: Wallet (${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}) does not hold the minimum $JEVBRAIN tokens required for CLI AI access. Acquire tokens at https://jevbrain.world.`
+              ? `Access Denied: Wallet (${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}) does not hold the minimum $JEVBRAIN tokens required for CLI AI access (tokens sold or transferred). Your CLI API key has been suspended. Re-acquire tokens at https://jevbrain.world.`
               : 'Your wallet no longer holds the minimum $jevbrain balance required for AI access. Re-acquire tokens and retry — tier access follows your live holding.'
           });
           return;
@@ -1791,9 +1819,14 @@ export async function handleRequest(req, res) {
         }
 
         const name = (body.name || 'Default CLI Key').trim().slice(0, 50);
+        const tokensHeld = Number(userTier.tokensHeld || elig?.balanceUi || 0);
+        const tierId = Number(userTier.tierId || 0);
+
         const keyRecord = dbAdapter.createApiKey({
           walletAddress: session.a,
-          name
+          name,
+          tokensHeld,
+          tierId
         });
 
         sendJson(res, 200, {
@@ -1818,6 +1851,38 @@ export async function handleRequest(req, res) {
         sendJson(res, 200, {
           success: true,
           keys
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/keys/status' && req.method === 'GET') {
+      try {
+        const session = parseSession(req, {}, { allowApiKey: true });
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Authentication required. Pass Bearer <api-key> or session token.' });
+          return;
+        }
+
+        const walletAddress = session.a;
+        const userTier = await resolveLiveUserTier(session);
+        const rawAuth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        const keyRecord = rawAuth.startsWith('jev_live_') ? dbAdapter.getApiKey(rawAuth) : null;
+
+        sendJson(res, 200, {
+          success: true,
+          walletAddress,
+          isApiKey: Boolean(session.isApiKey),
+          keyStatus: session.isSuspended ? 'suspended' : (keyRecord?.status || 'active'),
+          suspensionReason: session.suspensionReason || keyRecord?.suspension_reason || null,
+          tokensHeld: userTier?.tokensHeld || 0,
+          tierId: userTier?.tierId || 0,
+          tierName: userTier?.tierName || 'Guest / Ineligible',
+          allowedModels: userTier?.allowedModels || [],
+          creditRatePerHour: userTier?.creditRatePerHour || 0,
+          marketCap: userTier?.marketCap || 0
         });
       } catch (err) {
         sendJson(res, 500, { error: err.message });

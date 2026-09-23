@@ -301,6 +301,11 @@ export class DatabaseAdapter {
         wallet_address TEXT NOT NULL,
         name TEXT NOT NULL DEFAULT 'Default CLI Key',
         is_revoked INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        suspension_reason TEXT,
+        last_verified_tokens REAL DEFAULT 0,
+        last_verified_tier INTEGER DEFAULT 0,
+        last_verified_at TEXT,
         created_at TEXT NOT NULL,
         last_used_at TEXT
       );
@@ -310,6 +315,14 @@ export class DatabaseAdapter {
 
     // Durable SQLite synchronous setting
     try { db.exec('PRAGMA synchronous = NORMAL;'); } catch {}
+
+    // Migrations for api_keys status & live tier auditing
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`); } catch {}
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN suspension_reason TEXT;`); } catch {}
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_tokens REAL DEFAULT 0;`); } catch {}
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_tier INTEGER DEFAULT 0;`); } catch {}
+    try { db.exec(`ALTER TABLE api_keys ADD COLUMN last_verified_at TEXT;`); } catch {}
+    try { db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status);`); } catch {}
 
     // Migration: add idempotency_key and payment state machine columns to credit_burns
     try { db.exec(`ALTER TABLE credit_burns ADD COLUMN idempotency_key TEXT;`); } catch {}
@@ -1167,22 +1180,28 @@ export class DatabaseAdapter {
   // JEV BRAIN CLI & API KEY MANAGEMENT
   // ==========================================
 
-  createApiKey({ walletAddress, name = 'Default CLI Key' }) {
+  createApiKey({ walletAddress, name = 'Default CLI Key', tokensHeld = 0, tierId = 0 }) {
     const db = this.getDb();
     const keyId = `key_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const apiKey = `jev_live_${crypto.randomBytes(24).toString('hex')}`;
     const createdAt = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO api_keys (key_id, api_key, wallet_address, name, is_revoked, created_at, last_used_at)
-      VALUES (?, ?, ?, ?, 0, ?, NULL)
-    `).run(keyId, apiKey, walletAddress, name.trim().slice(0, 50), createdAt);
+      INSERT INTO api_keys (
+        key_id, api_key, wallet_address, name, is_revoked, status,
+        last_verified_tokens, last_verified_tier, last_verified_at, created_at, last_used_at
+      )
+      VALUES (?, ?, ?, ?, 0, 'active', ?, ?, ?, ?, NULL)
+    `).run(keyId, apiKey, walletAddress, name.trim().slice(0, 50), Number(tokensHeld) || 0, Number(tierId) || 0, createdAt, createdAt);
 
     return {
       keyId,
       apiKey,
       walletAddress,
       name,
+      status: 'active',
+      lastVerifiedTokens: Number(tokensHeld) || 0,
+      lastVerifiedTier: Number(tierId) || 0,
       createdAt
     };
   }
@@ -1191,18 +1210,75 @@ export class DatabaseAdapter {
     if (!apiKey || typeof apiKey !== 'string') return null;
     const db = this.getDb();
     const row = db.prepare(`
-      SELECT key_id, api_key, wallet_address, name, is_revoked, created_at, last_used_at
+      SELECT key_id, api_key, wallet_address, name, is_revoked, status,
+             suspension_reason, last_verified_tokens, last_verified_tier,
+             last_verified_at, created_at, last_used_at
       FROM api_keys
       WHERE api_key = ? AND is_revoked = 0
     `).get(apiKey);
     return row || null;
   }
 
+  getAllActiveApiKeys() {
+    const db = this.getDb();
+    return db.prepare(`
+      SELECT key_id, api_key, wallet_address, name, is_revoked, status,
+             suspension_reason, last_verified_tokens, last_verified_tier,
+             last_verified_at, created_at, last_used_at
+      FROM api_keys
+      WHERE is_revoked = 0
+      ORDER BY created_at DESC
+    `).all();
+  }
+
+  suspendApiKey(keyId, reason = 'tokens_sold_or_transferred') {
+    if (!keyId) return false;
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    const res = db.prepare(`
+      UPDATE api_keys
+      SET status = 'suspended', suspension_reason = ?, last_verified_at = ?
+      WHERE key_id = ? AND is_revoked = 0
+    `).run(reason, now, keyId);
+    return res.changes > 0;
+  }
+
+  reactivateApiKey(keyId, tokensHeld = 0, tierId = 0) {
+    if (!keyId) return false;
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    const res = db.prepare(`
+      UPDATE api_keys
+      SET status = 'active', suspension_reason = NULL,
+          last_verified_tokens = ?, last_verified_tier = ?, last_verified_at = ?
+      WHERE key_id = ? AND is_revoked = 0
+    `).run(Number(tokensHeld) || 0, Number(tierId) || 0, now, keyId);
+    return res.changes > 0;
+  }
+
+  updateApiKeyAuditInfo(keyId, { status, suspensionReason = null, tokensHeld = 0, tierId = 0 }) {
+    if (!keyId) return false;
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    const res = db.prepare(`
+      UPDATE api_keys
+      SET status = COALESCE(?, status),
+          suspension_reason = ?,
+          last_verified_tokens = ?,
+          last_verified_tier = ?,
+          last_verified_at = ?
+      WHERE key_id = ?
+    `).run(status || null, suspensionReason, Number(tokensHeld) || 0, Number(tierId) || 0, now, keyId);
+    return res.changes > 0;
+  }
+
   listApiKeys(walletAddress) {
     if (!walletAddress) return [];
     const db = this.getDb();
     const rows = db.prepare(`
-      SELECT key_id, wallet_address, name, is_revoked, created_at, last_used_at, api_key
+      SELECT key_id, wallet_address, name, is_revoked, status,
+             suspension_reason, last_verified_tokens, last_verified_tier,
+             last_verified_at, created_at, last_used_at, api_key
       FROM api_keys
       WHERE wallet_address = ?
       ORDER BY created_at DESC
@@ -1213,6 +1289,11 @@ export class DatabaseAdapter {
       walletAddress: r.wallet_address,
       name: r.name,
       isRevoked: Boolean(r.is_revoked),
+      status: r.status || (r.is_revoked ? 'revoked' : 'active'),
+      suspensionReason: r.suspension_reason || null,
+      lastVerifiedTokens: r.last_verified_tokens || 0,
+      lastVerifiedTier: r.last_verified_tier || 0,
+      lastVerifiedAt: r.last_verified_at || null,
       createdAt: r.created_at,
       lastUsedAt: r.last_used_at,
       maskedKey: r.api_key.length > 16 
@@ -1226,7 +1307,7 @@ export class DatabaseAdapter {
     const db = this.getDb();
     const res = db.prepare(`
       UPDATE api_keys
-      SET is_revoked = 1
+      SET is_revoked = 1, status = 'revoked'
       WHERE key_id = ? AND wallet_address = ?
     `).run(keyId, walletAddress);
     return res.changes > 0;

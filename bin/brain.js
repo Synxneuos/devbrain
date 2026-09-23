@@ -547,7 +547,76 @@ async function streamAiResponse(prompt, model = 'auto') {
   }
 }
 
-async function handleChat() {
+async function handleStatus() {
+  banner();
+  const cfg = loadCliConfig();
+  const apiKey = cfg.apiKey || process.env.JEV_API_KEY;
+  const endpoint = (cfg.endpoint || process.env.JEV_ENDPOINT || 'https://jevbrain.world').replace(/\/+$/, '');
+
+  if (!apiKey) {
+    console.log(`${YELLOW}No API key configured.${RESET}`);
+    console.log(`Connect your Solana wallet holding $JEVBRAIN tokens at: ${CYAN}https://jevbrain.world${RESET}`);
+    console.log(`Then set your key with: ${CYAN}npx jevbrain config set-key <your-key>${RESET}\n`);
+    return;
+  }
+
+  console.log(`${BOLD}Fetching Live On-Chain Holding & Tier Status...${RESET}\n`);
+  try {
+    const res = await fetch(`${endpoint}/api/keys/status`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error(`${RED}${BOLD}✖ Error (${res.status}):${RESET} ${err.error || res.statusText}\n`);
+      return;
+    }
+
+    const data = await res.json();
+    const isSuspended = data.keyStatus === 'suspended';
+    const statusColor = isSuspended ? RED : GREEN;
+    const statusText = isSuspended ? 'SUSPENDED (0 Tokens / Sold)' : 'ACTIVE';
+
+    console.log(`${BOLD}Jev Brain CLI Account Status:${RESET}`);
+    console.log(`  ${BOLD}Connected Wallet:${RESET}  ${CYAN}${data.walletAddress || 'Unknown'}${RESET}`);
+    console.log(`  ${BOLD}Key Status:${RESET}        ${statusColor}${BOLD}${statusText}${RESET}`);
+    if (data.suspensionReason) {
+      console.log(`  ${BOLD}Suspension Note:${RESET}   ${YELLOW}${data.suspensionReason}${RESET}`);
+    }
+    console.log(`  ${BOLD}Tokens Held:${RESET}       ${BOLD}${Number(data.tokensHeld || 0).toLocaleString()} $JEVBRAIN${RESET}`);
+    console.log(`  ${BOLD}Holding Tier:${RESET}      ${CYAN}[${data.tierName || 'Guest'}]${RESET} (Tier ${data.tierId || 0})`);
+    console.log(`  ${BOLD}Credit Rate:${RESET}       ${GREEN}+${data.creditRatePerHour || 0} credits/hr${RESET}`);
+    console.log(`  ${BOLD}Endpoint:${RESET}          ${GRAY}${endpoint}${RESET}`);
+
+    console.log(`\n${BOLD}Permitted Models for your Tier:${RESET}`);
+    if (data.allowedModels && data.allowedModels.length > 0) {
+      if (data.allowedModels.includes('all')) {
+        console.log(`  ${GREEN}✔ All 500+ Frontier & Open-Weight Models Unlocked (Dynasty Magnate VIP)${RESET}`);
+      } else {
+        for (const m of data.allowedModels) {
+          console.log(`  ${GREEN}✔${RESET} ${m}`);
+        }
+      }
+    } else {
+      console.log(`  ${YELLOW}No models unlocked. Wallet holds 0 tokens.${RESET}`);
+    }
+
+    if (isSuspended) {
+      console.log(`\n${YELLOW}⚠ Your API key is suspended because your wallet holds 0 tokens.${RESET}`);
+      console.log(`Re-acquire $JEVBRAIN tokens at https://jevbrain.world to immediately reactivate.`);
+    } else {
+      console.log(`\n${GRAY}Run queries with: jevbrain "<prompt>" or jevbrain -m <model> "<prompt>"${RESET}`);
+    }
+    console.log();
+  } catch (err) {
+    console.error(`${RED}Failed to fetch account status:${RESET}`, err.message);
+  }
+}
+
+async function handleChat(initialModel = 'auto') {
   banner();
   const cfg = loadCliConfig();
   if (!cfg.apiKey && !process.env.JEV_API_KEY) {
@@ -555,9 +624,10 @@ async function handleChat() {
     return;
   }
 
+  let activeModel = initialModel;
   console.log(`${BOLD}⚡ Jev Brain Interactive Terminal Chat${RESET}`);
-  console.log(`${GRAY}Connected to: ${cfg.endpoint || 'https://jevbrain.world'}${RESET}`);
-  console.log(`${GRAY}Type ${CYAN}/exit${GRAY} or ${CYAN}Ctrl+C${GRAY} to quit.${RESET}\n`);
+  console.log(`${GRAY}Connected to: ${cfg.endpoint || 'https://jevbrain.world'} · Model: [${CYAN}${activeModel}${GRAY}]${RESET}`);
+  console.log(`${GRAY}Commands: ${CYAN}/exit${GRAY} (quit), ${CYAN}/model <name>${GRAY} (change model), ${CYAN}/status${GRAY} (check tier), ${CYAN}/clear${GRAY} (clear screen)${RESET}\n`);
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -583,9 +653,25 @@ async function handleChat() {
       rl.prompt();
       return;
     }
+    if (input.startsWith('/model ')) {
+      const newModel = input.slice(7).trim();
+      if (newModel) {
+        activeModel = newModel;
+        console.log(`${GREEN}✔ Active model switched to: [${CYAN}${activeModel}${GREEN}]${RESET}\n`);
+      }
+      rl.prompt();
+      return;
+    }
+    if (input === '/status' || input === '/tier') {
+      rl.pause();
+      await handleStatus();
+      rl.resume();
+      rl.prompt();
+      return;
+    }
 
     rl.pause();
-    await streamAiResponse(input);
+    await streamAiResponse(input, activeModel);
     console.log();
     rl.resume();
     rl.prompt();
@@ -601,7 +687,9 @@ function showHelp() {
   banner();
   console.log(`${BOLD}AI & Terminal Commands:${RESET}`);
   console.log(`  ${CYAN}jevbrain "<prompt>"${RESET}                   Run AI query directly with streaming output`);
-  console.log(`  ${CYAN}jevbrain chat${RESET}                         Start interactive terminal AI chat session`);
+  console.log(`  ${CYAN}jevbrain -m <model> "<prompt>"${RESET}        Run AI query with a specific tier-allowed model`);
+  console.log(`  ${CYAN}jevbrain chat [-m <model>]${RESET}            Start interactive terminal AI chat session`);
+  console.log(`  ${CYAN}jevbrain status | tier${RESET}                Show live on-chain token holding, tier, and models`);
   console.log(`  ${CYAN}jevbrain config set-key <key>${RESET}         Configure your Jev Brain API key`);
   console.log(`  ${CYAN}jevbrain config get-key${RESET}               Show active key and check on-chain token tier`);
   console.log(`  ${CYAN}jevbrain config set-url <url>${RESET}         Point CLI to custom backend URL`);
@@ -616,6 +704,8 @@ function showHelp() {
   console.log(`  ${CYAN}jevbrain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
   console.log(`\n${BOLD}Examples:${RESET}`);
   console.log(`  jevbrain "Write a python script to check Solana token balances"`);
+  console.log(`  jevbrain -m deepseek/deepseek-chat "Review this architecture"`);
+  console.log(`  jevbrain status`);
   console.log(`  cat src/server.js | jevbrain "Audit this code for security vulnerabilities"`);
   console.log(`  git diff | jevbrain "Write a detailed conventional git commit message"`);
   console.log(`  jevbrain chat`);
@@ -624,12 +714,27 @@ function showHelp() {
 }
 
 async function main() {
-  switch (command) {
+  // Parse global -m / --model flags
+  let requestedModel = 'auto';
+  let cleanArgs = [...args];
+  const modelFlagIdx = cleanArgs.findIndex(a => a === '-m' || a === '--model');
+  if (modelFlagIdx !== -1 && cleanArgs[modelFlagIdx + 1]) {
+    requestedModel = cleanArgs[modelFlagIdx + 1];
+    cleanArgs.splice(modelFlagIdx, 2);
+  }
+
+  const primaryCommand = cleanArgs[0] || 'help';
+
+  switch (primaryCommand) {
     case 'config':
       await handleConfig();
       break;
+    case 'status':
+    case 'tier':
+      await handleStatus();
+      break;
     case 'chat':
-      await handleChat();
+      await handleChat(requestedModel);
       break;
     case 'init':
       await handleInit();
@@ -661,13 +766,13 @@ async function main() {
       showHelp();
       break;
     default:
-      if (args.length > 0) {
-        let promptText = args.join(' ');
+      if (cleanArgs.length > 0) {
+        let promptText = cleanArgs.join(' ');
         const stdinData = await readAllStdin();
         if (stdinData) {
           promptText = `${promptText}\n\nInput Context:\n\`\`\`\n${stdinData}\n\`\`\``;
         }
-        await streamAiResponse(promptText);
+        await streamAiResponse(promptText, requestedModel);
       } else {
         showHelp();
       }

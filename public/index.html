@@ -1073,13 +1073,17 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
               <span style="font-size:12px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-cyan);"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                Jev Brain Local CLI Gateway
+                Jev Brain Local System CLI Gateway
               </span>
               <span class="rewards-tier-badge" id="cli-holder-badge" style="font-size:10px;">Checking...</span>
             </div>
-            <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin:0;">
-              Run Jev Brain directly in your local terminal on Mac, Linux, or Windows. Verified $JEVBRAIN token holders generate an API key here to route local coding queries through our optimized frontier LLM firewall.
+            <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin:0 0 6px 0;">
+              Run Jev Brain directly in your local terminal on <strong>Windows (PowerShell/CMD), macOS, or Linux</strong>. No browser terminal required — runs natively in your local operating system.
             </p>
+            <div style="font-size:10.5px;color:var(--accent-cyan);display:flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span><strong>Anti-Dump Guard:</strong> Access is dynamically verified on-chain. If tokens are sold, API key access is automatically suspended.</span>
+            </div>
           </div>
 
           <!-- Unconnected / Non-Holder Notice -->
@@ -1102,8 +1106,14 @@
                 <button class="btn-ghost-sm" id="btn-copy-cli-key" title="Copy key" style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--accent-cyan);">Copy</button>
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text-tertiary);">
-                <span id="cli-key-meta">Created: Just now</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span id="cli-key-status-pill" class="status-badge-active" style="font-size:9px;padding:1px 6px;">ACTIVE</span>
+                  <span id="cli-key-meta">Created: Just now</span>
+                </div>
                 <button id="btn-revoke-cli-key" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;text-decoration:underline;">Revoke Key</button>
+              </div>
+              <div id="cli-suspended-notice" style="display:none;margin-top:6px;padding:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:4px;font-size:10px;color:#ef4444;">
+                ⚠️ <strong>Key Suspended:</strong> Your wallet no longer holds $JEVBRAIN tokens. Re-acquire tokens to automatically reactivate your CLI.
               </div>
             </div>
 
@@ -1116,33 +1126,59 @@
             </div>
           </div>
 
-          <!-- Step-by-Step Terminal Instructions -->
+          <!-- Step-by-Step Local System Installation -->
           <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
-            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-              <span>Quick Start: Use Jev Brain in your Terminal</span>
+            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">
+              Install &amp; Run in your Local System:
+            </div>
+
+            <!-- OS Selectors -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:10px;">
+              <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:6px;padding:8px;">
+                <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">💻 Windows (PowerShell)</div>
+                <div style="font-family:var(--font-mono);font-size:9.5px;color:var(--accent-cyan);display:flex;justify-content:space-between;align-items:center;">
+                  <code id="cmd-win-install">irm https://jevbrain.world/install.ps1 | iex</code>
+                  <button class="btn-ghost-sm copy-snippet-btn" data-target="cmd-win-install" style="padding:1px 5px;font-size:9px;">Copy</button>
+                </div>
+              </div>
+              <div style="background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:6px;padding:8px;">
+                <div style="font-size:10px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">🍎 macOS / 🐧 Linux (Bash)</div>
+                <div style="font-family:var(--font-mono);font-size:9.5px;color:var(--accent-cyan);display:flex;justify-content:space-between;align-items:center;">
+                  <code id="cmd-unix-install">curl -fsSL https://jevbrain.world/install.sh | bash</code>
+                  <button class="btn-ghost-sm copy-snippet-btn" data-target="cmd-unix-install" style="padding:1px 5px;font-size:9px;">Copy</button>
+                </div>
+              </div>
             </div>
 
             <div style="margin-bottom:8px;">
               <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 1: Configure your API Key</div>
               <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--accent-cyan);display:flex;justify-content:space-between;align-items:center;">
-                <code id="cli-step1-cmd">npx jevbrain config set-key &lt;your-key&gt;</code>
+                <code id="cli-step1-cmd">jevbrain config set-key &lt;your-key&gt;</code>
                 <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step1-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
               </div>
             </div>
 
             <div style="margin-bottom:8px;">
-              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 2: Run AI Queries &amp; Code Prompts</div>
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 2: Verify On-Chain Tier &amp; Permitted Models</div>
               <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">
-                <code id="cli-step2-cmd">npx jevbrain "Write a python script to check Solana token balances"</code>
+                <code id="cli-step2-cmd">jevbrain status</code>
                 <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step2-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
               </div>
             </div>
 
-            <div>
-              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 3: Start Interactive Streaming Terminal Chat</div>
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 3: Run AI Prompts &amp; Select Models</div>
               <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">
-                <code id="cli-step3-cmd">npx jevbrain chat</code>
+                <code id="cli-step3-cmd">jevbrain "Write a python script to check Solana token balances"</code>
                 <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step3-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 4: Start Interactive Terminal Chat</div>
+              <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">
+                <code id="cli-step4-cmd">jevbrain chat</code>
+                <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step4-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
               </div>
             </div>
           </div>

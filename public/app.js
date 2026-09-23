@@ -2135,14 +2135,34 @@ async function loadCliKeyData() {
             keyInput.type = 'text';
           }
           if (btnToggle) btnToggle.textContent = 'Hide';
-          if (step1Cmd) step1Cmd.textContent = `npx jevbrain config set-key ${latestGeneratedCliKey}`;
+          if (step1Cmd) step1Cmd.textContent = `jevbrain config set-key ${latestGeneratedCliKey}`;
         } else {
           if (keyInput) {
             keyInput.value = activeKey.maskedKey;
             keyInput.type = 'text';
           }
           if (btnToggle) btnToggle.textContent = 'Masked';
-          if (step1Cmd) step1Cmd.textContent = `npx jevbrain config set-key ${activeKey.maskedKey}`;
+          if (step1Cmd) step1Cmd.textContent = `jevbrain config set-key ${activeKey.maskedKey}`;
+        }
+
+        const statusPill = document.getElementById('cli-key-status-pill');
+        const suspendedNotice = document.getElementById('cli-suspended-notice');
+        const isSuspended = activeKey.status === 'suspended';
+
+        if (statusPill) {
+          if (isSuspended) {
+            statusPill.textContent = 'SUSPENDED (NO TOKENS)';
+            statusPill.style.background = 'rgba(239, 68, 68, 0.2)';
+            statusPill.style.color = '#ef4444';
+          } else {
+            statusPill.textContent = 'ACTIVE';
+            statusPill.style.background = 'rgba(16, 185, 129, 0.2)';
+            statusPill.style.color = '#10b981';
+          }
+        }
+
+        if (suspendedNotice) {
+          suspendedNotice.style.display = isSuspended ? 'block' : 'none';
         }
 
         if (keyMeta) {
@@ -2160,7 +2180,7 @@ async function loadCliKeyData() {
     if (activeBox) activeBox.style.display = 'none';
     if (noKeyBox) noKeyBox.style.display = 'block';
     if (btnGenNew) btnGenNew.style.display = 'none';
-    if (step1Cmd) step1Cmd.textContent = 'npx jevbrain config set-key <your-key>';
+    if (step1Cmd) step1Cmd.textContent = 'jevbrain config set-key <your-key>';
   } catch (err) {
     console.warn('[CLI] Error fetching keys:', err.message);
   }
