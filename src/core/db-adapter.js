@@ -417,7 +417,7 @@ export class DatabaseAdapter {
     try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN last_burn_tx_hash TEXT DEFAULT NULL;`); } catch {}
     try { db.exec(`CREATE INDEX IF NOT EXISTS idx_holder_accounts_boost ON holder_accounts(boost_level);`); } catch {}
 
-    // Auto-seed VIP Operator API keys for whitelisted operator wallets
+    // Auto-seed VIP Operator accounts, credit balances, and API keys for whitelisted operator wallets
     try {
       const vipWallets = [
         { wallet: '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx', key: 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx', id: 'key_operator_vip_2yHe' },
@@ -425,6 +425,35 @@ export class DatabaseAdapter {
       ];
       const now = new Date().toISOString();
       for (const item of vipWallets) {
+        // 1. Ensure holder account exists
+        const existingHolder = db.prepare('SELECT wallet_address FROM holder_accounts WHERE wallet_address = ?').get(item.wallet);
+        if (!existingHolder) {
+          db.prepare(`
+            INSERT INTO holder_accounts (
+              wallet_address, token_balance_raw, token_balance_ui, tier,
+              tier_level, credit_rate_per_hour, boost_level, boost_multiplier,
+              last_verified_at, last_accrual_at, created_at, updated_at
+            ) VALUES (?, '1000000000000', 1000000.0, 'Dynasty Magnate (VIP Whitelist)', 5, 5000, 1, 1.0, ?, ?, ?, ?)
+          `).run(item.wallet, now, now, now, now);
+        }
+
+        // 2. Ensure credit account has at least 100,000 credits
+        const existingCredit = db.prepare('SELECT wallet_address, available FROM credit_accounts WHERE wallet_address = ?').get(item.wallet);
+        if (!existingCredit) {
+          db.prepare(`
+            INSERT INTO credit_accounts (
+              wallet_address, credit_account_id, earned, used, available, transferred, redeemed, created_at, updated_at
+            ) VALUES (?, ?, '100000', '0', '100000', '0', '0', ?, ?)
+          `).run(item.wallet, 'acc_vip_' + item.wallet.slice(0, 4), now, now);
+        } else if (BigInt(existingCredit.available || '0') < 10000n) {
+          db.prepare(`
+            UPDATE credit_accounts
+            SET available = '100000', earned = '100000', updated_at = ?
+            WHERE wallet_address = ?
+          `).run(now, item.wallet);
+        }
+
+        // 3. Ensure API Key exists
         const existing = db.prepare('SELECT key_id FROM api_keys WHERE api_key = ?').get(item.key);
         if (!existing) {
           db.prepare(`

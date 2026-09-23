@@ -661,9 +661,15 @@
           <div style="font-size:11.5px;color:var(--text-secondary);" id="wallet-meta-display">Connect your Solana wallet to manage API keys.</div>
         </div>
       </div>
-      <div id="wallet-balance-info" style="text-align:right;display:none;">
-        <div style="font-size:11px;color:var(--text-secondary);">Holding Balance</div>
-        <div style="font-size:13px;font-weight:700;color:var(--accent-cyan);" id="wallet-balance-num">0 $JEVBRAIN</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div id="wallet-credits-info" style="text-align:right;display:none;">
+          <div style="font-size:11px;color:var(--text-secondary);">Available Credits</div>
+          <div style="font-size:13px;font-weight:700;color:#10b981;" id="wallet-credits-num">0</div>
+        </div>
+        <div id="wallet-balance-info" style="text-align:right;display:none;">
+          <div style="font-size:11px;color:var(--text-secondary);">Holding Balance</div>
+          <div style="font-size:13px;font-weight:700;color:var(--accent-cyan);" id="wallet-balance-num">0 $JEVBRAIN</div>
+        </div>
       </div>
     </div>
 
@@ -1115,14 +1121,16 @@
 
         currentWallet = address;
 
-        // Fetch live eligibility & tier
-        const eligRes = await fetch(`/api/holder/eligibility?address=${encodeURIComponent(address)}`, {
-          headers: authHeaders()
-        });
+        // Fetch live eligibility, tier, and credit balance in parallel
+        const [eligRes, balRes] = await Promise.all([
+          fetch(`/api/holder/eligibility?address=${encodeURIComponent(address)}`, { headers: authHeaders() }),
+          fetch('/api/credits/balance', { headers: authHeaders() }).catch(() => null)
+        ]);
         const eligData = await eligRes.json();
+        const balData = balRes && balRes.ok ? await balRes.json() : null;
 
         currentTier = eligData;
-        renderConnectedState(address, eligData);
+        renderConnectedState(address, eligData, balData);
         await loadApiKeys();
       } catch (err) {
         console.warn('Error refreshing wallet state:', err.message);
@@ -1136,6 +1144,8 @@
       document.getElementById('wallet-meta-display').textContent = 'Connect your Solana wallet to manage API keys.';
       document.getElementById('wallet-tier-badge').style.display = 'none';
       document.getElementById('wallet-balance-info').style.display = 'none';
+      const creditsInfo = document.getElementById('wallet-credits-info');
+      if (creditsInfo) creditsInfo.style.display = 'none';
       document.getElementById('gate-warning-box').style.display = 'none';
       document.getElementById('btn-generate-key').disabled = true;
 
@@ -1148,7 +1158,7 @@
         </tr>`;
     }
 
-    function renderConnectedState(address, elig) {
+    function renderConnectedState(address, elig, balData = null) {
       const shortAddr = address.slice(0, 4) + '...' + address.slice(-4);
       document.getElementById('wallet-btn-text').textContent = shortAddr;
       document.getElementById('wallet-addr-display').textContent = shortAddr;
@@ -1156,12 +1166,21 @@
       const tierBadge = document.getElementById('wallet-tier-badge');
       const balanceNum = document.getElementById('wallet-balance-num');
       const balanceInfo = document.getElementById('wallet-balance-info');
+      const creditsNum = document.getElementById('wallet-credits-num');
+      const creditsInfo = document.getElementById('wallet-credits-info');
       const gateWarning = document.getElementById('gate-warning-box');
       const metaDisplay = document.getElementById('wallet-meta-display');
       const genBtn = document.getElementById('btn-generate-key');
 
       tierBadge.style.display = 'inline-flex';
       balanceInfo.style.display = 'block';
+
+      if (balData && balData.availableCredits !== undefined) {
+        if (creditsNum) creditsNum.textContent = Number(balData.availableCredits || 0).toLocaleString();
+        if (creditsInfo) creditsInfo.style.display = 'block';
+      } else if (creditsInfo) {
+        creditsInfo.style.display = 'none';
+      }
 
       const balance = Number(elig.balanceUi || elig.tokensHeld || 0).toLocaleString();
       balanceNum.textContent = `${balance} $JEVBRAIN`;
