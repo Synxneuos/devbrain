@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jev Brain — Official Cinematic Teaser (1080p)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: #060608;
+      color: #F4F4F5;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 16px;
+    }
+
+    /* Container for 16:9 Canvas Video */
+    .teaser-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      background: #000000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Fullscreen Mode */
+    .teaser-wrapper:fullscreen {
+      max-width: 100vw;
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+      border: none;
+    }
+
+    /* Composited Canvas */
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Subtle Film Grain & CRT Overlay */
+    .film-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      opacity: 0.45;
+      z-index: 10;
+    }
+
+    /* Cinema Letterbox bars */
+    .letterbox-top, .letterbox-bottom {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: #000000;
+      z-index: 15;
+      pointer-events: none;
+    }
+    .letterbox-top { top: 0; }
+    .letterbox-bottom { bottom: 0; }
+
+    /* Floating Director Controls */
+    .controls-panel {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(18, 18, 22, 0.85);
+      backdrop-filter: blur(16px);
+      padding: 10px 18px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-primary {
+      background: #FFFFFF;
+      color: #09090B;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+    .btn-primary:hover {
+      background: #E4E4E7;
+      transform: translateY(-1px);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #E4E4E7;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+    }
+
+    .btn-export {
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #FFFFFF;
+    }
+    .btn-export:hover {
+      background: linear-gradient(135deg, #34D399, #10B981);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .time-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #A1A1AA;
+      min-width: 140px;
+      text-align: center;
+    }
+
+    .time-badge span {
+      color: #10B981;
+    }
+
+    .act-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      color: #A1A1AA;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      letter-spacing: 0.5px;
+    }
+
+    /* Start Overlay Modal */
+    .start-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 6, 8, 0.88);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      transition: opacity 0.4s ease;
+      cursor: pointer;
+    }
+
+    .start-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .big-play-btn {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      color: #09090B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 0 50px rgba(255, 255, 255, 0.4);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+
+    .start-overlay:hover .big-play-btn {
+      transform: scale(1.1);
+      box-shadow: 0 0 70px rgba(255, 255, 255, 0.7);
+    }
+
+    .start-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+    }
+
+    .start-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #71717A;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .recording-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #EF4444;
+      border-radius: 50%;
+      animation: pulse-red 1.2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Back Link */
+    .back-nav {
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #71717A;
+      text-decoration: none;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      transition: color 0.2s;
+      z-index: 100;
+    }
+    .back-nav:hover {
+      color: #FFFFFF;
+    }
+  </style>
+
+  <!-- Three.js from Cloudflare CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <a href="/" class="back-nav">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    BACK TO JEV BRAIN
+  </a>
+
+  <!-- Main 16:9 Teaser Screen -->
+  <div class="teaser-wrapper" id="teaserWrapper">
+    <!-- Cinema Letterbox -->
+    <div class="letterbox-top"></div>
+    <div class="letterbox-bottom"></div>
+    <div class="film-overlay"></div>
+
+    <!-- Compositor Canvas (1920 x 1080 Native Buffer) -->
+    <canvas id="renderCanvas" width="1920" height="1080"></canvas>
+
+    <!-- Start Overlay Modal -->
+    <div class="start-overlay" id="startOverlay">
+      <div class="big-play-btn">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      </div>
+      <div class="start-title">PLAY TEASER (17.5s)</div>
+      <div class="start-sub">
+        <span class="recording-indicator"></span> 1080p 60FPS • SYNTHESIZED 808 AUDIO • SCREEN-RECORD READY
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Director Controls -->
+  <div class="controls-panel">
+    <button class="btn btn-primary" id="playBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="playIcon">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      <span id="playBtnText">PLAY</span>
+    </button>
+
+    <button class="btn btn-secondary" id="restartBtn" title="Restart Teaser (R)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+      </svg>
+      RESTART
+    </button>
+
+    <button class="btn btn-secondary" id="audioToggleBtn" title="Toggle Audio (M)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="audioIcon">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      <span id="audioText">AUDIO: ON</span>
+    </button>
+
+    <div class="time-badge" id="timeBadge">
+      00:00:00 / <span>00:17:50</span>
+    </div>
+
+    <div class="act-badge" id="actBadge">
+      ACT 1: THE BOTTLENECK
+    </div>
+
+    <button class="btn btn-export" id="exportBtn" title="Direct 1-Click Video Export">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+      </svg>
+      <span id="exportText">EXPORT 1080p VIDEO</span>
+    </button>
+
+    <button class="btn btn-secondary" id="fsBtn" title="Fullscreen (F)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+      </svg>
+    </button>
+  </div>
+
+  <script>
+    /* =========================================================================
+       JEV BRAIN CINEMATIC 17.5s TEASER SCRIPT
+       - WebGL 3D Scene with Three.js (Procedural Brain Core, Solana Token, Nodes)
+       - 2D Kinetic Typography & Motion Graphics (Composited at 1920x1080)
+       - Pure Web Audio API SFX Engine (808 Sub-bass, Risers, Clicks, Clang)
+       - MediaRecorder direct MP4/WebM 60FPS Video Export
+       ========================================================================= */
+
+    const DURATION = 17.5; // Exactly 17.50 seconds
+    const W = 1920;
+    const H = 1080;
+
+    // DOM Elements
+    const renderCanvas = document.getElementById('renderCanvas');
+    const compCtx = renderCanvas.getContext('2d');
+    const startOverlay = document.getElementById('startOverlay');
+    const playBtn = document.getElementById('playBtn');
+    const playBtnText = document.getElementById('playBtnText');
+    const restartBtn = document.getElementById('restartBtn');
+    const audioToggleBtn = document.getElementById('audioToggleBtn');
+    const audioText = document.getElementById('audioText');
+    const timeBadge = document.getElementById('timeBadge');
+    const actBadge = document.getElementById('actBadge');
+    const exportBtn = document.getElementById('exportBtn');
+    const exportText = document.getElementById('exportText');
+    const fsBtn = document.getElementById('fsBtn');
+    const teaserWrapper = document.getElementById('teaserWrapper');
+
+    // State
+    let isPlaying = false;
+    let currentTime = 0;
+    let lastTimestamp = 0;
+    let audioEnabled = true;
+    let isExporting = false;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    // Offscreen 3D Three.js WebGL Canvas
+    const threeCanvas = document.createElement('canvas');
+    threeCanvas.width = W;
+    threeCanvas.height = H;
+
+    // Three.js Setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x060609);
+    scene.fog = new THREE.FogExp2(0x060609, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 1000);
+    camera.position.set(0, 0, 16);
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas: threeCanvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(1);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    keyLight.position.set(10, 15, 12);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0x00F0FF, 3.5);
+    rimLight.position.set(-12, -8, -10);
+    scene.add(rimLight);
+
+    const emeraldLight = new THREE.PointLight(0x10B981, 4.0, 30);
+    emeraldLight.position.set(0, 0, 0);
+    scene.add(emeraldLight);
+
+    // 1. NEURAL BRAIN CORE (Geodesic Chrome & Pulsing Synapses)
+    const brainGroup = new THREE.Group();
+    scene.add(brainGroup);
+
+    // Chrome Icosahedron
+    const coreGeo = new THREE.IcosahedronGeometry(3.2, 3);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0x18181B,
+      metalness: 0.95,
+      roughness: 0.15,
+      wireframe: false,
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    brainGroup.add(coreMesh);
+
+    // Glowing Wireframe Outer Shell
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: 0x00F0FF,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
+    });
+    const wireMesh = new THREE.Mesh(coreGeo, wireMat);
+    wireMesh.scale.set(1.02, 1.02, 1.02);
+    brainGroup.add(wireMesh);
+
+    // Gimbal Rings
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xD4D4D8,
+      metalness: 1.0,
+      roughness: 0.1,
+      wireframe: false
+    });
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.06, 16, 100), ringMat);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(5.2, 0.05, 16, 100), ringMat);
+    const ring3 = new THREE.Mesh(new THREE.TorusGeometry(5.8, 0.04, 16, 100), ringMat);
+    ring2.rotation.x = Math.PI / 3;
+    ring3.rotation.y = Math.PI / 4;
+    brainGroup.add(ring1);
+    brainGroup.add(ring2);
+    brainGroup.add(ring3);
+
+    // Floating Data Particle Cloud
+    const particleCount = 1400;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+    const particleSpeeds = [];
+
+    for (let i = 0; i < particleCount; i++) {
+      const radius = 5.0 + Math.random() * 12.0;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random() * 2) - 1);
+      particlePositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      particlePositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      particlePositions[i * 3 + 2] = radius * Math.cos(phi);
+      particleSpeeds.push({
+        radius,
+        theta,
+        phi,
+        speed: 0.005 + Math.random() * 0.015
+      });
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particleMat = new THREE.PointsMaterial({
+      color: 0x67E8F9,
+      size: 0.12,
+      transparent: true,
+      opacity: 0.75
+    });
+    const particleSystem = new THREE.Points(particleGeo, particleMat);
+    scene.add(particleSystem);
+
+    // 2. 3D SOLANA COIN TOKEN (Appears in Act 3)
+    const coinGroup = new THREE.Group();
+    const coinCylinder = new THREE.CylinderGeometry(2.4, 2.4, 0.35, 64);
+    const coinMat = new THREE.MeshStandardMaterial({
+      color: 0x9945FF,
+      metalness: 0.9,
+      roughness: 0.2,
+      emissive: 0x14F195,
+      emissiveIntensity: 0.2
+    });
+    const coinMesh = new THREE.Mesh(coinCylinder, coinMat);
+    coinMesh.rotation.x = Math.PI / 2;
+    coinGroup.add(coinMesh);
+
+    // Coin Rim
+    const coinRim = new THREE.Mesh(
+      new THREE.TorusGeometry(2.4, 0.1, 16, 64),
+      new THREE.MeshStandardMaterial({ color: 0x14F195, metalness: 0.95, roughness: 0.1 })
+    );
+    coinGroup.add(coinRim);
+    coinGroup.position.set(0, 0, -50); // hidden initially
+    scene.add(coinGroup);
+
+    // Model Nodes Orbiting
+    const modelNodes = [
+      { name: 'Claude 3.7 Sonnet', color: 0xF97316, angle: 0 },
+      { name: 'DeepSeek V3', color: 0x06B6D4, angle: Math.PI * 0.5 },
+      { name: 'GPT-4o', color: 0x10B981, angle: Math.PI },
+      { name: 'Llama 3.3 70B', color: 0x8B5CF6, angle: Math.PI * 1.5 }
+    ];
+
+    const modelNodeMeshes = [];
+    modelNodes.forEach(node => {
+      const g = new THREE.Group();
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 16, 16),
+        new THREE.MeshStandardMaterial({ color: node.color, emissive: node.color, emissiveIntensity: 0.8 })
+      );
+      g.add(dot);
+      scene.add(g);
+      modelNodeMeshes.push({ group: g, ...node });
+    });
+
+    // =========================================================================
+    // PROCEDURAL WEB AUDIO SFX ENGINE
+    // =========================================================================
+    let audioCtx = null;
+    let audioDest = null; // for MediaRecorder
+    let masterGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      audioDest = audioCtx.createMediaStreamDestination();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = audioEnabled ? 0.9 : 0.0;
+      masterGain.connect(audioCtx.destination);
+      masterGain.connect(audioDest);
+    }
+
+    // 1. Sub-Bass 808 Drop
+    function play808Drop(time, intensity = 1.0) {
+      if (!audioCtx || !audioEnabled) return;
+      const t = time || audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(32, t + 0.85);
+
+      gain.gain.setValueAtTime(0.85 * intensity, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(t);
+      osc.stop(t + 1.2);
+    }
+
+    // 2. Cyber Glitch Stutter
+    function playGlitchNoise(time, duration = 0.2) {
+      if (!audioCtx || !audioEnabled) return;
+      const t = time || audioCtx.currentTime;
+      const bufferSize = audioCtx.sampleRate * duration;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
+      }
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1800;
+      filter.Q.value = 4.0;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+
+      whiteNoise.start(t);
+      whiteNoise.stop(t + duration);
+    }
+
+    // 3. Cyber Riser Sweep
+    function playRiser(time, duration = 2.2) {
+      if (!audioCtx || !audioEnabled) return;
+      const t = time || audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const filter = audioCtx.createBiquadFilter();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(80, t);
+      osc.frequency.exponentialRampToValueAtTime(850, t + duration);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(200, t);
+      filter.frequency.exponentialRampToValueAtTime(7000, t + duration);
+      filter.Q.value = 6;
+
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.linearRampToValueAtTime(0.45, t + duration * 0.9);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(t);
+      osc.stop(t + duration);
+    }
+
+    // 4. Tactile CLI Typing Clicks
+    function playTypeClick(time) {
+      if (!audioCtx || !audioEnabled) return;
+      const t = time || audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(950 + Math.random() * 400, t);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(t);
+      osc.stop(t + 0.04);
+    }
+
+    // 5. Metallic Clang / Impact
+    function playImpact(time) {
+      if (!audioCtx || !audioEnabled) return;
+      const t = time || audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(55, t);
+      osc.frequency.exponentialRampToValueAtTime(20, t + 1.4);
+
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(620, t);
+      osc2.frequency.exponentialRampToValueAtTime(110, t + 0.5);
+
+      gain.gain.setValueAtTime(0.9, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+
+      osc.connect(gain);
+      osc2.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(t);
+      osc2.start(t);
+      osc.stop(t + 1.4);
+      osc2.stop(t + 1.4);
+    }
+
+    // Track SFX trigger times
+    const sfxTriggers = {
+      act1_glitch1: false,
+      act1_glitch2: false,
+      act2_drop: false,
+      act3_whoosh: false,
+      act4_riser: false,
+      act5_climax: false,
+      cliChars: {}
+    };
+
+    function resetSfxTriggers() {
+      for (const k in sfxTriggers) {
+        if (typeof sfxTriggers[k] === 'object') {
+          sfxTriggers[k] = {};
+        } else {
+          sfxTriggers[k] = false;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 2D KINETIC TYPOGRAPHY & HUD OVERLAY PAINTER
+    // =========================================================================
+    function drawHUDAndTypography(ctx, t) {
+      // 1. Technical Frame Watermark / Reticle
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
+
+      // Crosshairs
+      const cx = W / 2;
+      const cy = H / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy);
+      ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20);
+      ctx.stroke();
+
+      // Corner Brackets
+      const m = 60;
+      const bLen = 30;
+      ctx.beginPath();
+      // Top-Left
+      ctx.moveTo(m, m + bLen); ctx.lineTo(m, m); ctx.lineTo(m + bLen, m);
+      // Top-Right
+      ctx.moveTo(W - m - bLen, m); ctx.lineTo(W - m, m); ctx.lineTo(W - m, m + bLen);
+      // Bottom-Left
+      ctx.moveTo(m, H - m - bLen); ctx.lineTo(m, H - m); ctx.lineTo(m + bLen, H - m);
+      // Bottom-Right
+      ctx.moveTo(W - m - bLen, H - m); ctx.lineTo(W - m, H - m); ctx.lineTo(W - m, H - m - bLen);
+      ctx.stroke();
+
+      // Top Status Bar
+      ctx.font = '700 16px "JetBrains Mono"';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText('JEV BRAIN // PERPETUAL AI ROUTER', m + 10, m + 24);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#10B981';
+      ctx.fillText('SOLANA MAINNET-BETA ● LIVE', W - m - 10, m + 24);
+
+      // Bottom Telemetry Bar
+      ctx.textAlign = 'left';
+      ctx.font = '500 14px "JetBrains Mono"';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      const secStr = t.toFixed(2);
+      ctx.fillText(`TIME: ${secStr}s | LATENCY: 14ms | CA: AxwSU...zfpump`, m + 10, H - m - 14);
+
+      ctx.textAlign = 'right';
+      ctx.fillText('RESOLUTION: 1080p 60FPS // UNLIMITED INFERENCE', W - m - 10, H - m - 14);
+      ctx.restore();
+
+      // =======================================================================
+      // ACT 1: THE BOTTLENECK (0.0s - 3.4s)
+      // =======================================================================
+      if (t < 3.4) {
+        if (!sfxTriggers.act1_glitch1 && t > 0.8) {
+          playGlitchNoise();
+          sfxTriggers.act1_glitch1 = true;
+        }
+        if (!sfxTriggers.act1_glitch2 && t > 2.2) {
+          playGlitchNoise();
+          sfxTriggers.act1_glitch2 = true;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // Warning Badge
+        ctx.font = '800 20px "JetBrains Mono"';
+        ctx.fillStyle = '#EF4444';
+        const glitchOffset = Math.random() < 0.15 ? (Math.random() - 0.5) * 8 : 0;
+        ctx.fillText('[!] CRITICAL INFRASTRUCTURE BOTTLENECK', cx + glitchOffset, cy - 140);
+
+        // Giant Problem Statement
+        ctx.font = '900 68px "Inter", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('TIRED OF $20/MO CLOSED SUBSCRIPTIONS?', cx, cy - 40);
+
+        // Sub-bullets
+        ctx.font = '700 28px "JetBrains Mono"';
+        ctx.fillStyle = '#A1A1AA';
+        ctx.fillText('RATE LIMITS (429)  •  SILOED LLMS  •  SURPRISE BILLS', cx, cy + 30);
+
+        // Terminal Glitch Box
+        if (t > 1.4) {
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+          ctx.strokeStyle = '#EF4444';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(cx - 360, cy + 80, 720, 70);
+          ctx.fillRect(cx - 360, cy + 80, 720, 70);
+
+          ctx.font = '700 22px "JetBrains Mono"';
+          ctx.fillStyle = '#FCA5A5';
+          ctx.fillText('✕ HTTP 429: Rate Limit Exceeded. Quota depleted.', cx, cy + 124);
+        }
+        ctx.restore();
+      }
+
+      // Flash Transition at 3.35s - 3.55s
+      if (t >= 3.35 && t <= 3.65) {
+        const flashAlpha = 1.0 - (t - 3.35) / 0.3;
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, flashAlpha)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // =======================================================================
+      // ACT 2: QUANTUM ROUTER & LOGO (3.4s - 7.0s)
+      // =======================================================================
+      if (t >= 3.4 && t < 7.0) {
+        if (!sfxTriggers.act2_drop) {
+          play808Drop(undefined, 1.0);
+          playImpact();
+          sfxTriggers.act2_drop = true;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // Tagline
+        const act2Progress = (t - 3.4) / 3.6;
+        const scale = 1.0 + Math.max(0, (1 - act2Progress * 2) * 0.1);
+
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+
+        // Pill
+        ctx.font = '800 18px "JetBrains Mono"';
+        ctx.fillStyle = '#00F0FF';
+        ctx.fillText('◆ ZERO-LATENCY INTELLIGENCE RUNTIME ◆', 0, -170);
+
+        // Giant Metallic Brand Title
+        const grad = ctx.createLinearGradient(-300, 0, 300, 0);
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.5, '#E4E4E7');
+        grad.addColorStop(1, '#9CA3AF');
+
+        ctx.font = '900 102px "Inter", sans-serif';
+        ctx.fillStyle = grad;
+        ctx.shadowColor = 'rgba(0, 240, 255, 0.4)';
+        ctx.shadowBlur = 30;
+        ctx.fillText("DON'T THINK. ROUTE.", 0, -60);
+
+        ctx.shadowBlur = 0;
+        ctx.font = '900 52px "Space Grotesk", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('JEV BRAIN', 0, 20);
+
+        ctx.font = '600 24px "JetBrains Mono"';
+        ctx.fillStyle = '#10B981';
+        ctx.fillText('THE AUTONOMOUS SOLANA-POWERED AI ROUTER', 0, 80);
+
+        // Telemetry Pill Cards
+        const cardW = 200;
+        const gap = 30;
+        const cards = [
+          { label: 'LATENCY', val: '12ms' },
+          { label: 'BANDWIDTH', val: 'UNLIMITED' },
+          { label: 'TOPOLOGY', val: 'ON-CHAIN' }
+        ];
+        cards.forEach((c, idx) => {
+          const x = (idx - 1) * (cardW + gap) - cardW / 2;
+          const y = 130;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.strokeRect(x, y, cardW, 60);
+          ctx.fillRect(x, y, cardW, 60);
+
+          ctx.font = '600 11px "JetBrains Mono"';
+          ctx.fillStyle = '#71717A';
+          ctx.fillText(c.label, x + cardW / 2, y + 22);
+
+          ctx.font = '800 20px "JetBrains Mono"';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(c.val, x + cardW / 2, y + 48);
+        });
+
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // ACT 3: TOKEN UTILITY & MODELS (7.0s - 10.6s)
+      // =======================================================================
+      if (t >= 7.0 && t < 10.6) {
+        if (!sfxTriggers.act3_whoosh) {
+          playRiser(undefined, 1.8);
+          sfxTriggers.act3_whoosh = true;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // Badge
+        ctx.font = '800 18px "JetBrains Mono"';
+        ctx.fillStyle = '#14F195';
+        ctx.fillText('SOLANA UTILITY MECHANISM', cx, cy - 220);
+
+        // Main Title
+        ctx.font = '900 64px "Inter", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('HOLD $JEVBRAIN', cx, cy - 145);
+
+        ctx.font = '800 44px "Inter", sans-serif';
+        const grad2 = ctx.createLinearGradient(cx - 300, 0, cx + 300, 0);
+        grad2.addColorStop(0, '#9945FF');
+        grad2.addColorStop(1, '#14F195');
+        ctx.fillStyle = grad2;
+        ctx.fillText('➔ UNLOCK UNLIMITED FRONTIER AI', cx, cy - 85);
+
+        // Four Models Badges
+        const modelList = [
+          { name: 'Claude 3.7 Sonnet', tag: 'REASONING' },
+          { name: 'DeepSeek V3', tag: 'CODE ENGINE' },
+          { name: 'GPT-4o Omnimodal', tag: 'VISION / MULTI' },
+          { name: 'Llama 3.3 70B', tag: 'OPEN WEIGHTS' }
+        ];
+
+        const mBoxW = 280;
+        const mGap = 20;
+        const totalW = (mBoxW * 4) + (mGap * 3);
+        const startX = cx - totalW / 2;
+
+        modelList.forEach((mItem, idx) => {
+          const bx = startX + idx * (mBoxW + mGap);
+          const by = cy + 130;
+          ctx.fillStyle = 'rgba(18, 18, 24, 0.85)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bx, by, mBoxW, 75);
+          ctx.fillRect(bx, by, mBoxW, 75);
+
+          ctx.font = '700 11px "JetBrains Mono"';
+          ctx.fillStyle = '#10B981';
+          ctx.fillText(`[ ${mItem.tag} ]`, bx + mBoxW / 2, by + 26);
+
+          ctx.font = '800 17px "Inter", sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(mItem.name, bx + mBoxW / 2, by + 54);
+        });
+
+        // Subtext
+        ctx.font = '600 20px "JetBrains Mono"';
+        ctx.fillStyle = '#D4D4D8';
+        ctx.fillText('NO MONTHLY BILLS  •  NO RECURRING CREDIT CARDS  •  INSTANT VERIFICATION', cx, cy + 245);
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // ACT 4: LOCAL DEVELOPER CLI (10.6s - 14.0s)
+      // =======================================================================
+      if (t >= 10.6 && t < 14.0) {
+        if (!sfxTriggers.act4_riser) {
+          playRiser(undefined, 3.2);
+          sfxTriggers.act4_riser = true;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        ctx.font = '800 16px "JetBrains Mono"';
+        ctx.fillStyle = '#00F0FF';
+        ctx.fillText('NATIVE SYSTEM INTEGRATION', cx, cy - 230);
+
+        ctx.font = '900 52px "Inter", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('THE FASTEST LOCAL CLI ON EARTH', cx, cy - 170);
+
+        // Terminal Window
+        const termW = 960;
+        const termH = 340;
+        const tx = cx - termW / 2;
+        const ty = cy - 120;
+
+        // Terminal Shell
+        ctx.fillStyle = 'rgba(9, 9, 11, 0.95)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(tx, ty, termW, termH);
+        ctx.fillRect(tx, ty, termW, termH);
+
+        // Title Bar
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(tx, ty, termW, 36);
+
+        // Mac/Linux style dots
+        ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(tx + 20, ty + 18, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#F59E0B'; ctx.beginPath(); ctx.arc(tx + 40, ty + 18, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#10B981'; ctx.beginPath(); ctx.arc(tx + 60, ty + 18, 6, 0, Math.PI * 2); ctx.fill();
+
+        ctx.font = '600 13px "JetBrains Mono"';
+        ctx.fillStyle = '#71717A';
+        ctx.fillText('Terminal — jevbrain local runtime', cx, ty + 23);
+
+        // Terminal Contents (Typing Animation)
+        ctx.textAlign = 'left';
+        const termTime = t - 10.6;
+        const installCmd = 'irm https://jevbrain.world/install.ps1 | iex';
+        const typedLen = Math.min(installCmd.length, Math.floor(termTime * 25));
+
+        // Click audio for new chars
+        if (typedLen > 0 && !sfxTriggers.cliChars[typedLen]) {
+          playTypeClick();
+          sfxTriggers.cliChars[typedLen] = true;
+        }
+
+        ctx.font = '700 20px "JetBrains Mono"';
+        ctx.fillStyle = '#10B981';
+        ctx.fillText('PS C:\\>', tx + 30, ty + 80);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(installCmd.substring(0, typedLen) + (Math.floor(t * 4) % 2 === 0 ? '█' : ''), tx + 130, ty + 80);
+
+        if (termTime > 1.4) {
+          // Banner text
+          ctx.font = '700 16px "JetBrains Mono"';
+          const bannerGrad = ctx.createLinearGradient(tx, 0, tx + 600, 0);
+          bannerGrad.addColorStop(0, '#FFFFFF');
+          bannerGrad.addColorStop(1, '#71717A');
+          ctx.fillStyle = bannerGrad;
+          ctx.fillText('██╗███████╗██╗   ██╗    ██████╗ ██████╗  █████╗ ██╗███╗   ██╗', tx + 30, ty + 125);
+          ctx.fillText("Don't think. Route. — Jev Brain CLI v1.0.0", tx + 30, ty + 155);
+
+          ctx.fillStyle = '#10B981';
+          ctx.fillText('✔ Node v24 runtime verified', tx + 30, ty + 195);
+          ctx.fillText('✔ Solana VIP Operator Wallet Linked (100,000 Credits)', tx + 30, ty + 225);
+
+          ctx.fillStyle = '#00F0FF';
+          ctx.fillText('> jevbrain "Build autonomous Solana sniper agent"', tx + 30, ty + 265);
+          ctx.fillStyle = '#A1A1AA';
+          ctx.fillText('⚡ Routing to DeepSeek V3 (14ms latency) • 100% On-Chain Token Verified', tx + 30, ty + 295);
+        }
+        ctx.restore();
+      }
+
+      // =======================================================================
+      // ACT 5: THE LAUNCH & CALL TO ACTION (14.0s - 17.5s)
+      // =======================================================================
+      if (t >= 14.0) {
+        if (!sfxTriggers.act5_climax) {
+          play808Drop(undefined, 1.2);
+          playImpact();
+          sfxTriggers.act5_climax = true;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // Climax Headline
+        ctx.font = '800 20px "JetBrains Mono"';
+        ctx.fillStyle = '#10B981';
+        ctx.fillText('LAUNCHING NATIONWIDE', cx, cy - 200);
+
+        // Huge Title
+        const launchGrad = ctx.createLinearGradient(cx - 400, 0, cx + 400, 0);
+        launchGrad.addColorStop(0, '#FFFFFF');
+        launchGrad.addColorStop(0.5, '#F4F4F5');
+        launchGrad.addColorStop(1, '#94A3B8');
+
+        ctx.font = '900 82px "Inter", sans-serif';
+        ctx.fillStyle = launchGrad;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctx.shadowBlur = 35;
+        ctx.fillText('THE ERA OF CLOSED AI IS OVER.', cx, cy - 100);
+
+        ctx.shadowBlur = 0;
+        ctx.font = '800 32px "JetBrains Mono"';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('INSTALL NOW WITH ONE LINE:', cx, cy - 15);
+
+        // Code Pill
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.strokeRect(cx - 380, cy + 15, 760, 56);
+        ctx.fillRect(cx - 380, cy + 15, 760, 56);
+
+        ctx.font = '700 20px "JetBrains Mono"';
+        ctx.fillStyle = '#00F0FF';
+        ctx.fillText('curl -fsSL https://jevbrain.world/install.sh | bash', cx, cy + 50);
+
+        // Solana Contract Address Box
+        ctx.font = '700 15px "JetBrains Mono"';
+        ctx.fillStyle = '#71717A';
+        ctx.fillText('OFFICIAL SOLANA SPL CONTRACT ADDRESS:', cx, cy + 110);
+
+        ctx.font = '800 20px "JetBrains Mono"';
+        ctx.fillStyle = '#14F195';
+        ctx.fillText('AxwSUUHx6hj8bgdtSxVUiKtKkZwmcDbNbEEtTvzfpump', cx, cy + 140);
+
+        // Portal URL
+        ctx.font = '900 36px "Space Grotesk", sans-serif';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('https://jevbrain.world', cx, cy + 215);
+
+        ctx.restore();
+      }
+
+      // Final Fade to Black (17.0s - 17.5s)
+      if (t >= 17.0) {
+        const fadeAlpha = (t - 17.0) / 0.5;
+        ctx.fillStyle = `rgba(6, 6, 8, ${Math.min(1.0, fadeAlpha)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    // =========================================================================
+    // 3D SCENE ANIMATION & DIRECTOR CAMERA LOGIC
+    // =========================================================================
+    function update3DScene(t) {
+      // Dynamic Brain rotation
+      brainGroup.rotation.y = t * 0.45;
+      brainGroup.rotation.x = Math.sin(t * 0.3) * 0.2;
+
+      ring1.rotation.x += 0.01;
+      ring2.rotation.y += 0.015;
+      ring3.rotation.z += 0.008;
+
+      // Particle system swirling
+      const pos = particleGeo.attributes.position.array;
+      for (let i = 0; i < particleCount; i++) {
+        const sp = particleSpeeds[i];
+        sp.theta += sp.speed * 0.5;
+        pos[i * 3] = sp.radius * Math.sin(sp.phi) * Math.cos(sp.theta);
+        pos[i * 3 + 1] = sp.radius * Math.sin(sp.phi) * Math.sin(sp.theta);
+      }
+      particleGeo.attributes.position.needsUpdate = true;
+
+      // Orbiting model nodes
+      modelNodeMeshes.forEach((m, idx) => {
+        const orbR = 7.5;
+        const currentA = m.angle + t * 0.6;
+        m.group.position.x = orbR * Math.cos(currentA);
+        m.group.position.y = Math.sin(t + idx) * 1.5;
+        m.group.position.z = orbR * Math.sin(currentA);
+      });
+
+      // Camera Director Shots
+      if (t < 3.4) {
+        // Act 1: Distant jittery camera
+        const jitter = Math.random() < 0.2 ? (Math.random() - 0.5) * 0.15 : 0;
+        camera.position.set(0 + jitter, 0 + jitter, 24);
+        camera.lookAt(0, 0, 0);
+        brainGroup.scale.set(0.6, 0.6, 0.6);
+        coinGroup.position.z = -50;
+      } else if (t < 7.0) {
+        // Act 2: Crash zoom forward!
+        const prog = (t - 3.4) / 3.6;
+        const camZ = 24 - (prog * 12);
+        camera.position.set(Math.sin(t * 0.5) * 2, Math.cos(t * 0.5) * 1, camZ);
+        camera.lookAt(0, 0, 0);
+        brainGroup.scale.set(1.0, 1.0, 1.0);
+        coinGroup.position.z = -50;
+      } else if (t < 10.6) {
+        // Act 3: 3D Solana Coin reveals front & center
+        coinGroup.position.set(0, 0.2, 8);
+        coinGroup.rotation.y = t * 2.2;
+        coinGroup.rotation.x = Math.sin(t * 1.5) * 0.4;
+        camera.position.set(0, 0, 14);
+        camera.lookAt(0, 0, 0);
+        brainGroup.scale.set(0.7, 0.7, 0.7);
+        brainGroup.position.set(0, 0, -5);
+      } else if (t < 14.0) {
+        // Act 4: Back up behind terminal
+        coinGroup.position.z = -50;
+        camera.position.set(0, 0, 22);
+        camera.lookAt(0, 0, 0);
+        brainGroup.position.set(0, 0, -8);
+        brainGroup.scale.set(0.9, 0.9, 0.9);
+      } else {
+        // Act 5: Grand Majestic Hero Shot
+        const prog = (t - 14.0) / 3.5;
+        camera.position.set(Math.sin(t * 0.3) * 4, 1 + prog * 2, 17 - prog * 3);
+        camera.lookAt(0, 0, 0);
+        brainGroup.position.set(0, 0.5, 0);
+        brainGroup.scale.set(1.15, 1.15, 1.15);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // =========================================================================
+    // MAIN COMPOSITOR LOOP
+    // =========================================================================
+    function tick(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (isPlaying) {
+        currentTime += delta;
+        if (currentTime >= DURATION) {
+          currentTime = DURATION;
+          isPlaying = false;
+          updatePlayUI();
+          if (isExporting) finishExport();
+        }
+      }
+
+      // Update 3D WebGL Scene
+      update3DScene(currentTime);
+
+      // Composite onto 2D Canvas
+      compCtx.clearRect(0, 0, W, H);
+      compCtx.drawImage(threeCanvas, 0, 0);
+
+      // Draw Motion Typography, Badges & Overlays
+      drawHUDAndTypography(compCtx, currentTime);
+
+      // Update UI elements
+      updateTimelineUI();
+
+      requestAnimationFrame(tick);
+    }
+
+    // Update UI badge & timers
+    function updateTimelineUI() {
+      const curSec = Math.floor(currentTime);
+      const curCent = Math.floor((currentTime % 1) * 100);
+      const curMin = Math.floor(curSec / 60);
+      const remSec = curSec % 60;
+      timeBadge.innerHTML = `${String(curMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}:${String(curCent).padStart(2, '0')} / <span>00:17:50</span>`;
+
+      if (currentTime < 3.4) {
+        actBadge.textContent = 'ACT 1: THE BOTTLENECK';
+        actBadge.style.color = '#EF4444';
+      } else if (currentTime < 7.0) {
+        actBadge.textContent = 'ACT 2: QUANTUM ROUTER';
+        actBadge.style.color = '#00F0FF';
+      } else if (currentTime < 10.6) {
+        actBadge.textContent = 'ACT 3: SOLANA UTILITY';
+        actBadge.style.color = '#14F195';
+      } else if (currentTime < 14.0) {
+        actBadge.textContent = 'ACT 4: LOCAL CLI POWER';
+        actBadge.style.color = '#F59E0B';
+      } else {
+        actBadge.textContent = 'ACT 5: THE LAUNCH';
+        actBadge.style.color = '#FFFFFF';
+      }
+    }
+
+    function updatePlayUI() {
+      if (isPlaying) {
+        playBtnText.textContent = 'PAUSE';
+        playBtn.querySelector('svg').innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+      } else {
+        playBtnText.textContent = 'PLAY';
+        playBtn.querySelector('svg').innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+      }
+    }
+
+    function playTeaser() {
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      if (currentTime >= DURATION) {
+        restartTeaser();
+      }
+      isPlaying = true;
+      startOverlay.classList.add('hidden');
+      updatePlayUI();
+    }
+
+    function pauseTeaser() {
+      isPlaying = false;
+      updatePlayUI();
+    }
+
+    function restartTeaser() {
+      currentTime = 0;
+      resetSfxTriggers();
+      isPlaying = true;
+      startOverlay.classList.add('hidden');
+      updatePlayUI();
+    }
+
+    // =========================================================================
+    // 1-CLICK VIDEO EXPORTER (MediaRecorder with Audio Stream)
+    // =========================================================================
+    function startExport() {
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      isExporting = true;
+      exportBtn.disabled = true;
+      exportText.textContent = 'RECORDING 1080p...';
+
+      // Capture 60FPS stream from Canvas
+      const canvasStream = renderCanvas.captureStream(60);
+
+      // Combine with synthesized Web Audio Stream
+      const combinedTracks = [...canvasStream.getVideoTracks()];
+      if (audioDest && audioDest.stream) {
+        combinedTracks.push(...audioDest.stream.getAudioTracks());
+      }
+      const combinedStream = new MediaStream(combinedTracks);
+
+      recordedChunks = [];
+      const mimeTypes = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ];
+      let selectedMime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+
+      mediaRecorder = new MediaRecorder(combinedStream, {
+        mimeType: selectedMime,
+        videoBitsPerSecond: 16000000 // 16 Mbps Ultra-HD
+      });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: selectedMime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const ext = selectedMime.includes('mp4') ? 'mp4' : 'webm';
+        a.download = `jevbrain-teaser-1080p-60fps.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+
+        isExporting = false;
+        exportBtn.disabled = false;
+        exportText.textContent = 'EXPORT 1080p VIDEO';
+      };
+
+      // Rewind to 0 and record exactly 17.5 seconds
+      currentTime = 0;
+      resetSfxTriggers();
+      isPlaying = true;
+      startOverlay.classList.add('hidden');
+      updatePlayUI();
+
+      mediaRecorder.start();
+    }
+
+    function finishExport() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
+
+    // Event Listeners
+    startOverlay.addEventListener('click', playTeaser);
+
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) pauseTeaser();
+      else playTeaser();
+    });
+
+    restartBtn.addEventListener('click', restartTeaser);
+
+    audioToggleBtn.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      if (masterGain) {
+        masterGain.gain.value = audioEnabled ? 0.9 : 0.0;
+      }
+      audioText.textContent = audioEnabled ? 'AUDIO: ON' : 'AUDIO: MUTED';
+      audioToggleBtn.style.color = audioEnabled ? '#E4E4E7' : '#EF4444';
+    });
+
+    exportBtn.addEventListener('click', startExport);
+
+    fsBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        teaserWrapper.requestFullscreen().catch(err => console.error(err));
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (isPlaying) pauseTeaser();
+        else playTeaser();
+      } else if (e.code === 'KeyR') {
+        restartTeaser();
+      } else if (e.code === 'KeyM') {
+        audioToggleBtn.click();
+      } else if (e.code === 'KeyF') {
+        fsBtn.click();
+      }
+    });
+
+    // Start Animation Loop
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

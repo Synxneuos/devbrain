@@ -37,6 +37,12 @@
   status = 200
 
 [[redirects]]
+  from = "/teaser"
+  to = "/teaser.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+

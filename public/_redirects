@@ -1,2 +1,4 @@
 /api/*  https://jevbrain-backend-production.up.railway.app/api/:splat  200!
+/teaser /teaser.html                       200
 /*      /index.html                        200
+
