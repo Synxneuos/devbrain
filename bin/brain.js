@@ -2,6 +2,8 @@
 
 import fs, { readFileSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import readline from 'node:readline';
 import { execSync } from 'node:child_process';
 import { JevBrain, PRESETS } from '../src/core/router.js';
 import { AgentWarden } from '../src/core/warden.js';
@@ -29,14 +31,24 @@ ${MAGENTA}“Don't think. Route.”${RESET}
 }
 
 async function readAllStdin() {
+  if (process.stdin.isTTY) return '';
   return new Promise((resolve) => {
     let data = '';
+    let timer = setTimeout(() => resolve(''), 30);
+
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => data += chunk);
-    process.stdin.on('end', () => resolve(data));
-    if (process.stdin.isTTY) {
+    process.stdin.on('data', chunk => {
+      clearTimeout(timer);
+      data += chunk;
+    });
+    process.stdin.on('end', () => {
+      clearTimeout(timer);
+      resolve(data);
+    });
+    process.stdin.on('error', () => {
+      clearTimeout(timer);
       resolve('');
-    }
+    });
   });
 }
 
@@ -355,60 +367,316 @@ async function handleInit() {
 
   console.log(`\n${BOLD}Next steps:${RESET}`);
   console.log(`  • Security audit:       ${CYAN}npx jev-brain audit${RESET}`);
-  console.log(`  • Test pre-flight gate: ${CYAN}npx jev-brain warden --command "rm -rf /"${RESET}`);
-  console.log(`  • Launch dashboard:     ${CYAN}npx jev-brain serve${RESET}\n`);
+  console.log(`  • Test pre-flight gate: ${CYAN}npx jevbrain warden --command "rm -rf /"${RESET}`);
+  console.log(`  • Launch dashboard:     ${CYAN}npx jevbrain serve${RESET}\n`);
+}
+
+// ==========================================
+// JEV BRAIN CLI & LOCAL AI CONFIGURATION
+// ==========================================
+
+const CONFIG_DIR = path.join(os.homedir(), '.jevbrain');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+function loadCliConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      return {
+        endpoint: process.env.JEV_ENDPOINT || parsed.endpoint || 'https://jevbrain.world',
+        apiKey: process.env.JEV_API_KEY || parsed.apiKey || ''
+      };
+    }
+  } catch {}
+  return {
+    endpoint: process.env.JEV_ENDPOINT || 'https://jevbrain.world',
+    apiKey: process.env.JEV_API_KEY || ''
+  };
+}
+
+function saveCliConfig(cfg) {
+  try {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error(`${RED}Failed to save configuration:${RESET}`, err.message);
+    return false;
+  }
+}
+
+async function handleConfig() {
+  const sub = args[1];
+  const val = args[2];
+  const cfg = loadCliConfig();
+
+  if (sub === 'set-key') {
+    if (!val) {
+      console.error(`${RED}Usage: jevbrain config set-key <jev_live_...>${RESET}`);
+      process.exit(1);
+    }
+    if (!val.startsWith('jev_live_')) {
+      console.warn(`${YELLOW}Note: Jev Brain API keys start with 'jev_live_'. Make sure you copied it from your dashboard at https://jevbrain.world.${RESET}`);
+    }
+    cfg.apiKey = val.trim();
+    saveCliConfig(cfg);
+    console.log(`${GREEN}✔ Jev Brain API key successfully saved to ${CONFIG_FILE}${RESET}`);
+    console.log(`You can now run:`);
+    console.log(`  ${CYAN}jevbrain "Write a python script to monitor Solana tokens"${RESET}`);
+    console.log(`  ${CYAN}jevbrain chat${RESET}\n`);
+    return;
+  }
+
+  if (sub === 'set-url' || sub === 'set-endpoint') {
+    if (!val) {
+      console.error(`${RED}Usage: jevbrain config set-url <url>${RESET}`);
+      process.exit(1);
+    }
+    cfg.endpoint = val.trim().replace(/\/+$/, '');
+    saveCliConfig(cfg);
+    console.log(`${GREEN}✔ Jev Brain endpoint set to: ${cfg.endpoint}${RESET}`);
+    return;
+  }
+
+  if (sub === 'get-key' || sub === 'show' || !sub) {
+    banner();
+    const masked = cfg.apiKey && cfg.apiKey.length > 16
+      ? `${cfg.apiKey.slice(0, 13)}...${cfg.apiKey.slice(-4)}`
+      : (cfg.apiKey || 'None configured');
+    console.log(`${BOLD}Jev Brain CLI Configuration:${RESET}`);
+    console.log(`  ${BOLD}Endpoint:${RESET}  ${CYAN}${cfg.endpoint || 'https://jevbrain.world'}${RESET}`);
+    console.log(`  ${BOLD}API Key:${RESET}   ${GREEN}${masked}${RESET}`);
+    console.log(`  ${BOLD}Config:${RESET}    ${GRAY}${CONFIG_FILE}${RESET}\n`);
+
+    if (cfg.apiKey) {
+      process.stdout.write(`${GRAY}Checking token holder status on-chain...${RESET} `);
+      try {
+        const res = await fetch(`${cfg.endpoint || 'https://jevbrain.world'}/api/credits/balance`, {
+          headers: { 'Authorization': `Bearer ${cfg.apiKey}` }
+        });
+        const data = await res.json();
+        if (data.success && data.eligibility) {
+          console.log(`${GREEN}✔ Verified Token Holder${RESET}`);
+          console.log(`  ${BOLD}Wallet:${RESET}    ${CYAN}${data.eligibility.walletAddress}${RESET}`);
+          console.log(`  ${BOLD}Tier:${RESET}      ${MAGENTA}${data.eligibility.tier} (Level ${data.eligibility.tierLevel})${RESET}`);
+          console.log(`  ${BOLD}Holding:${RESET}   ${data.eligibility.balanceUi} $JEVBRAIN`);
+          console.log(`  ${BOLD}Credits:${RESET}   ${data.availableCredits} available\n`);
+        } else {
+          console.log(`${YELLOW}⚠ ${data.error || 'Unable to verify status'}${RESET}\n`);
+        }
+      } catch (e) {
+        console.log(`${YELLOW}⚠ (Could not reach server: ${e.message})${RESET}\n`);
+      }
+    } else {
+      console.log(`${YELLOW}No API key configured. Obtain your free key by connecting your Solana wallet at https://jevbrain.world${RESET}`);
+      console.log(`Then configure it with: ${CYAN}npx jevbrain config set-key <your-key>${RESET}\n`);
+    }
+    return;
+  }
+}
+
+async function streamAiResponse(prompt, model = 'auto') {
+  const cfg = loadCliConfig();
+  const apiKey = cfg.apiKey || process.env.JEV_API_KEY;
+  const endpoint = (cfg.endpoint || process.env.JEV_ENDPOINT || 'https://jevbrain.world').replace(/\/+$/, '');
+
+  if (!apiKey) {
+    banner();
+    console.error(`${RED}${BOLD}✖ No Jev Brain API Key Found${RESET}\n`);
+    console.error(`${YELLOW}To use Jev Brain AI from your terminal, obtain your free API key for token holders:${RESET}`);
+    console.error(`  1. Connect your Solana wallet at: ${CYAN}https://jevbrain.world${RESET}`);
+    console.error(`  2. Open ${BOLD}Holder Hub ➔ Jev Brain CLI${RESET} and click 'Generate CLI Key'.`);
+    console.error(`  3. Run in your terminal: ${CYAN}jevbrain config set-key <your-key>${RESET}\n`);
+    process.exit(1);
+  }
+
+  try {
+    const res = await fetch(`${endpoint}/api/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({ prompt, model })
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      console.error(`\n${RED}${BOLD}✖ Error (${res.status}):${RESET} ${errJson.error || res.statusText}\n`);
+      if (res.status === 401 || res.status === 403) {
+        console.error(`${YELLOW}Make sure your wallet holds the minimum $JEVBRAIN tokens at https://jevbrain.world${RESET}\n`);
+      }
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let metaInfo = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop();
+
+      for (const block of lines) {
+        const dataLine = block.split('\n').find(l => l.startsWith('data: '));
+        if (dataLine) {
+          try {
+            const parsed = JSON.parse(dataLine.slice(6));
+            if (parsed.token) {
+              process.stdout.write(parsed.token);
+            }
+            if (parsed.done) {
+              metaInfo = parsed;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    process.stdout.write('\n');
+    if (metaInfo && metaInfo.model) {
+      const tierBadge = metaInfo.userTier?.tierName || 'Holder';
+      console.log(`\n${GRAY}⚡ Model: ${metaInfo.model} · Tier: [${tierBadge}] · Latency: ${Math.round(metaInfo.latencyMs || 0)}ms${RESET}`);
+    }
+  } catch (err) {
+    console.error(`\n${RED}Connection error:${RESET}`, err.message);
+  }
+}
+
+async function handleChat() {
+  banner();
+  const cfg = loadCliConfig();
+  if (!cfg.apiKey && !process.env.JEV_API_KEY) {
+    await streamAiResponse(''); // triggers onboarding message
+    return;
+  }
+
+  console.log(`${BOLD}⚡ Jev Brain Interactive Terminal Chat${RESET}`);
+  console.log(`${GRAY}Connected to: ${cfg.endpoint || 'https://jevbrain.world'}${RESET}`);
+  console.log(`${GRAY}Type ${CYAN}/exit${GRAY} or ${CYAN}Ctrl+C${GRAY} to quit.${RESET}\n`);
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: `${CYAN}jev> ${RESET}`
+  });
+
+  rl.prompt();
+
+  rl.on('line', async (line) => {
+    const input = line.trim();
+    if (!input) {
+      rl.prompt();
+      return;
+    }
+    if (input === '/exit' || input === 'exit' || input === 'quit') {
+      rl.close();
+      return;
+    }
+    if (input === '/clear' || input === 'clear') {
+      console.clear();
+      banner();
+      rl.prompt();
+      return;
+    }
+
+    rl.pause();
+    await streamAiResponse(input);
+    console.log();
+    rl.resume();
+    rl.prompt();
+  });
+
+  rl.on('close', () => {
+    console.log(`\n${MAGENTA}“Don't think. Route.”${RESET}\n`);
+    process.exit(0);
+  });
 }
 
 function showHelp() {
   banner();
-  console.log(`${BOLD}Commands:${RESET}`);
-  console.log(`  ${CYAN}brain init${RESET}                         Setup .jev.json config and pre-commit hook`);
-  console.log(`  ${CYAN}brain hook [install|uninstall|check]${RESET}  Git pre-commit safety firewall hook`);
-  console.log(`  ${CYAN}brain audit [dir]${RESET}                  Scan codebase for secrets and destructive commands`);
-  console.log(`  ${CYAN}brain warden --tool <name> ...${RESET}     Coding agent 4-question pre-flight safety gate`);
-  console.log(`  ${CYAN}brain route "<text>" [--preset]${RESET}    Single item instant routing decision (<1ms)`);
-  console.log(`  ${CYAN}brain classify <labels> [file]${RESET}    Batch route from stdin or file`);
-  console.log(`  ${CYAN}brain mobile [subcommand]${RESET}          Android device gateway (devices, tap, type, inspect)`);
-  console.log(`  ${CYAN}brain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
+  console.log(`${BOLD}AI & Terminal Commands:${RESET}`);
+  console.log(`  ${CYAN}jevbrain "<prompt>"${RESET}                   Run AI query directly with streaming output`);
+  console.log(`  ${CYAN}jevbrain chat${RESET}                         Start interactive terminal AI chat session`);
+  console.log(`  ${CYAN}jevbrain config set-key <key>${RESET}         Configure your Jev Brain API key`);
+  console.log(`  ${CYAN}jevbrain config get-key${RESET}               Show active key and check on-chain token tier`);
+  console.log(`  ${CYAN}jevbrain config set-url <url>${RESET}         Point CLI to custom backend URL`);
+  console.log(`\n${BOLD}Safety & Routing Commands:${RESET}`);
+  console.log(`  ${CYAN}jevbrain init${RESET}                         Setup .jev.json config and pre-commit hook`);
+  console.log(`  ${CYAN}jevbrain hook [install|uninstall|check]${RESET}  Git pre-commit safety firewall hook`);
+  console.log(`  ${CYAN}jevbrain audit [dir]${RESET}                  Scan codebase for secrets and destructive commands`);
+  console.log(`  ${CYAN}jevbrain warden --tool <name> ...${RESET}     Coding agent 4-question pre-flight safety gate`);
+  console.log(`  ${CYAN}jevbrain route "<text>" [--preset]${RESET}    Single item instant routing decision (<1ms)`);
+  console.log(`  ${CYAN}jevbrain classify <labels> [file]${RESET}    Batch route from stdin or file`);
+  console.log(`  ${CYAN}jevbrain mobile [subcommand]${RESET}          Android device gateway (devices, tap, type, inspect)`);
+  console.log(`  ${CYAN}jevbrain serve [--port 3333]${RESET}          Launch Web dashboard and REST API`);
   console.log(`\n${BOLD}Examples:${RESET}`);
-  console.log(`  brain init`);
-  console.log(`  brain hook install`);
-  console.log(`  brain audit .`);
-  console.log(`  brain warden --tool bash --command "rm -rf /"`);
-  console.log(`  brain route "Emergency: payment gateway failing" --preset inbox`);
-  console.log(`  brain serve --port 3333`);
+  console.log(`  jevbrain "Write a python script to check Solana token balances"`);
+  console.log(`  cat src/server.js | jevbrain "Audit this code for security vulnerabilities"`);
+  console.log(`  git diff | jevbrain "Write a detailed conventional git commit message"`);
+  console.log(`  jevbrain chat`);
+  console.log(`  jevbrain config set-key jev_live_xxxxxxxxxxxxxxxx`);
+  console.log(`  jevbrain serve --port 3333`);
 }
 
-switch (command) {
-  case 'init':
-    handleInit();
-    break;
-  case 'hook':
-    handleHook();
-    break;
-  case 'audit':
-    handleAudit();
-    break;
-  case 'classify':
-    handleClassify();
-    break;
-  case 'route':
-    handleRoute();
-    break;
-  case 'warden':
-    handleWarden();
-    break;
-  case 'mobile':
-    handleMobile();
-    break;
-  case 'serve':
-    handleServe();
-    break;
-  case 'help':
-  case '--help':
-  case '-h':
-  default:
-    showHelp();
-    break;
+async function main() {
+  switch (command) {
+    case 'config':
+      await handleConfig();
+      break;
+    case 'chat':
+      await handleChat();
+      break;
+    case 'init':
+      await handleInit();
+      break;
+    case 'hook':
+      await handleHook();
+      break;
+    case 'audit':
+      await handleAudit();
+      break;
+    case 'classify':
+      await handleClassify();
+      break;
+    case 'route':
+      await handleRoute();
+      break;
+    case 'warden':
+      await handleWarden();
+      break;
+    case 'mobile':
+      await handleMobile();
+      break;
+    case 'serve':
+      await handleServe();
+      break;
+    case 'help':
+    case '--help':
+    case '-h':
+      showHelp();
+      break;
+    default:
+      if (args.length > 0) {
+        let promptText = args.join(' ');
+        const stdinData = await readAllStdin();
+        if (stdinData) {
+          promptText = `${promptText}\n\nInput Context:\n\`\`\`\n${stdinData}\n\`\`\``;
+        }
+        await streamAiResponse(promptText);
+      } else {
+        showHelp();
+      }
+      break;
+  }
 }
+
+main().catch(err => {
+  console.error(`${RED}Fatal error:${RESET}`, err.message);
+  process.exit(1);
+});
 

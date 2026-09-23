@@ -125,6 +125,14 @@
             <span>Holder Hub</span>
             <span class="nav-status-pill" style="background:rgba(124,58,237,0.15); color:#a855f7;">SOL</span>
           </a>
+          <a href="#" class="nav-link" id="nav-cli" title="Jev Brain Local CLI & Terminal AI">
+            <svg class="nav-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span>Jev Brain CLI</span>
+            <span class="nav-status-pill" style="background:rgba(6,182,212,0.15); color:#06b6d4;">CLI</span>
+          </a>
         </nav>
 
         <div class="nav-section-label" style="margin-top:16px;">DISCORD SENTINEL</div>
@@ -909,6 +917,7 @@
           <button class="tier-tab-btn" data-tab="transfer">P2P Transfer</button>
           <button class="tier-tab-btn" data-tab="redeem">Burn Credits for SOL (5% Pool)</button>
           <button class="tier-tab-btn" data-tab="history">Ledger History</button>
+          <button class="tier-tab-btn" data-tab="cli">⚡ Jev Brain CLI</button>
           <button class="tier-tab-btn" data-tab="operator">Operator Portal</button>
         </div>
 
@@ -1058,7 +1067,88 @@
           </div>
         </div>
 
-        <!-- TAB 5: OPERATOR PORTAL -->
+        <!-- TAB 5: JEV BRAIN CLI & KEYS -->
+        <div class="rewards-tab-pane" id="pane-rewards-cli" style="display:none;">
+          <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:12px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-cyan);"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                Jev Brain Local CLI Gateway
+              </span>
+              <span class="rewards-tier-badge" id="cli-holder-badge" style="font-size:10px;">Checking...</span>
+            </div>
+            <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin:0;">
+              Run Jev Brain directly in your local terminal on Mac, Linux, or Windows. Verified $JEVBRAIN token holders generate an API key here to route local coding queries through our optimized frontier LLM firewall.
+            </p>
+          </div>
+
+          <!-- Unconnected / Non-Holder Notice -->
+          <div id="cli-gate-warning" style="display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:#d97706;">
+            <strong>Token Holding Required:</strong> Connect your Solana wallet holding at least 1 $JEVBRAIN token to generate a CLI key.
+          </div>
+
+          <!-- Key Management Section -->
+          <div id="cli-key-section" style="margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:11px;font-weight:600;color:var(--text-primary);">Your Jev Brain CLI API Key</span>
+              <button class="btn-ghost-sm" id="btn-generate-cli-key" style="font-size:10px;padding:3px 8px;display:none;">+ Generate New Key</button>
+            </div>
+
+            <!-- Existing Key Box -->
+            <div id="cli-active-key-box" style="display:none;background:var(--bg-card);border:1px solid var(--border-medium);border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <input type="password" id="cli-key-input" class="clean-search-input" readonly style="flex:1;font-size:11px;font-family:var(--font-mono);background:transparent;" value="" />
+                <button class="btn-ghost-sm" id="btn-toggle-cli-key" title="Toggle visibility" style="padding:4px 8px;font-size:10px;">Show</button>
+                <button class="btn-ghost-sm" id="btn-copy-cli-key" title="Copy key" style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--accent-cyan);">Copy</button>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text-tertiary);">
+                <span id="cli-key-meta">Created: Just now</span>
+                <button id="btn-revoke-cli-key" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:10px;text-decoration:underline;">Revoke Key</button>
+              </div>
+            </div>
+
+            <!-- No Key State -->
+            <div id="cli-no-key-box" style="background:var(--bg-subtle);border:1px dashed var(--border-medium);border-radius:6px;padding:14px;text-align:center;">
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">You haven't generated a CLI API key for this wallet yet.</div>
+              <button class="btn-dark-primary" id="btn-generate-first-cli-key" style="padding:6px 14px;font-size:11px;">
+                ⚡ Generate Jev Brain CLI Key
+              </button>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Terminal Instructions -->
+          <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+              <span>Quick Start: Use Jev Brain in your Terminal</span>
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 1: Configure your API Key</div>
+              <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--accent-cyan);display:flex;justify-content:space-between;align-items:center;">
+                <code id="cli-step1-cmd">npx jevbrain config set-key &lt;your-key&gt;</code>
+                <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step1-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
+              </div>
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 2: Run AI Queries &amp; Code Prompts</div>
+              <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">
+                <code id="cli-step2-cmd">npx jevbrain "Write a python script to check Solana token balances"</code>
+                <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step2-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;font-weight:600;">STEP 3: Start Interactive Streaming Terminal Chat</div>
+              <div style="position:relative;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:4px;padding:6px 8px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;">
+                <code id="cli-step3-cmd">npx jevbrain chat</code>
+                <button class="btn-ghost-sm copy-snippet-btn" data-target="cli-step3-cmd" style="padding:2px 6px;font-size:9.5px;">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: OPERATOR PORTAL -->
         <div class="rewards-tab-pane" id="pane-rewards-operator" style="display:none;">
           <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">
             Operator Confirmation Desk. Manual 95% transfers executed via cold storage are verified on-chain and marked fulfilled here.

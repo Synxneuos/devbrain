@@ -23,14 +23,15 @@
     "LICENSE"
   ],
   "bin": {
-    "brain": "./bin/brain.js",
-    "jev-brain": "./bin/brain.js"
+    "jevbrain": "./bin/brain.js",
+    "jev-brain": "./bin/brain.js",
+    "brain": "./bin/brain.js"
   },
   "type": "module",
   "scripts": {
     "start": "node bin/brain.js serve",
     "dev": "node bin/brain.js serve --port 3333",
-    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js && node test/sdk.test.js && node test/discord.test.js && node test/benchmark.test.js && node test/rewards.test.js && node test/security-isolation.test.js && node test/dynamic-burn.test.js",
+    "test": "node test/router.test.js && node test/mobile.test.js && node test/wallet.test.js && node test/sdk.test.js && node test/discord.test.js && node test/benchmark.test.js && node test/rewards.test.js && node test/security-isolation.test.js && node test/dynamic-burn.test.js && node test/api-keys.test.js",
     "test:devnet": "node test/devnet-financial-integration.mjs",
     "test:e2e": "node test/e2e-production-readiness.mjs",
     "test:full": "npm test && npm run test:e2e && npm run test:devnet",

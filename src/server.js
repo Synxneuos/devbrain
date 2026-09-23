@@ -136,11 +136,31 @@ function verifySessionToken(token) {
   }
 }
 
-function parseSession(req, body = {}) {
+function parseSession(req, body = {}, options = {}) {
   const authHeader = (req.headers.authorization || '').trim();
   const token = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
-    : (req.headers['x-session-token'] || body.sessionToken || '');
+    : (req.headers['x-session-token'] || req.headers['x-api-key'] || body.apiKey || body.sessionToken || '');
+
+  if (!token) return null;
+
+  // Jev Brain CLI API Key Support (e.g. jev_live_...)
+  if (token.startsWith('jev_live_')) {
+    if (!options.allowApiKey) return null;
+    const keyRecord = dbAdapter.getApiKey(token);
+    if (!keyRecord || keyRecord.is_revoked) return null;
+    dbAdapter.touchApiKeyLastUsed(token);
+    return {
+      v: SESSION_TOKEN_VERSION,
+      a: keyRecord.wallet_address,
+      th: 0,
+      dc: false,
+      exp: Date.now() + 24 * 60 * 60 * 1000,
+      isApiKey: true,
+      apiKeyId: keyRecord.key_id
+    };
+  }
+
   return verifySessionToken(token);
 }
 
@@ -179,6 +199,7 @@ async function resolveLiveUserTier(session) {
       }
     } catch { /* RPC failover already handled inside getHolderEligibility */ }
   }
+
   return resolveUserTier(session.th, false, null);
 }
 
@@ -727,11 +748,16 @@ export async function handleRequest(req, res) {
         const prompt = body.prompt || '';
         const model = body.model || 'auto';
 
-        // Signature-bound stateless HMAC session validation
-        const session = parseSession(req, body);
+        // Signature-bound stateless HMAC session or Jev Brain CLI API key validation
+        const session = parseSession(req, body, { allowApiKey: true });
         if (!session) {
+          const isApiKeyAttempt = (req.headers.authorization || '').includes('jev_live_') || (req.headers['x-api-key'] || '').includes('jev_live_') || (body.apiKey || '').includes('jev_live_');
           res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Unauthorized: Valid wallet signature session required. Please connect and sign in with your wallet.' }));
+          res.end(JSON.stringify({
+            error: isApiKeyAttempt
+              ? 'Unauthorized: Invalid or revoked Jev Brain API key. Generate an active key at https://jevbrain.world.'
+              : 'Unauthorized: Valid wallet signature session required. Please connect and sign in with your wallet.'
+          }));
           return;
         }
 
@@ -741,7 +767,9 @@ export async function handleRequest(req, res) {
         const userTier = await resolveLiveUserTier(session);
         if (!userTier || userTier.tierId <= 0) {
           sendJson(res, 403, {
-            error: 'Your wallet no longer holds the minimum $jevbrain balance required for AI access. Re-acquire tokens and retry — tier access follows your live holding.'
+            error: session.isApiKey
+              ? `Access Denied: Wallet (${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}) does not hold the minimum $JEVBRAIN tokens required for CLI AI access. Acquire tokens at https://jevbrain.world.`
+              : 'Your wallet no longer holds the minimum $jevbrain balance required for AI access. Re-acquire tokens and retry — tier access follows your live holding.'
           });
           return;
         }
@@ -1591,7 +1619,7 @@ export async function handleRequest(req, res) {
 
     if (url.pathname === '/api/credits/balance' && req.method === 'GET') {
       try {
-        const session = parseSession(req);
+        const session = parseSession(req, {}, { allowApiKey: true });
         if (!session || !session.a) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
           return;
@@ -1720,6 +1748,109 @@ export async function handleRequest(req, res) {
         sendJson(res, 200, { success: true, ...result });
       } catch (err) {
         sendJson(res, 400, { error: err.message });
+      }
+      return;
+    }
+
+    // ==========================================
+    // JEV BRAIN CLI & API KEY MANAGEMENT ROUTES
+    // ==========================================
+
+    if (url.pathname === '/api/keys/generate' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Wallet signature authentication required to generate a CLI key.' });
+          return;
+        }
+
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
+        if (!checkRateLimit(`keygen_${session.a}`, 10) || !checkRateLimit(`keygen_ip_${clientIp}`, 20)) {
+          sendJson(res, 429, { error: 'Rate limit exceeded for API key creation.' });
+          return;
+        }
+
+        // Verify that wallet holds required tokens (Tier 1+)
+        let userTier = null;
+        if (isValidSolanaAddress(session.a)) {
+          const elig = await getHolderEligibility(session.a);
+          if (elig && !elig.error && (elig.balanceUi || 0) >= 1) {
+            const market = await fetchLiveMarketData();
+            userTier = calculateDynamicTier(elig.balanceUi, market);
+          }
+        } else {
+          userTier = await resolveLiveUserTier(session);
+        }
+
+        if (!userTier || userTier.tierId <= 0) {
+          sendJson(res, 403, {
+            error: 'Minimum Tier 1 holding required to generate a Jev Brain CLI key. Acquire $JEVBRAIN tokens to unlock local AI CLI access.'
+          });
+          return;
+        }
+
+        const name = (body.name || 'Default CLI Key').trim().slice(0, 50);
+        const keyRecord = dbAdapter.createApiKey({
+          walletAddress: session.a,
+          name
+        });
+
+        sendJson(res, 200, {
+          success: true,
+          key: keyRecord
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/keys' && req.method === 'GET') {
+      try {
+        const session = parseSession(req);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Wallet signature authentication required to view keys.' });
+          return;
+        }
+
+        const keys = dbAdapter.listApiKeys(session.a);
+        sendJson(res, 200, {
+          success: true,
+          keys
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/keys/revoke' && req.method === 'POST') {
+      try {
+        const body = await parseJsonBody(req);
+        const session = parseSession(req, body);
+        if (!session || !session.a) {
+          sendJson(res, 401, { error: 'Wallet signature authentication required to revoke keys.' });
+          return;
+        }
+
+        const keyId = (body.keyId || '').trim();
+        if (!keyId) {
+          sendJson(res, 400, { error: 'keyId is required to revoke an API key.' });
+          return;
+        }
+
+        const revoked = dbAdapter.revokeApiKey({
+          keyId,
+          walletAddress: session.a
+        });
+
+        sendJson(res, 200, {
+          success: true,
+          revoked
+        });
+      } catch (err) {
+        sendJson(res, 500, { error: err.message });
       }
       return;
     }

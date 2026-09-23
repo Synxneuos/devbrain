@@ -279,3 +279,29 @@ export async function getHolderEligibility(walletAddress, options = {}) {
     };
   }
 }
+
+export function setMockHolderBalance(address, balanceUi = 100000) {
+  const tier = resolveHolderTier(balanceUi);
+  const data = {
+    eligible: balanceUi >= 1,
+    walletAddress: address,
+    tokenMint: OFFICIAL_SOLANA_MINT,
+    balanceRaw: String(Math.round(balanceUi * 1_000_000)),
+    balanceUi,
+    balanceTokens: balanceUi,
+    decimals: 6,
+    tier: tier.tierName,
+    tierName: tier.tierName,
+    tierLevel: tier.tierLevel,
+    creditRatePerHour: tier.creditRatePerHour,
+    accrualRatePerHour: tier.creditRatePerHour,
+    allowedModels: tier.allowedModels,
+    verifiedAt: new Date().toISOString(),
+    rpcEndpoint: 'mock://test-environment'
+  };
+  balanceCache.set(`${address}:${OFFICIAL_SOLANA_MINT}`, {
+    cachedAt: Date.now(),
+    data
+  });
+  return data;
+}

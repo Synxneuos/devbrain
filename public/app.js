@@ -1703,7 +1703,7 @@ function switchRewardsTab(tabName) {
     }
   });
 
-  ['overview', 'transfer', 'redeem', 'history', 'operator'].forEach(name => {
+  ['overview', 'transfer', 'redeem', 'history', 'cli', 'operator'].forEach(name => {
     const pane = document.getElementById(`pane-rewards-${name}`);
     if (pane) pane.style.display = (name === tabName) ? 'block' : 'none';
   });
@@ -1712,6 +1712,8 @@ function switchRewardsTab(tabName) {
     loadRewardsLedgerHistory();
   } else if (tabName === 'operator') {
     loadOperatorClaims();
+  } else if (tabName === 'cli') {
+    loadCliKeyData();
   }
 }
 
@@ -2066,6 +2068,190 @@ async function confirmOperatorTransfer() {
     await loadRewardsLedgerHistory();
   } catch (err) {
     if (statusMsg) statusMsg.innerHTML = `<span style="color:#ef4444;">${escapeHtml(err.message)}</span>`;
+  }
+}
+
+// ============================================
+// JEV BRAIN CLI & API KEY MANAGEMENT
+// ============================================
+let latestGeneratedCliKey = '';
+let activeCliKeyId = null;
+
+async function loadCliKeyData() {
+  const badge = document.getElementById('cli-holder-badge');
+  const warning = document.getElementById('cli-gate-warning');
+  const keySection = document.getElementById('cli-key-section');
+  const activeBox = document.getElementById('cli-active-key-box');
+  const noKeyBox = document.getElementById('cli-no-key-box');
+  const keyInput = document.getElementById('cli-key-input');
+  const keyMeta = document.getElementById('cli-key-meta');
+  const btnGenNew = document.getElementById('btn-generate-cli-key');
+  const btnToggle = document.getElementById('btn-toggle-cli-key');
+  const step1Cmd = document.getElementById('cli-step1-cmd');
+
+  if (!currentWallet) {
+    if (badge) badge.textContent = 'Disconnected';
+    if (warning) {
+      warning.style.display = 'block';
+      warning.innerHTML = '<strong>Wallet Required:</strong> Connect your Solana wallet holding $JEVBRAIN tokens to generate your CLI API key.';
+    }
+    if (keySection) keySection.style.display = 'none';
+    return;
+  }
+
+  // Check token holding / tier
+  const isHolder = currentTier && currentTier.tierId > 0;
+  if (!isHolder) {
+    if (badge) badge.textContent = 'Non-Holder (0 $JEVBRAIN)';
+    if (warning) {
+      warning.style.display = 'block';
+      warning.innerHTML = '<strong>Token Holding Required:</strong> Your connected wallet (' + escapeHtml(currentWallet.slice(0, 4) + '...' + currentWallet.slice(-4)) + ') does not hold the minimum required $JEVBRAIN tokens. Acquire tokens to unlock local CLI access.';
+    }
+    if (keySection) keySection.style.display = 'none';
+    return;
+  }
+
+  if (warning) warning.style.display = 'none';
+  if (keySection) keySection.style.display = 'block';
+  if (badge) badge.textContent = `✔ ${currentTier.tierName || 'Verified Holder'}`;
+
+  const token = getSessionToken();
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/keys', { headers: authHeaders() });
+    const data = await res.json();
+    if (data.success && data.keys && data.keys.length > 0) {
+      const activeKey = data.keys.find(k => !k.isRevoked) || data.keys[0];
+      if (activeKey && !activeKey.isRevoked) {
+        activeCliKeyId = activeKey.keyId;
+        if (activeBox) activeBox.style.display = 'block';
+        if (noKeyBox) noKeyBox.style.display = 'none';
+        if (btnGenNew) btnGenNew.style.display = 'inline-block';
+
+        if (latestGeneratedCliKey && latestGeneratedCliKey.startsWith('jev_live_')) {
+          if (keyInput) {
+            keyInput.value = latestGeneratedCliKey;
+            keyInput.type = 'text';
+          }
+          if (btnToggle) btnToggle.textContent = 'Hide';
+          if (step1Cmd) step1Cmd.textContent = `npx jevbrain config set-key ${latestGeneratedCliKey}`;
+        } else {
+          if (keyInput) {
+            keyInput.value = activeKey.maskedKey;
+            keyInput.type = 'text';
+          }
+          if (btnToggle) btnToggle.textContent = 'Masked';
+          if (step1Cmd) step1Cmd.textContent = `npx jevbrain config set-key ${activeKey.maskedKey}`;
+        }
+
+        if (keyMeta) {
+          const createdDate = new Date(activeKey.createdAt).toLocaleDateString();
+          const usedDate = activeKey.lastUsedAt ? new Date(activeKey.lastUsedAt).toLocaleDateString() : 'Never';
+          keyMeta.textContent = `Created: ${createdDate} · Last Used: ${usedDate}`;
+        }
+        return;
+      }
+    }
+
+    // No active key found
+    activeCliKeyId = null;
+    latestGeneratedCliKey = '';
+    if (activeBox) activeBox.style.display = 'none';
+    if (noKeyBox) noKeyBox.style.display = 'block';
+    if (btnGenNew) btnGenNew.style.display = 'none';
+    if (step1Cmd) step1Cmd.textContent = 'npx jevbrain config set-key <your-key>';
+  } catch (err) {
+    console.warn('[CLI] Error fetching keys:', err.message);
+  }
+}
+
+async function generateCliApiKey() {
+  const token = getSessionToken();
+  if (!token) {
+    alert('Please connect your Solana wallet first.');
+    return;
+  }
+
+  const btnFirst = document.getElementById('btn-generate-first-cli-key');
+  const btnNew = document.getElementById('btn-generate-cli-key');
+  if (btnFirst) btnFirst.disabled = true;
+  if (btnNew) btnNew.disabled = true;
+
+  try {
+    const res = await fetch('/api/keys/generate', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ name: 'Web Dashboard Key' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to generate API key');
+
+    latestGeneratedCliKey = data.key.apiKey;
+    activeCliKeyId = data.key.keyId;
+
+    await loadCliKeyData();
+
+    try {
+      await navigator.clipboard.writeText(latestGeneratedCliKey);
+      alert('⚡ Jev Brain API key generated and copied to clipboard!\n\nRun in your terminal:\nnpx jevbrain config set-key ' + latestGeneratedCliKey);
+    } catch {
+      alert('⚡ Jev Brain API key generated!\n\nPlease copy your key from the box to configure your terminal.');
+    }
+  } catch (err) {
+    alert(`Could not generate API key: ${err.message}`);
+  } finally {
+    if (btnFirst) btnFirst.disabled = false;
+    if (btnNew) btnNew.disabled = false;
+  }
+}
+
+async function revokeCliApiKey() {
+  if (!activeCliKeyId) return;
+  const ok = confirm('Are you sure you want to revoke this Jev Brain CLI API key? Any terminal or local agents using this key will immediately lose access.');
+  if (!ok) return;
+
+  try {
+    const res = await fetch('/api/keys/revoke', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ keyId: activeCliKeyId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Revoke failed');
+
+    latestGeneratedCliKey = '';
+    activeCliKeyId = null;
+    await loadCliKeyData();
+    alert('✔ CLI API key revoked successfully.');
+  } catch (err) {
+    alert(`Could not revoke key: ${err.message}`);
+  }
+}
+
+function toggleCliKeyVisibility() {
+  const keyInput = document.getElementById('cli-key-input');
+  const btnToggle = document.getElementById('btn-toggle-cli-key');
+  if (!keyInput || !btnToggle) return;
+
+  if (keyInput.type === 'password') {
+    keyInput.type = 'text';
+    btnToggle.textContent = 'Hide';
+  } else {
+    keyInput.type = 'password';
+    btnToggle.textContent = 'Show';
+  }
+}
+
+function copyCliApiKey() {
+  const keyToCopy = latestGeneratedCliKey || document.getElementById('cli-key-input')?.value || '';
+  if (!keyToCopy) return;
+
+  navigator.clipboard.writeText(keyToCopy);
+  const copyBtn = document.getElementById('btn-copy-cli-key');
+  if (copyBtn) {
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy'; }, 1500);
   }
 }
 
@@ -2593,10 +2779,35 @@ function bindEvents() {
     updateRedeemPreview();
   });
   elements.btnSubmitRedeem?.addEventListener('click', submitRedemptionClaim);
-  document.getElementById('btn-submit-redeem')?.addEventListener('click', submitRedemptionClaim);
   elements.btnRefreshHistory?.addEventListener('click', loadRewardsLedgerHistory);
   elements.btnLoadOperatorClaims?.addEventListener('click', loadOperatorClaims);
   elements.btnConfirmOperatorTx?.addEventListener('click', confirmOperatorTransfer);
+
+  // Jev Brain CLI Controls
+  document.getElementById('nav-cli')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openRewardsModal();
+    switchRewardsTab('cli');
+  });
+
+  document.getElementById('btn-generate-first-cli-key')?.addEventListener('click', generateCliApiKey);
+  document.getElementById('btn-generate-cli-key')?.addEventListener('click', generateCliApiKey);
+  document.getElementById('btn-revoke-cli-key')?.addEventListener('click', revokeCliApiKey);
+  document.getElementById('btn-toggle-cli-key')?.addEventListener('click', toggleCliKeyVisibility);
+  document.getElementById('btn-copy-cli-key')?.addEventListener('click', copyCliApiKey);
+
+  document.querySelectorAll('.copy-snippet-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        navigator.clipboard.writeText(targetEl.textContent.trim());
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = originalText; }, 1500);
+      }
+    });
+  });
 
   // Projects Modal
   elements.btnCreateProject?.addEventListener('click', handleCreateProject);

@@ -13,6 +13,7 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -292,6 +293,19 @@ export class DatabaseAdapter {
       );
       CREATE INDEX IF NOT EXISTS idx_credit_reservations_wallet ON credit_reservations(wallet_address, status);
       CREATE INDEX IF NOT EXISTS idx_credit_reservations_status ON credit_reservations(status, created_at);
+
+      -- 17. API KEYS (Holder-Gated Jev Brain CLI Access)
+      CREATE TABLE IF NOT EXISTS api_keys (
+        key_id TEXT PRIMARY KEY,
+        api_key TEXT UNIQUE NOT NULL,
+        wallet_address TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT 'Default CLI Key',
+        is_revoked INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_api_keys_lookup ON api_keys(api_key, is_revoked);
+      CREATE INDEX IF NOT EXISTS idx_api_keys_wallet ON api_keys(wallet_address);
     `);
 
     // Durable SQLite synchronous setting
@@ -1147,6 +1161,88 @@ export class DatabaseAdapter {
       ORDER BY created_at DESC
       LIMIT ?
     `).all(limit);
+  }
+
+  // ==========================================
+  // JEV BRAIN CLI & API KEY MANAGEMENT
+  // ==========================================
+
+  createApiKey({ walletAddress, name = 'Default CLI Key' }) {
+    const db = this.getDb();
+    const keyId = `key_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const apiKey = `jev_live_${crypto.randomBytes(24).toString('hex')}`;
+    const createdAt = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO api_keys (key_id, api_key, wallet_address, name, is_revoked, created_at, last_used_at)
+      VALUES (?, ?, ?, ?, 0, ?, NULL)
+    `).run(keyId, apiKey, walletAddress, name.trim().slice(0, 50), createdAt);
+
+    return {
+      keyId,
+      apiKey,
+      walletAddress,
+      name,
+      createdAt
+    };
+  }
+
+  getApiKey(apiKey) {
+    if (!apiKey || typeof apiKey !== 'string') return null;
+    const db = this.getDb();
+    const row = db.prepare(`
+      SELECT key_id, api_key, wallet_address, name, is_revoked, created_at, last_used_at
+      FROM api_keys
+      WHERE api_key = ? AND is_revoked = 0
+    `).get(apiKey);
+    return row || null;
+  }
+
+  listApiKeys(walletAddress) {
+    if (!walletAddress) return [];
+    const db = this.getDb();
+    const rows = db.prepare(`
+      SELECT key_id, wallet_address, name, is_revoked, created_at, last_used_at, api_key
+      FROM api_keys
+      WHERE wallet_address = ?
+      ORDER BY created_at DESC
+    `).all(walletAddress);
+
+    return rows.map(r => ({
+      keyId: r.key_id,
+      walletAddress: r.wallet_address,
+      name: r.name,
+      isRevoked: Boolean(r.is_revoked),
+      createdAt: r.created_at,
+      lastUsedAt: r.last_used_at,
+      maskedKey: r.api_key.length > 16 
+        ? `${r.api_key.slice(0, 13)}...${r.api_key.slice(-4)}`
+        : r.api_key
+    }));
+  }
+
+  revokeApiKey({ keyId, walletAddress }) {
+    if (!keyId || !walletAddress) return false;
+    const db = this.getDb();
+    const res = db.prepare(`
+      UPDATE api_keys
+      SET is_revoked = 1
+      WHERE key_id = ? AND wallet_address = ?
+    `).run(keyId, walletAddress);
+    return res.changes > 0;
+  }
+
+  touchApiKeyLastUsed(apiKey) {
+    if (!apiKey) return;
+    const db = this.getDb();
+    const now = new Date().toISOString();
+    try {
+      db.prepare(`
+        UPDATE api_keys
+        SET last_used_at = ?
+        WHERE api_key = ?
+      `).run(now, apiKey);
+    } catch {}
   }
 
   close() {
