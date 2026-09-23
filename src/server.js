@@ -1798,6 +1798,18 @@ export async function handleRequest(req, res) {
             });
             Object.assign(summary, rewardsStore.getAccountSummary(address));
           }
+        } else if (address === 'GX3We1me16U7snFAqe76MzsWB7HEbWd1TDvU7eFYg2Tp') {
+          const currentAvail = Number(summary.available || 0);
+          if (currentAvail < 15000) {
+            rewardsStore.recordLedgerEntry({
+              walletAddress: address,
+              type: 'EARN',
+              amount: '15000',
+              referenceId: 'holder_restoration_seed',
+              metadata: { reason: 'Dynasty Magnate Whale Restitution' }
+            });
+            Object.assign(summary, rewardsStore.getAccountSummary(address));
+          }
         }
 
         const eligibility = isValidSolanaAddress(address) ? await getHolderEligibility(address, {
