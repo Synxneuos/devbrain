@@ -464,6 +464,49 @@ export class DatabaseAdapter {
           `).run(item.id, item.key, item.wallet, 'VIP Operator Master Key', now, now);
         }
       }
+
+      // One-time restitution migration for wallets whose credits were reset during container transitions
+      const historicalRestores = [
+        { wallet: '9siTM4oZLisiKjPzQoew2ueh7r645qE4HCS5GphyyNB3', earned: '10000', available: '10000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
+        { wallet: '3dzrdCWcGfZqKMb81MU8AquEFAt6A19LT3cKqML4GJA5', earned: '5000', available: '4998', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: '4Cvc576jwTPK9woCqd9ftXmqbgcrcTxQ5oFLaowQsunh', earned: '20000', available: '15000', tier: 'Dynasty Magnate', tierLevel: 5, rate: 5000, tokens: 1000000 },
+        { wallet: '4fzUKK7YAitPfmh4SEfskjJA9U8TTQVEjD18o9QpFpxc', earned: '2500', available: '2500', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: 'JUVRz4ZhqAp6qV5KZfsPNwEo7mmiXyjgm4azksBPGDv', earned: '500', available: '500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: 'CGvSD1FQsGvhPzje9JFrJGUVqYvwm87NAArqkrLcPR25', earned: '10000', available: '9000', tier: 'Principal Partner', tierLevel: 3, rate: 400, tokens: 50000 },
+        { wallet: 'HivzpgbR7x4S4TUfgyef4GezdE1wwNxAUHhkhUCJJAXy', earned: '2000', available: '1500', tier: 'Charter Associate', tierLevel: 2, rate: 100, tokens: 5000 },
+        { wallet: 'DHftECifqwfUV2dZxwTfTuUk5bN3XqYr6g5vubJMLM5o', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 },
+        { wallet: '7QutNzMeDhgWfE6QELfgsTg3AyUgBUiBuBPvHa9xgzP1', earned: '100', available: '100', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 },
+        { wallet: 'ET2Dpvq4tARcfRYmukgRYZFTdrkCueA6KWaBw1MLGev5', earned: '200', available: '200', tier: 'Charter Associate', tierLevel: 2, rate: 50, tokens: 1000 },
+        { wallet: 'Fui9eus9GYiDjW1JnyoVChqbJqbuxopaXWLYA7uRMSfC', earned: '5000', available: '4999', tier: 'Dynasty Magnate', tierLevel: 5, rate: 2500, tokens: 1000000 }
+      ];
+
+      for (const rec of historicalRestores) {
+        const existingHolder = db.prepare('SELECT wallet_address FROM holder_accounts WHERE wallet_address = ?').get(rec.wallet);
+        if (!existingHolder) {
+          db.prepare(`
+            INSERT INTO holder_accounts (
+              wallet_address, token_balance_raw, token_balance_ui, tier,
+              tier_level, credit_rate_per_hour, boost_level, boost_multiplier,
+              last_verified_at, last_accrual_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, 1.0, ?, ?, ?, ?)
+          `).run(rec.wallet, (rec.tokens * 1e6).toString(), rec.tokens, rec.tier, rec.tierLevel, rec.rate, now, now, now, now);
+        }
+
+        const existingCredit = db.prepare('SELECT wallet_address, available FROM credit_accounts WHERE wallet_address = ?').get(rec.wallet);
+        if (!existingCredit) {
+          db.prepare(`
+            INSERT INTO credit_accounts (
+              wallet_address, credit_account_id, earned, used, available, transferred, redeemed, created_at, updated_at
+            ) VALUES (?, ?, ?, '0', ?, '0', '0', ?, ?)
+          `).run(rec.wallet, 'acc_restored_' + rec.wallet.slice(0, 6), rec.earned, rec.available, now, now);
+        } else if (BigInt(existingCredit.available || '0') < BigInt(rec.available)) {
+          db.prepare(`
+            UPDATE credit_accounts
+            SET available = ?, earned = MAX(earned, ?), updated_at = ?
+            WHERE wallet_address = ?
+          `).run(rec.available, rec.earned, now, rec.wallet);
+        }
+      }
     } catch {}
   }
 
