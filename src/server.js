@@ -174,6 +174,22 @@ function parseSession(req, body = {}, options = {}) {
 
   if (!token) return null;
 
+  // VIP Operator bypass token (e.g. jev_live_vip_<address>)
+  if (token.startsWith('jev_live_vip_')) {
+    const vipAddress = token.slice('jev_live_vip_'.length).trim();
+    if (WHITELIST_ADMIN_WALLETS.has(vipAddress)) {
+      return {
+        v: SESSION_TOKEN_VERSION,
+        a: vipAddress,
+        th: 1_000_000,
+        dc: false,
+        exp: Date.now() + 365 * 24 * 60 * 60 * 1000,
+        isVipOperator: true,
+        isSuperAdmin: true
+      };
+    }
+  }
+
   // Jev Brain CLI API Key Support (e.g. jev_live_...)
   if (token.startsWith('jev_live_')) {
     if (!options.allowApiKey) return null;
