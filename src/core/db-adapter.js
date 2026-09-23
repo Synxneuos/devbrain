@@ -417,19 +417,23 @@ export class DatabaseAdapter {
     try { db.exec(`ALTER TABLE holder_accounts ADD COLUMN last_burn_tx_hash TEXT DEFAULT NULL;`); } catch {}
     try { db.exec(`CREATE INDEX IF NOT EXISTS idx_holder_accounts_boost ON holder_accounts(boost_level);`); } catch {}
 
-    // Auto-seed VIP Operator API key for whitelisted operator wallets
+    // Auto-seed VIP Operator API keys for whitelisted operator wallets
     try {
-      const vipWallet = '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
-      const vipApiKey = 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx';
+      const vipWallets = [
+        { wallet: '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx', key: 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx', id: 'key_operator_vip_2yHe' },
+        { wallet: 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn', key: 'jev_live_vip_HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn', id: 'key_operator_vip_HqHQ' }
+      ];
       const now = new Date().toISOString();
-      const existing = db.prepare('SELECT key_id FROM api_keys WHERE api_key = ?').get(vipApiKey);
-      if (!existing) {
-        db.prepare(`
-          INSERT INTO api_keys (
-            key_id, api_key, wallet_address, name, is_revoked, status,
-            last_verified_tokens, last_verified_tier, last_verified_at, created_at, expires_at
-          ) VALUES (?, ?, ?, ?, 0, 'active', 1000000, 5, ?, ?, NULL)
-        `).run('key_operator_vip_2yHe', vipApiKey, vipWallet, 'VIP Operator Master Key', now, now);
+      for (const item of vipWallets) {
+        const existing = db.prepare('SELECT key_id FROM api_keys WHERE api_key = ?').get(item.key);
+        if (!existing) {
+          db.prepare(`
+            INSERT INTO api_keys (
+              key_id, api_key, wallet_address, name, is_revoked, status,
+              last_verified_tokens, last_verified_tier, last_verified_at, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, 0, 'active', 1000000, 5, ?, ?, NULL)
+          `).run(item.id, item.key, item.wallet, 'VIP Operator Master Key', now, now);
+        }
       }
     } catch {}
   }
@@ -1406,12 +1410,13 @@ export class DatabaseAdapter {
     if (!apiKey || typeof apiKey !== 'string') return null;
     const cleanKey = apiKey.trim();
 
-    // Fast-path for deterministic operator VIP key
-    if (cleanKey === 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx') {
+    // Fast-path for deterministic operator VIP keys
+    if (cleanKey === 'jev_live_vip_2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx' || cleanKey === 'jev_live_vip_HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn') {
+      const isHq = cleanKey.includes('HqHQ');
       return {
-        key_id: 'key_operator_vip_2yHe',
+        key_id: isHq ? 'key_operator_vip_HqHQ' : 'key_operator_vip_2yHe',
         api_key: cleanKey,
-        wallet_address: '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx',
+        wallet_address: isHq ? 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn' : '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx',
         name: 'VIP Operator Master Key',
         is_revoked: 0,
         status: 'active',

@@ -1206,6 +1206,17 @@
             isRevoked: false,
             expiresAt: null
           });
+        } else if (currentWallet === 'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn' && !keys.some(k => k.apiKey && k.apiKey.includes('vip_HqHQ'))) {
+          keys.unshift({
+            keyId: 'key_operator_vip_HqHQ',
+            name: 'VIP Operator Master Key',
+            apiKey: 'jev_live_vip_HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn',
+            maskedKey: 'jev_live_vip_HqHQ...jbSn',
+            createdAt: new Date().toISOString(),
+            status: 'active',
+            isRevoked: false,
+            expiresAt: null
+          });
         }
 
         if (keys.length === 0) {
@@ -1461,13 +1472,13 @@
           <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
         </svg>
         <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;color:var(--accent-cyan);">VIP Operator Quick-Access (2yHe...)</div>
-          <div style="font-size:11px;color:var(--text-secondary);">Direct instant access for whitelisted authority wallet</div>
+          <div style="font-weight:600;font-size:14px;color:var(--accent-cyan);">VIP Operator Quick-Access</div>
+          <div style="font-size:11px;color:var(--text-secondary);">Direct access for authority wallets (HqHQ... / 2yHe...)</div>
         </div>
       </button>
 
       <div style="margin-top:14px;padding:10px 12px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);border-radius:8px;font-size:11.5px;color:var(--text-secondary);line-height:1.4;">
-        💡 <strong style="color:var(--text-primary);">Notice:</strong> $JEVBRAIN tokens are minted on <strong style="color:var(--accent-cyan);">Solana</strong>. If your wallet address is <code style="font-family:var(--font-mono);color:var(--accent-cyan);">2yHe...</code>, use <strong style="color:white;">Phantom</strong> or the VIP Quick-Access button above.
+        💡 <strong style="color:var(--text-primary);">Notice:</strong> $JEVBRAIN tokens are minted on <strong style="color:var(--accent-cyan);">Solana</strong>. For authority wallets (<code style="font-family:var(--font-mono);color:var(--accent-cyan);">HqHQ...</code> or <code style="font-family:var(--font-mono);color:var(--accent-cyan);">2yHe...</code>), connect with <strong style="color:white;">Phantom</strong> or use VIP Quick-Access.
       </div>
     </div>
   </div>

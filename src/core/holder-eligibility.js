@@ -150,6 +150,7 @@ export async function querySolanaRpcWithFailover(method, params, rpcEndpoints = 
 
 export const WHITELIST_ADMIN_WALLETS = new Set([
   '2yHeAq99m3NoZse674TQizAY8obNHwSm7mDXhNjssHYx',
+  'HqHQf559KsuC7dKaSdUMu7v3gzy3v8BdmK4qBiGhjbSn',
   (process.env.ADMIN_WALLET || '').trim()
 ].filter(Boolean));
 
