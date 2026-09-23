@@ -363,6 +363,17 @@ async function getVerifiedTokenBalance(address) {
   const chain = (process.env.TOKEN_CHAIN || 'solana').toLowerCase();
   const checkEnabled = (process.env.TOKEN_CHECK_ENABLED || 'true').toLowerCase() !== 'false';
 
+  // VIP Whitelist Superuser bypass: full access without requiring token balance
+  if (WHITELIST_ADMIN_WALLETS.has(address)) {
+    return {
+      tokensHeld: 1_000_000,
+      enabled: true,
+      contract,
+      chain: 'solana',
+      isWhitelisted: true
+    };
+  }
+
   // In test suite, skip external on-chain calls so unit tests remain fast & deterministic
   if (process.env.NODE_ENV === 'test' || !checkEnabled || !contract) {
     return {
@@ -1109,11 +1120,25 @@ export async function handleRequest(req, res) {
 
         // 2. Read the REAL ERC-20 balance from the chain (never trust client input),
         //    then fetch market data & resolve the effective tier.
+        const isWhitelisted = WHITELIST_ADMIN_WALLETS.has(verifiedAddress);
         const marketData = await fetchLiveMarketData();
-        const balance = await getVerifiedTokenBalance(verifiedAddress);
+        const balance = isWhitelisted
+          ? { tokensHeld: 1_000_000, enabled: true, contract: OFFICIAL_SOLANA_MINT, chain: 'solana', isWhitelisted: true }
+          : await getVerifiedTokenBalance(verifiedAddress);
         const tokenCheckDisabled = !balance.enabled;
         const tokensHeld = tokenCheckDisabled ? 0 : balance.tokensHeld;
-        const userTier = await resolveUserTier(tokensHeld, tokenCheckDisabled, marketData);
+        const userTier = isWhitelisted
+          ? {
+              tierId: 5,
+              tierLevel: 5,
+              tierName: 'Dynasty Magnate (VIP Whitelist)',
+              tokensHeld: 1_000_000,
+              creditRatePerHour: 5000,
+              allowedModels: ['all'],
+              marketCap: 0,
+              isWhitelisted: true
+            }
+          : await resolveUserTier(tokensHeld, tokenCheckDisabled, marketData);
 
         if (!tokenCheckDisabled && userTier.tierId <= 0) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -1131,6 +1156,13 @@ export async function handleRequest(req, res) {
         if (isSol) {
           try {
             await accrueCreditsForHolder(verifiedAddress);
+            if (isWhitelisted) {
+              rewardsStore.ensureAccount(verifiedAddress);
+              const currentBal = rewardsStore.getCreditBalance(verifiedAddress);
+              if (currentBal < 100_000) {
+                rewardsStore.creditAccrual(verifiedAddress, 100_000, 'vip_whitelist_seed');
+              }
+            }
           } catch (e) {}
         }
         const creditAccount = isSol ? rewardsStore.getAccountSummary(verifiedAddress) : null;

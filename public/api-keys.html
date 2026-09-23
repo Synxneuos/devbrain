@@ -967,7 +967,9 @@
         currentWallet = address;
 
         // Fetch live eligibility & tier
-        const eligRes = await fetch(`/api/holder/eligibility?address=${encodeURIComponent(address)}`);
+        const eligRes = await fetch(`/api/holder/eligibility?address=${encodeURIComponent(address)}`, {
+          headers: authHeaders()
+        });
         const eligData = await eligRes.json();
 
         currentTier = eligData;
@@ -1015,10 +1017,11 @@
       const balance = Number(elig.balanceUi || elig.tokensHeld || 0).toLocaleString();
       balanceNum.textContent = `${balance} $JEVBRAIN`;
 
-      if (elig.tierId > 0) {
-        tierBadge.textContent = elig.tierName || `Tier ${elig.tierId}`;
+      const isEligible = (elig.eligible === true || (elig.tierId > 0) || (elig.tierLevel > 0) || elig.isWhitelisted);
+      if (isEligible) {
+        tierBadge.textContent = elig.tierName || (elig.tierLevel ? `Tier ${elig.tierLevel}` : `Tier ${elig.tierId}`);
         tierBadge.className = 'status-badge active';
-        metaDisplay.textContent = `Emissions: ${elig.creditRatePerHour || 100} credits/hr · Models: ${(elig.allowedModels || []).length} available`;
+        metaDisplay.textContent = `Emissions: ${elig.creditRatePerHour || 100} credits/hr · Models: ${(elig.allowedModels || []).length || 'All'} available`;
         gateWarning.style.display = 'none';
         genBtn.disabled = false;
       } else {
