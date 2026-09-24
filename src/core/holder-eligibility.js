@@ -10,6 +10,8 @@ export const MINIMUM_TOKENS_REQUIRED = Number(process.env.MINIMUM_TOKENS_REQUIRE
 
 export const DEFAULT_SOLANA_RPCS = [
   process.env.SOLANA_RPC_URL,
+  (process.env.HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY.trim()}` : null),
+  'https://mainnet.helius-rpc.com/?api-key=6926ac08-44fb-432c-bee5-a0780e1fc338',
   'https://api.mainnet-beta.solana.com',
   'https://solana-mainnet.g.alchemy.com/v2/demo',
   'https://rpc.ankr.com/solana'
