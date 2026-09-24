@@ -26,7 +26,26 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     throw new Error('Invalid Solana wallet address.');
   }
 
-  const eligibility = await getHolderEligibility(address, options);
+  // Fetch persistent holder account from database if available
+  let holderAccount = dbAdapter.getHolderAccount(address);
+  const now = Date.now();
+
+  let eligibility;
+  if ((options.useDatabaseTier || options.fromDaemon) && holderAccount) {
+    eligibility = {
+      eligible: Number(holderAccount.tierLevel || 0) > 0,
+      walletAddress: address,
+      tier: holderAccount.tier,
+      tierLevel: holderAccount.tierLevel,
+      creditRatePerHour: holderAccount.creditRatePerHour,
+      balanceUi: holderAccount.tokenBalanceUi,
+      balanceRaw: holderAccount.tokenBalanceRaw,
+      fromDb: true
+    };
+  } else {
+    eligibility = await getHolderEligibility(address, options);
+  }
+
   const isTestForce = process.env.NODE_ENV === 'test' && options.forceAmount !== undefined;
 
   if (!isTestForce && (!eligibility.eligible || eligibility.creditRatePerHour <= 0)) {
@@ -37,10 +56,6 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
       balance: rewardsStore.getAccountSummary(address)
     };
   }
-
-  // Fetch or upsert persistent holder account from database
-  let holderAccount = dbAdapter.getHolderAccount(address);
-  const now = Date.now();
 
   if (!holderAccount) {
     dbAdapter.upsertHolderAccount({
@@ -54,8 +69,8 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
       lastAccrualAt: new Date(now).toISOString()
     });
     holderAccount = dbAdapter.getHolderAccount(address);
-  } else {
-    // Keep holder tier & rate updated
+  } else if (!eligibility.fromDb) {
+    // Keep holder tier & rate updated from live verification
     dbAdapter.upsertHolderAccount({
       ...holderAccount,
       tokenBalanceRaw: eligibility.balanceRaw || holderAccount.tokenBalanceRaw,
@@ -108,11 +123,17 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     };
   }
 
-  // B-4 FIX: Atomic conditional accrual — prevent double-accrual across cold starts
   const nowIso = new Date(now).toISOString();
+  // Compute consumed time for the integer credits earned to preserve fractional remainder
+  const creditedTimeMs = (effectiveRatePerHour > 0 && !isForceTest)
+    ? Math.floor((creditsToEarn / effectiveRatePerHour) * 3600 * 1000)
+    : elapsedMs;
+  const newAccrualTs = new Date(lastAccrued + creditedTimeMs).toISOString();
+
+  // B-4 FIX: Atomic conditional accrual — prevent double-accrual across cold starts
   const expectedAccrualTs = lastAccrualIso || holderAccount.lastAccrualAt;
   if (!isForceTest && expectedAccrualTs) {
-    const updated = dbAdapter.conditionalUpdateAccrualTime(address, expectedAccrualTs, nowIso);
+    const updated = dbAdapter.conditionalUpdateAccrualTime(address, expectedAccrualTs, newAccrualTs);
     if (!updated) {
       // Another process already advanced the accrual timestamp — skip to prevent double-earning
       return {
@@ -128,7 +149,7 @@ export async function accrueCreditsForHolder(walletAddress, options = {}) {
     }
   } else {
     // First-time accrual or test forceAmount — use non-conditional update
-    dbAdapter.updateLastAccrualTime(address, nowIso);
+    dbAdapter.updateLastAccrualTime(address, newAccrualTs);
   }
 
   const snapshotId = `snap_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;

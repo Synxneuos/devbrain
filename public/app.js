@@ -1935,7 +1935,8 @@ async function loadRewardsHubData() {
     }
 
     // 2. Fetch Credit Account Balance
-    const balRes = await fetch('/api/credits/balance', { headers: authHeaders() });
+    const balUrl = currentWallet ? `/api/credits/balance?address=${encodeURIComponent(currentWallet)}` : '/api/credits/balance';
+    const balRes = await fetch(balUrl, { headers: authHeaders() });
     if (balRes.ok) {
       const balData = await balRes.json();
       const userAvail = Number(balData.availableCredits || 0);
@@ -2043,7 +2044,8 @@ async function triggerCreditAccrual() {
   try {
     const res = await fetch('/api/credits/accrue', {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' })
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ walletAddress: currentWallet })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to accrue credits');
@@ -2180,7 +2182,8 @@ async function loadRewardsLedgerHistory() {
   if (!tbody) return;
 
   try {
-    const res = await fetch('/api/credits/history', { headers: authHeaders() });
+    const histUrl = currentWallet ? `/api/credits/history?address=${encodeURIComponent(currentWallet)}` : '/api/credits/history';
+    const res = await fetch(histUrl, { headers: authHeaders() });
     if (!res.ok) {
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:14px;">Connect wallet to view ledger history</td></tr>';
       return;

@@ -20,16 +20,19 @@ import { burnEngine } from './core/burn-engine.js';
 import { feeHarvester } from './workers/fee-harvester.js';
 import { paymentReconciler } from './workers/payment-reconciler.js';
 import { apiKeyAuditor } from './workers/api-key-auditor.js';
+import { holderAccrualDaemon } from './workers/holder-accrual-daemon.js';
 import { dbAdapter, DATA_DIR } from './core/db-adapter.js';
 import { getBoostStatus, claimBurnBoost, listBoostTierMatrix, tokensRawToUi, BOOST_LEVELS } from './core/boost-engine.js';
 
 export const isServerless = !!(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
+export const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some(a => a.includes('test'));
 
 // Start automated background daemons on persistent runtimes (VPS / container)
-if (process.env.NODE_ENV !== 'test' && !isServerless) {
+if (!isTestEnv && !isServerless) {
   feeHarvester.start(15 * 60 * 1000);
   paymentReconciler.start(20 * 1000);
   apiKeyAuditor.start(60 * 1000);
+  holderAccrualDaemon.start(60 * 1000);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1750,11 +1753,11 @@ export async function handleRequest(req, res) {
     if (url.pathname === '/api/credits/balance' && req.method === 'GET') {
       try {
         const session = parseSession(req, {}, { allowApiKey: true });
-        if (!session || !session.a) {
+        if (!session || !session.a || !isValidSolanaAddress(session.a)) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
           return;
         }
-        const address = session.a; // STRICT: Identity strictly derived from authenticated session token
+        const address = session.a;
         const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
         if (!checkRateLimit(`bal_${address}`, 60) || !checkRateLimit(`bal_ip_${clientIp}`, 120)) {
           sendJson(res, 429, { error: 'Rate limit exceeded. Please wait a moment.' });
@@ -1863,7 +1866,7 @@ export async function handleRequest(req, res) {
     if (url.pathname === '/api/credits/history' && req.method === 'GET') {
       try {
         const session = parseSession(req);
-        if (!session || !session.a) {
+        if (!session || !session.a || !isValidSolanaAddress(session.a)) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
           return;
         }
@@ -1893,11 +1896,11 @@ export async function handleRequest(req, res) {
       try {
         const body = await parseJsonBody(req);
         const session = parseSession(req, body);
-        if (!session || !session.a) {
+        if (!session || !session.a || !isValidSolanaAddress(session.a)) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet.' });
           return;
         }
-        const address = session.a; // STRICT: Session-bound accrual only
+        const address = session.a;
         const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
         if (!checkRateLimit(`acc_${address}`, 30) || !checkRateLimit(`acc_ip_${clientIp}`, 60)) {
           sendJson(res, 429, { error: 'Rate limit exceeded for credit accrual.' });
@@ -2725,6 +2728,7 @@ if (process.env.NODE_ENV !== 'test') {
   const gracefulShutdown = () => {
     console.log('\n[Jev Brain] Received shutdown signal (SIGTERM/SIGINT). Checkpointing database and shutting down cleanly...');
     try {
+      holderAccrualDaemon.stop();
       if (dbAdapter) {
         dbAdapter.close();
         console.log('[DBAdapter] Database closed and WAL checkpointed successfully.');

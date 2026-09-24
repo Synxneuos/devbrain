@@ -626,9 +626,38 @@ export class DatabaseAdapter {
     };
   }
 
+  getAllHolderAccounts() {
+    const db = this.getDb();
+    const rows = db.prepare('SELECT * FROM holder_accounts').all();
+    return rows.map(row => ({
+      walletAddress: row.wallet_address,
+      tokenBalanceRaw: row.token_balance_raw,
+      tokenBalanceUi: Number(row.token_balance_ui),
+      tier: row.tier,
+      tierLevel: Number(row.tier_level),
+      creditRatePerHour: Number(row.credit_rate_per_hour),
+      lastVerifiedAt: row.last_verified_at,
+      lastAccrualAt: row.last_accrual_at,
+      boostLevel: Number(row.boost_level ?? 1),
+      boostMultiplier: Number(row.boost_multiplier ?? 1.0),
+      totalTokensBurned: String(row.total_tokens_burned ?? '0'),
+      boostActivatedAt: row.boost_activated_at ?? null,
+      lastBurnTxHash: row.last_burn_tx_hash ?? null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
   upsertHolderAccount(account) {
     const db = this.getDb();
     const now = new Date().toISOString();
+    const existing = this.getHolderAccount(account.walletAddress);
+
+    // CRITICAL: Preserve existing last_accrual_at unless explicitly specified.
+    // Overwriting with 'now' would wipe out unearned elapsed hours!
+    const lastAccrual = account.lastAccrualAt || existing?.lastAccrualAt || now;
+    const createdAt = account.createdAt || existing?.createdAt || now;
+
     db.prepare(`
       INSERT INTO holder_accounts (
         wallet_address, token_balance_raw, token_balance_ui, tier,
@@ -641,7 +670,7 @@ export class DatabaseAdapter {
         tier_level = excluded.tier_level,
         credit_rate_per_hour = excluded.credit_rate_per_hour,
         last_verified_at = excluded.last_verified_at,
-        last_accrual_at = COALESCE(excluded.last_accrual_at, holder_accounts.last_accrual_at),
+        last_accrual_at = excluded.last_accrual_at,
         updated_at = excluded.updated_at
     `).run(
       account.walletAddress,
@@ -651,8 +680,8 @@ export class DatabaseAdapter {
       Number(account.tierLevel || 0),
       Number(account.creditRatePerHour || 0),
       account.lastVerifiedAt || now,
-      account.lastAccrualAt || now,
-      account.createdAt || now,
+      lastAccrual,
+      createdAt,
       now
     );
   }
