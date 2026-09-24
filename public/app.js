@@ -1956,16 +1956,59 @@ async function loadRewardsHubData() {
         }
       }
 
-      // 3. Display Boost Multiplier Status in Overview
+      // 3. Display Boost Multiplier Status in Overview & Alert Banner
       const boost = balData.boost || null;
       const boostBadge = document.getElementById('hub-boost-badge');
+      const isBoosted = boost && Number(boost.multiplier) > 1.0;
+      const boostBanner = document.getElementById('boost-status-banner');
+
       if (boostBadge) {
-        if (boost && Number(boost.multiplier) > 1.0) {
+        if (isBoosted) {
           boostBadge.innerHTML = `<span style="color:#10b981;">⚡ ${Number(boost.multiplier).toFixed(1)}x Multiplier (Active)</span>`;
         } else {
           boostBadge.textContent = '1.0x (Standard)';
         }
       }
+
+      if (boostBanner) {
+        const tokens = eligData?.balanceUi !== undefined ? eligData.balanceUi : (eligData?.balanceTokens || 0);
+        if (isBoosted) {
+          boostBanner.style.display = 'block';
+          boostBanner.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+          boostBanner.style.background = 'rgba(16, 185, 129, 0.08)';
+          boostBanner.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;">⚡</span>
+                <div>
+                  <div style="font-weight:700;color:#10b981;font-size:12px;">2.0x Titan Multiplier Activated</div>
+                  <div style="color:var(--text-secondary);font-size:11px;">You are receiving 2.0x credit accrual on the basis of your verified token burn supply.</div>
+                </div>
+              </div>
+              <span style="background:rgba(16,185,129,0.15);color:#10b981;font-family:var(--font-mono);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap;">2.0x ACTIVE</span>
+            </div>
+          `;
+        } else if (Number(tokens) > 0) {
+          boostBanner.style.display = 'block';
+          boostBanner.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+          boostBanner.style.background = 'rgba(245, 158, 11, 0.08)';
+          boostBanner.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="font-size:18px;">⚠️</span>
+                <div>
+                  <div style="font-weight:700;color:#f59e0b;font-size:12px;">You are not getting 2x on the basis of your burn supply</div>
+                  <div style="color:var(--text-secondary);font-size:11px;">Your wallet is earning standard 1.0x base emissions. Burn your tier token quota to permanently unlock 2.0x Lifetime Multiplier!</div>
+                </div>
+              </div>
+              <button class="btn-dark-primary" style="font-size:11px;padding:5px 12px;font-weight:600;white-space:nowrap;" onclick="switchRewardsTab('boost')">🔥 Burn Now for 2.0x</button>
+            </div>
+          `;
+        } else {
+          boostBanner.style.display = 'none';
+        }
+      }
+
       if (rateDisplay && boost && Number(boost.multiplier) > 1.0) {
         const baseRate = Number(eligData?.creditRatePerHour || 0);
         if (baseRate > 0) {
@@ -2531,6 +2574,14 @@ async function loadBoostStatus() {
         statusPill.style.background = 'rgba(56, 189, 248, 0.15)';
         statusPill.style.color = '#38bdf8';
         statusPill.textContent = '1.0x Base Rate (Unboosted)';
+      }
+    }
+
+    if (actionStatus) {
+      if (isBoosted) {
+        actionStatus.innerHTML = '<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 12px;color:#10b981;font-size:11.5px;text-align:left;"><strong>🎉 2.0x Active:</strong> You are receiving 2.0x credit accrual on the basis of your verified token burn supply.</div>';
+      } else {
+        actionStatus.innerHTML = '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px 12px;color:#f59e0b;font-size:11.5px;text-align:left;"><strong>⚠️ Notice:</strong> You are not getting 2x on the basis of your burn supply. Burn your required tier quota above to activate 2.0x lifetime rewards.</div>';
       }
     }
 

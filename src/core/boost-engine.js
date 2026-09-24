@@ -463,6 +463,9 @@ export function getBoostStatus(walletAddress, eligibility = null) {
   const nextLevel = level + 1;
   const nextCfg = BOOST_LEVELS[nextLevel] || null;
 
+  const currentTierLevel = eligibility?.tierLevel ?? holder?.tierLevel ?? 0;
+  const currentBaseRate = eligibility?.creditRatePerHour ?? holder?.creditRatePerHour ?? 0;
+
   return {
     walletAddress: address,
     boostLevel: level,
@@ -480,10 +483,8 @@ export function getBoostStatus(walletAddress, eligibility = null) {
       phase: nextCfg.phase,
       live: nextCfg.level <= MAX_ACTIVE_BOOST_LEVEL && level < MAX_ACTIVE_BOOST_LEVEL
     } : null,
-    requirement: eligibility ? getBurnRequirementForTier(eligibility.tierLevel) : null,
-    boostedCreditRatePerHour: eligibility
-      ? Math.round((eligibility.creditRatePerHour || 0) * multiplier)
-      : 0,
+    requirement: currentTierLevel ? getBurnRequirementForTier(currentTierLevel) : null,
+    boostedCreditRatePerHour: Math.round(currentBaseRate * multiplier),
     matrix: listBoostTierMatrix(),
     receipts: dbAdapter.getBurnReceiptsByWallet(address, 10)
   };
