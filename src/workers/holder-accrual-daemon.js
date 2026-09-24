@@ -81,6 +81,15 @@ export class HolderAccrualDaemon {
           // Non-blocking per-holder error
         }
       }
+
+      // Gentle on-chain re-verification: re-verify at most 1 stale holder (>2h) per cycle to prevent RPC quota exhaustion
+      const staleHolder = eligibleHolders.find(h => !h.lastVerifiedAt || (Date.now() - new Date(h.lastVerifiedAt).getTime() > 2 * 3600 * 1000));
+      if (staleHolder) {
+        try {
+          await accrueCreditsForHolder(staleHolder.walletAddress, { fromDaemon: false });
+        } catch {}
+      }
+
       this.lastRunAt = new Date().toISOString();
     } catch (err) {
       console.warn('[HolderAccrualDaemon] Sweep error:', err.message);
