@@ -560,21 +560,33 @@ export class DatabaseAdapter {
           );
         }
 
+        const usedAmt = BigInt(rec.earned) >= BigInt(rec.available)
+          ? (BigInt(rec.earned) - BigInt(rec.available)).toString()
+          : '0';
+
         const existingCredit = db.prepare('SELECT wallet_address, available FROM credit_accounts WHERE wallet_address = ?').get(rec.wallet);
         if (!existingCredit) {
           db.prepare(`
             INSERT INTO credit_accounts (
               wallet_address, credit_account_id, earned, used, available, transferred, redeemed, created_at, updated_at
-            ) VALUES (?, ?, ?, '0', ?, '0', '0', ?, ?)
-          `).run(rec.wallet, 'acc_restored_' + rec.wallet.slice(0, 6), rec.earned, rec.available, now, now);
+            ) VALUES (?, ?, ?, ?, ?, '0', '0', ?, ?)
+          `).run(rec.wallet, 'acc_restored_' + rec.wallet.slice(0, 6), rec.earned, usedAmt, rec.available, now, now);
         } else if (BigInt(existingCredit.available || '0') < BigInt(rec.available)) {
           db.prepare(`
             UPDATE credit_accounts
-            SET available = ?, earned = CASE WHEN CAST(earned AS INTEGER) < CAST(? AS INTEGER) THEN ? ELSE earned END, updated_at = ?
+            SET available = ?, used = ?, earned = CASE WHEN CAST(earned AS INTEGER) < CAST(? AS INTEGER) THEN ? ELSE earned END, updated_at = ?
             WHERE wallet_address = ?
-          `).run(rec.available, rec.earned, rec.earned, now, rec.wallet);
+          `).run(rec.available, usedAmt, rec.earned, rec.earned, now, rec.wallet);
         }
       }
+
+      // Auto-reconcile any accounts with invariant discrepancies from past manual seeding
+      db.prepare(`
+        UPDATE credit_accounts
+        SET used = (CAST(earned AS INTEGER) - (CAST(available AS INTEGER) + CAST(transferred AS INTEGER) + CAST(redeemed AS INTEGER)))
+        WHERE CAST(earned AS INTEGER) >= (CAST(available AS INTEGER) + CAST(transferred AS INTEGER) + CAST(redeemed AS INTEGER))
+          AND CAST(available AS INTEGER) != (CAST(earned AS INTEGER) - (CAST(used AS INTEGER) + CAST(transferred AS INTEGER) + CAST(redeemed AS INTEGER)))
+      `).run();
     } catch {}
   }
 

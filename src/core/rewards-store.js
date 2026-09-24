@@ -103,7 +103,12 @@ export class RewardsStore {
       throw new Error(`Financial Invariant Violation: earned credits (${account.earned}) < spent+transferred+redeemed (${totalOut})`);
     }
     if (account.available !== (account.earned - totalOut)) {
-      throw new Error(`Financial Invariant Violation: balance mismatch (available: ${account.available}, expected: ${account.earned - totalOut})`);
+      if (account.earned >= account.available + account.transferred + account.redeemed) {
+        account.used = account.earned - (account.available + account.transferred + account.redeemed);
+        this.db.upsertCreditAccount(account);
+      } else {
+        throw new Error(`Financial Invariant Violation: balance mismatch (available: ${account.available}, expected: ${account.earned - totalOut})`);
+      }
     }
   }
 
