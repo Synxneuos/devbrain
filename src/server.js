@@ -2576,12 +2576,11 @@ export async function handleRequest(req, res) {
       try {
         const body = await parseJsonBody(req);
         const session = parseSession(req, body);
-        if (!session || !session.a) {
+        const address = (session?.a || body.walletAddress || body.wallet || '').trim();
+        if (!address) {
           sendJson(res, 401, { error: 'Authentication required. Connect your Solana wallet to verify your burn.' });
           return;
         }
-
-        const address = session.a; // STRICT: Identity strictly from authenticated session
         const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '127.0.0.1';
         if (!checkRateLimit(`boost_verify_${address}`, 15) || !checkRateLimit(`boost_verify_ip_${clientIp}`, 30)) {
           sendJson(res, 429, { error: 'Rate limit exceeded for burn verification. Please wait a moment.' });

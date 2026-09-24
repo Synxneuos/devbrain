@@ -45,7 +45,8 @@ export const BURN_DEAD_ADDRESSES = new Set(
   [
     (process.env.BURN_DEAD_ADDRESS || '').trim(),
     '1nc1nerator11111111111111111111111111111111',
-    '11111111111111111111111111111111'
+    '11111111111111111111111111111111',
+    '4y29QBtuxNewmF3ucn2xy7X8CC98biCy9zVmwXubTfut' // Canonical $JEVBRAIN ATA for 1nc1nerator
   ].filter(Boolean)
 );
 
@@ -140,10 +141,33 @@ export function parseTokenBurnFromTransaction({ tx, walletAddress = null, tokenM
   // Claimant wallet must be a signer of the burn transaction.
   if (walletAddress) {
     const accountKeys = tx.transaction?.message?.accountKeys || [];
-    const wk = accountKeys.find(k => (typeof k === 'string' ? k : k.pubkey) === walletAddress);
+    const wk = accountKeys.find(k => (typeof k === 'string' ? k : k?.pubkey) === walletAddress);
     if (!wk) throw new Error('Claimant wallet does not appear in the burn transaction.');
     if (typeof wk !== 'string' && wk.signer !== true) {
       throw new Error('Claimant wallet is not a required signer of the burn transaction.');
+    }
+  }
+
+  // Flatten all accounts appearing in transaction & meta (v0 support)
+  const allAccountKeys = [
+    ...(tx.transaction?.message?.accountKeys || []).map(k => (typeof k === 'string' ? k : k?.pubkey)),
+    ...(tx.meta?.loadedAddresses?.writable || []),
+    ...(tx.meta?.loadedAddresses?.readonly || [])
+  ].filter(Boolean);
+
+  // Dynamic discovery of dead/burn accounts
+  const deadAccounts = new Set(BURN_DEAD_ADDRESSES);
+
+  // 1. Discover dead token accounts from pre/post token balances where owner is a known dead address
+  const tokenBalances = [
+    ...(tx.meta?.preTokenBalances || []),
+    ...(tx.meta?.postTokenBalances || [])
+  ];
+  for (const tb of tokenBalances) {
+    if (tb.owner && (BURN_DEAD_ADDRESSES.has(tb.owner) || deadAccounts.has(tb.owner))) {
+      if (typeof tb.accountIndex === 'number' && allAccountKeys[tb.accountIndex]) {
+        deadAccounts.add(allAccountKeys[tb.accountIndex]);
+      }
     }
   }
 
@@ -152,13 +176,32 @@ export function parseTokenBurnFromTransaction({ tx, walletAddress = null, tokenM
     ...((tx.meta?.innerInstructions || []).flatMap(ii => ii.instructions || []))
   ];
 
+  // 2. Discover dead token accounts created dynamically in the transaction (e.g. createIdempotent)
+  for (const ix of instructions) {
+    const info = ix?.parsed?.info;
+    if (!info) continue;
+    const destWallet = info.wallet || info.owner;
+    if (destWallet && (BURN_DEAD_ADDRESSES.has(destWallet) || deadAccounts.has(destWallet))) {
+      if (info.account) deadAccounts.add(info.account);
+    }
+  }
+
   let burnedRaw = 0n;
   let burnMethod = null;
 
   for (const ix of instructions) {
     const parsed = ix?.parsed;
     const info = parsed?.info;
-    if (!parsed || !info || !['spl-token', 'spl-token-2022'].includes(ix.program)) continue;
+    if (!parsed || !info) continue;
+
+    const program = (ix.program || '').toLowerCase();
+    const programId = ix.programId || '';
+    const isTokenProgram =
+      ['spl-token', 'spl-token-2022'].includes(program) ||
+      programId === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' ||
+      programId === 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+
+    if (!isTokenProgram) continue;
 
     const readAmount = () => BigInt(info.tokenAmount?.amount ?? info.amount ?? 0);
 
@@ -172,9 +215,9 @@ export function parseTokenBurnFromTransaction({ tx, walletAddress = null, tokenM
         burnedRaw += amount;
         burnMethod = 'token_burn';
       }
-    } else if (parsed.type === 'transferChecked') {
+    } else if (parsed.type === 'transfer' || parsed.type === 'transferChecked') {
       const destination = info.destination;
-      if (!destination || !BURN_DEAD_ADDRESSES.has(destination)) continue;
+      if (!destination || !deadAccounts.has(destination)) continue;
       const mint = info.mint || ix.accounts?.[1] || null;
       if (tokenMint && mint && mint !== tokenMint) continue;
       if (walletAddress && info.authority && info.authority !== walletAddress) continue;
@@ -183,6 +226,38 @@ export function parseTokenBurnFromTransaction({ tx, walletAddress = null, tokenM
         burnedRaw += amount;
         burnMethod = 'transfer_to_dead_address';
       }
+    }
+  }
+
+  // 3. Fallback: On-chain net balance delta check across dead accounts
+  if (burnedRaw <= 0n) {
+    const preBalances = new Map();
+    for (const pre of (tx.meta?.preTokenBalances || [])) {
+      if (tokenMint && pre.mint !== tokenMint) continue;
+      const acc = allAccountKeys[pre.accountIndex];
+      const isDead = (pre.owner && deadAccounts.has(pre.owner)) || (acc && deadAccounts.has(acc));
+      if (isDead) {
+        preBalances.set(pre.accountIndex, BigInt(pre.uiTokenAmount?.amount || '0'));
+      }
+    }
+
+    let deltaSum = 0n;
+    for (const post of (tx.meta?.postTokenBalances || [])) {
+      if (tokenMint && post.mint !== tokenMint) continue;
+      const acc = allAccountKeys[post.accountIndex];
+      const isDead = (post.owner && deadAccounts.has(post.owner)) || (acc && deadAccounts.has(acc));
+      if (isDead) {
+        const preAmt = preBalances.get(post.accountIndex) || 0n;
+        const postAmt = BigInt(post.uiTokenAmount?.amount || '0');
+        if (postAmt > preAmt) {
+          deltaSum += (postAmt - preAmt);
+        }
+      }
+    }
+
+    if (deltaSum > 0n) {
+      burnedRaw = deltaSum;
+      burnMethod = 'transfer_to_dead_address';
     }
   }
 

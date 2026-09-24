@@ -395,3 +395,89 @@ test('REST API: GET /api/boost/status and POST /api/boost/burn-verify', async ()
   assert.strictEqual(balData.boost.multiplier, 2.0);
   assert.strictEqual(balData.boost.totalTokensBurned, 250);
 });
+
+test('On-Chain Transaction Parsing: dynamic dead ATA resolution matching live mainnet tx structure', () => {
+  const claimant = '7i63nECxwFnr1G7Z8hCvihhhLdtCD1Xd17TtBohQD72E';
+  const customDeadAta = 'CustomDeadAtaAddress111111111111111111111111';
+
+  // Simulating the exact mainnet tx structure where destination is an ATA owned by 1nc1nerator...
+  const dynamicAtaTx = {
+    meta: {
+      err: null,
+      confirmationStatus: 'confirmed',
+      preTokenBalances: [
+        { accountIndex: 1, mint: OFFICIAL_SOLANA_MINT, owner: claimant, uiTokenAmount: { amount: '26741130877934' } },
+        { accountIndex: 2, mint: OFFICIAL_SOLANA_MINT, owner: '1nc1nerator11111111111111111111111111111111', uiTokenAmount: { amount: '100000000000' } }
+      ],
+      postTokenBalances: [
+        { accountIndex: 1, mint: OFFICIAL_SOLANA_MINT, owner: claimant, uiTokenAmount: { amount: '26641130877934' } },
+        { accountIndex: 2, mint: OFFICIAL_SOLANA_MINT, owner: '1nc1nerator11111111111111111111111111111111', uiTokenAmount: { amount: '200000000000' } }
+      ]
+    },
+    transaction: {
+      message: {
+        accountKeys: [
+          { pubkey: claimant, signer: true },
+          { pubkey: 'SourceAta111111111111111111111111111111111111', signer: false },
+          { pubkey: customDeadAta, signer: false },
+          { pubkey: '1nc1nerator11111111111111111111111111111111', signer: false }
+        ],
+        instructions: [
+          {
+            program: 'spl-associated-token-account',
+            parsed: {
+              type: 'createIdempotent',
+              info: {
+                account: customDeadAta,
+                wallet: '1nc1nerator11111111111111111111111111111111',
+                mint: OFFICIAL_SOLANA_MINT
+              }
+            }
+          },
+          {
+            program: 'spl-token',
+            programId: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+            parsed: {
+              type: 'transferChecked',
+              info: {
+                authority: claimant,
+                destination: customDeadAta,
+                mint: OFFICIAL_SOLANA_MINT,
+                tokenAmount: { amount: '100000000000' }
+              }
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  const parsed = parseTokenBurnFromTransaction({ tx: dynamicAtaTx, walletAddress: claimant });
+  assert.strictEqual(parsed.burnedTokensUi, 100000);
+  assert.strictEqual(parsed.burnMethod, 'transfer_to_dead_address');
+});
+
+test('REST API: POST /api/boost/burn-verify allows walletAddress in body when session token is absent', async () => {
+  const wallet = createTestWallet();
+  const sig = generateMockSignature();
+
+  // Tier 1 holder burns 100 tokens with walletAddress supplied in request body
+  const res = await fetch(`${baseUrl}/api/boost/burn-verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      walletAddress: wallet.address,
+      txSignature: sig,
+      mockBalance: 500, // Tier 1
+      mockBurnTokensUi: 100
+    })
+  });
+
+  const data = await res.json();
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(data.success, true);
+  assert.strictEqual(data.walletAddress, wallet.address);
+  assert.strictEqual(data.boostLevel, 2);
+  assert.strictEqual(data.boostMultiplier, 2.0);
+});
+

@@ -2590,7 +2590,7 @@ async function handleBoostVerification() {
     const res = await fetch('/api/boost/burn-verify', {
       method: 'POST',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ txSignature: sig })
+      body: JSON.stringify({ txSignature: sig, walletAddress: currentWallet })
     });
     const data = await res.json();
 
