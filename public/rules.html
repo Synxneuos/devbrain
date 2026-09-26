@@ -250,6 +250,36 @@
       border-radius: 6px;
       text-decoration: none;
     }
+
+    @media (max-width: 768px) {
+      .rules-nav {
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .rules-nav > div {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .rules-main {
+        margin: 20px auto;
+        padding: 0 14px 60px;
+      }
+      .rules-title {
+        font-size: 22px;
+      }
+      .section-card {
+        padding: 18px 14px;
+      }
+      .role-grid {
+        grid-template-columns: 1fr;
+      }
+      .tier-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
   </style>
 </head>
 <body class="rules-page-layout">
@@ -268,7 +298,8 @@
       <span style="font-weight:600; font-size:14px; letter-spacing:-0.01em;">Jev Brain</span>
       <span style="font-size:11px; color:#71717a; font-family:monospace;">/ SECURITY & RULES</span>
     </a>
-    <div style="display:flex; gap:12px;">
+    <div style="display:flex; gap:12px; align-items:center;">
+      <a href="/burning-day.html" class="secondary-btn" style="color:#f97316;border-color:rgba(249,115,22,0.4);font-weight:600;" title="Burning Day · P2P Compute & Burn Market">🔥 Burning Day (P2P)</a>
       <a href="/verify.html" class="primary-btn">Verify Token Holding →</a>
       <a href="/" class="secondary-btn">← Back to Workspace</a>
     </div>

@@ -14,7 +14,9 @@ export const DEFAULT_SOLANA_RPCS = [
   'https://mainnet.helius-rpc.com/?api-key=6926ac08-44fb-432c-bee5-a0780e1fc338',
   'https://solana-rpc.publicnode.com',
   'https://api.mainnet-beta.solana.com'
-].filter(Boolean);
+  // Dedupe: env often points at api.mainnet-beta.solana.com — don't retry the same
+  // rate-limited endpoint twice in the failover chain.
+].filter((url, idx, arr) => url && arr.indexOf(url) === idx);
 
 // Deterministic Holding Tiers & Credit Rates (Credits earned per hour)
 export const HOLDER_TIERS = [
@@ -241,7 +243,10 @@ export async function getHolderEligibility(walletAddress, options = {}) {
   }
 
   // Fast-fail unmocked test addresses in test environment without RPC network timeouts
-  if (process.env.NODE_ENV === 'test' && !cached) {
+  // FIX: allow tests to opt into the real RPC path by passing explicit rpcUrls.
+  // Without this the NODE_ENV=test fast-fail always short-circuited before the
+  // failover loop, making verification-outage behavior untestable.
+  if (process.env.NODE_ENV === 'test' && !cached && !options.rpcUrls) {
     return {
       eligible: false,
       walletAddress: address,
